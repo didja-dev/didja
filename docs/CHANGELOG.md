@@ -4,6 +4,12 @@ What was built, newest first. One entry per change that someone using the app or
 
 Each entry says what changed, and what was **not verified** where that applies: tested only, or not yet seen on the live app.
 
+## 2026-11-13
+
+### The repository is public
+- `didja-dev/didja` is public, with one first commit (the history before it stays private). `main` is protected by a ruleset: pull requests with a code owner's review and passing checks (`check`, `engine`, `app`, `dco`), no force pushes or deletion; repository admins and deploy keys may push past it. Secret scanning with push protection, private vulnerability reporting (SECURITY.md now points to it), approval before first-time contributors' workflows run, and Dependabot alerts are on.
+- The release workflow pushes its appcast commit with a deploy key (`APPCAST_DEPLOY_KEY`), since a ruleset cannot let GitHub Actions itself through. **Not verified** until the next release runs.
+
 ## 2026-11-12
 
 ### Didja 0.5.0 (build 6)

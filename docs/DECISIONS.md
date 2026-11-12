@@ -2,6 +2,10 @@
 
 Choices made while building ScrolledAway, with the reason, so they are not re-argued or quietly undone. Newest first. Add one whenever a choice is made in conversation, in Linear, or in code review that the code alone would not explain.
 
+## 2026-11-13
+
+- **`main` is protected by a ruleset that admins and deploy keys may bypass** (going public). The autopilot commits to `main` as the maintainer, and the release workflow commits the appcast; GitHub does not let a repository ruleset exempt GitHub Actions, so the workflow pushes with a deploy key that can write to this repository only.
+
 ## 2026-11-12
 
 - **Archiving an email, or another about the same matter, means you are no longer interested in its action** (the maintainer, restating the rule after archiving a "Closed:" follow-up). So the task is dismissed, not ticked and not asked about; matching by the subject without its status tag is allowed because a wrong dismissal is recoverable from the Dismissed view, and it still needs 20 characters of subject so short ones do not collide.

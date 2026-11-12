@@ -4,7 +4,7 @@ Didja reads what is on your screen, so a privacy bug is a security bug.
 
 ## Reporting
 
-Please email **[hello@didja.dev](mailto:hello@didja.dev)** and don't open a public issue. Include the macOS version, the Didja version (Settings › General) and the steps to reproduce. Please don't attach screenshots of private content; describe it, or use made-up text.
+Please report it privately: use **Report a vulnerability** on the repository's Security tab, or email **[hello@didja.dev](mailto:hello@didja.dev)**. Don't open a public issue. Include the macOS version, the Didja version (Settings › General) and the steps to reproduce. Please don't attach screenshots of private content; describe it, or use made-up text.
 
 You'll get a reply within a few days. Once a fix ships, we'll credit you in the changelog if you'd like.
 
