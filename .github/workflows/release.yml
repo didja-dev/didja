@@ -74,7 +74,8 @@ jobs:
           git add site/public/appcast.xml
           git commit -m "Appcast: $GITHUB_REF_NAME"
           git push origin HEAD:main
-          cd site && bun install --frozen-lockfile && bun run deploy
+          # --branch main: the checkout is the tag, so wrangler would otherwise make a preview, not didja.dev.
+          cd site && bun install --frozen-lockfile && bun run build && npx wrangler pages deploy dist --project-name didja --branch main
       - name: Forget the keys
         if: always()
         run: rm -f "$RUNNER_TEMP/sparkle.key"; security delete-keychain "$RUNNER_TEMP/release.keychain-db" || true
