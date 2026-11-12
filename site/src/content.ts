@@ -2,8 +2,9 @@
  * Every word on didja.dev, word for word from SCR-28's "BRAND V1" comment (the source of truth;
  * it overrides the canvas). Copy changes go here only; the page reads from this file.
  *
- * Placeholders kept on purpose: [VERSION], the hero mock, the screenshots and
- * the demo. The FAQ's "optional AI helper" line is marked "Owner to confirm before launch".
+ * Placeholders kept on purpose: [VERSION] (filled from the releases repository at build time).
+ * The FAQ's privacy answer was rewritten before launch (2026-11-12): Brand V1's "optional AI helper"
+ * that sends a snippet does not exist; the optional local model runs on the Mac.
  */
 export const nav = { how: 'How it works', privacy: 'Privacy', github: 'GitHub', download: 'Download' };
 
@@ -146,7 +147,7 @@ export const faq = {
   title: 'Questions',
   items: [
     { q: 'Is Didja free?', a: 'Yes. Didja is free and open source.' },
-    { q: 'Does anything leave my Mac?', a: 'No. Everything runs locally. If you choose to turn on an optional AI helper for tricky items, only a short redacted snippet is sent, and only with your say-so.' },
+    { q: 'Does anything leave my Mac?', a: "Nothing from your screen. Reading, matching and the language model run on your Mac: Apple's on-device model, or a model you run yourself in Ollama if you turn that on. Didja makes one request of its own, a daily check for updates that carries only its version (you can turn it off). It talks to a task tool only if you connect one, and then only about that tool's own items. And if you let your own Claude read Didja, to help fix how it reads an app, what Claude reads (masked) goes to your AI provider, as anything you show Claude does." },
     { q: 'Why does it need Accessibility and Screen Recording permission?', a: 'Accessibility lets it read the text of the window you are working in. Screen Recording is only a fallback for apps that hide their text, and frames are read and dropped immediately.' },
     { q: 'Windows?', a: 'Mac first. Windows is on the roadmap.' },
   ],

@@ -4,6 +4,9 @@ Choices made while building ScrolledAway, with the reason, so they are not re-ar
 
 ## 2026-11-12
 
+- **didja.dev takes downloads from `didja-dev/releases`, not the code repository** (found before going public). The builds and the appcast already live there (release.yml, scripts/release.sh); pointing the site at the same place keeps one source of truth. Code links stay on `didja-dev/didja`.
+- **The FAQ's privacy answer was rewritten instead of kept from Brand V1** (the maintainer approved). Brand V1 described an AI helper that sends snippets; Didja never built one, and a privacy page must not promise or warn about things the app does not do.
+
 - **A model in Ollama may be asked first, for emails and "looks done?" only** (the maintainer asked for better analysis running locally, after `engine/eval/ollama.ts` showed qwen3.8 at 14/14 emails and 10/10 "looks done?" with no wrong tick, against Apple's 11/14 and 9/10 with one). Off by default: Apple's model needs nothing installed and answers in under two seconds; a local model needs Ollama, gigabytes of memory and about two seconds an answer. Only the measured jobs use it; another job joins only once it has made-up samples and measures better with no new wrong ticks. The app reaches Ollama only at the address 127.0.0.1, never a name that could resolve elsewhere, and any odd answer falls back to Apple's model, so a broken local model can never tick anything. For email the local model answers with the instructions' own words (reply, action, none): with Apple's answer shape it got 5/14, because it picked "nothing" for how a task gets done.
 
 - **The hero keeps one size while it plays** (the maintainer found the headline moving distracting). The ask's space is reserved and it fades in, instead of appearing and pushing the layout.

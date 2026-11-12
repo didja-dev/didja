@@ -1,17 +1,18 @@
-import { githubUrl } from './repo.mjs';
+import { githubUrl, releasesUrl } from './repo.mjs';
 
 /**
- * What the page links to (SCR-28, Brand V1). The org comes from ORG in `repo.mjs` (didja-dev),
- * unless PUBLIC_GITHUB_URL is set; the version comes from the GitHub Releases API at build time and
- * falls back to the visible `[VERSION]` placeholder.
+ * What the page links to (SCR-28, Brand V1). The code is ORG/didja and the signed builds are in
+ * ORG/releases (`repo.mjs`), unless PUBLIC_GITHUB_URL or PUBLIC_RELEASES_URL is set; the version
+ * comes from that releases repository's API at build time and falls back to the visible `[VERSION]`.
  */
 export const GITHUB: string = githubUrl(import.meta.env.PUBLIC_GITHUB_URL);
-export const RELEASES = `${GITHUB}/releases`;
-export const DOWNLOAD = `${GITHUB}/releases/latest/download/Didja.dmg`;
+export const RELEASES_REPO: string = releasesUrl(import.meta.env.PUBLIC_RELEASES_URL);
+export const RELEASES = `${RELEASES_REPO}/releases`;
+export const DOWNLOAD = `${RELEASES_REPO}/releases/latest/download/Didja.dmg`;
 
 /** The latest release's version ("0.3.0"), or "[VERSION]" when it cannot be read. */
 export async function latestVersion(): Promise<string> {
-  const repo = GITHUB.match(/^https:\/\/github\.com\/([^/[\]]+)\/([^/[\]]+)\/?$/);
+  const repo = RELEASES_REPO.match(/^https:\/\/github\.com\/([^/[\]]+)\/([^/[\]]+)\/?$/);
   if (!repo) return '[VERSION]';
   try {
     const answer = await fetch(`https://api.github.com/repos/${repo[1]}/${repo[2]}/releases/latest`, {

@@ -6,6 +6,11 @@ Each entry says what changed, and what was **not verified** where that applies: 
 
 ## 2026-11-12
 
+### didja.dev: downloads from the releases repository, and a true privacy answer
+- Download, the version under it and the release-notes links come from `didja-dev/releases`, where the signed builds are, instead of the code repository (which has no releases): Download gave a 404 and the version read "v[VERSION]". `/download` and `/releases` follow. Code links still go to `didja-dev/didja`.
+- The FAQ's "Does anything leave my Mac?" no longer promises an "optional AI helper" that sends a redacted snippet (Didja has none). It now says what is true: nothing from the screen; Apple's model or your own Ollama model, both on the Mac; the daily update check; a task tool only if you connect one; and what your own Claude reads goes to your AI provider if you turn that on.
+- Deployed and checked on https://didja.dev: v0.4.1 shown, /download gives the DMG, the new answer is there.
+
 ### Ready for a public repository
 - A made-up surname in the email samples is now "Bar-Lev" (the privacy check took part of the old one for a private name). Test email addresses use `example.com` / `example.org` (two used real domains), and "workflow" and "+ 1" are on the privacy check's allow list (common words that ended up in the maintainer's private list).
 
