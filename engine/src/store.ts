@@ -1544,37 +1544,19 @@ export class Store {
   }
 
   /**
-   * Tasks come only from messages that arrive after you first looked at a conversation
-   * (`meta.only_new = on`), not from older ones you scroll back to. Off by default.
+   * Tasks come only from what was sent once capture started (`meta.only_new = on`): a chat
+   * message or an email dated before that is left out. A Claude reply has no date, so it is
+   * always read, even when you scroll back to it. Off by default.
    */
   onlyNewMessages(): boolean {
     return this.getMeta('only_new') === 'on';
   }
 
-  /**
-   * The earliest kept reading of a Claude conversation that shows any of its messages:
-   * what was already there when you first looked at it (within the kept observations).
-   */
-  firstMessageView(bundleId: string, windowTitle: string): string | null {
-    const row = this.db
-      .query(
-        `SELECT text FROM observations
-         WHERE bundle_id = ? AND window_title = ?
-           AND (instr(text, '⟦Message ') > 0 OR instr(text, '⟦Currently streaming message⟧') > 0)
-         ORDER BY id LIMIT 1`,
-      )
-      .get(bundleId, windowTitle) as { text: string } | null;
-    return row?.text ?? null;
-  }
-
-  /** When a chat in a chat app was first on screen, within the kept observations. */
-  firstChatSighting(bundleId: string, chat: string): Date | null {
-    const row = this.db
-      .query(
-        `SELECT ts FROM observations WHERE bundle_id = ? AND instr(text, ?) > 0 ORDER BY id LIMIT 1`,
-      )
-      .get(bundleId, `⟦Chat message: ${chat} (`) as { ts: string } | null;
-    return row ? new Date(row.ts) : null;
+  /** When capture last started (the app writes it at launch and on Resume); null if never told. */
+  captureStartedAt(): Date | null {
+    const raw = this.getMeta('capturing_since');
+    const when = raw ? new Date(raw) : null;
+    return when && !Number.isNaN(when.getTime()) ? when : null;
   }
 
   /** "Looks done" is accepted for you instead of asking ("accept"), or not ("ask", the default). */

@@ -153,16 +153,15 @@ export function mayAskOfMe(message: ChatMessage, names: string[], now: Date = ne
 }
 
 /**
- * A message that was sent once the chat was already on screen, rather than one that was
- * there before you first looked (or that scrolling back brought up). Times are shown to the
- * minute, so the minute you first saw the chat still counts. An unreadable time never does.
+ * Whether a chat message was plainly sent before `start` (to the minute, as chats show times).
+ * A time that cannot be read is not "before": with no date to go by, the message is kept.
  */
-export function arrivedWhileShown(message: ChatMessage, firstShown: Date, now: Date = new Date()): boolean {
+export function sentBefore(message: ChatMessage, start: Date, now: Date = new Date()): boolean {
   const sent = chatTime(message.time, now);
   if (sent === null) return false;
-  const minute = new Date(firstShown);
+  const minute = new Date(start);
   minute.setSeconds(0, 0);
-  return sent.getTime() >= minute.getTime();
+  return sent.getTime() < minute.getTime();
 }
 
 /** One message, for linking it to its task and remembering what the model said. */

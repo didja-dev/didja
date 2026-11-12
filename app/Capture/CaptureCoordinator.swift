@@ -328,8 +328,14 @@ final class CaptureCoordinator: ObservableObject {
         guard new != status else { return }
         status = new
         // Leave a note in the database so `didja status` can say why nothing is arriving.
-        let note = "\(new.label) (since \(ISO8601DateFormatter().string(from: Date())), app at \(Bundle.main.bundlePath))"
-        queue.async { try? self.store?.setMeta("capture_status", note) }
+        let now = ISO8601DateFormatter().string(from: Date())
+        let note = "\(new.label) (since \(now), app at \(Bundle.main.bundlePath))"
+        queue.async {
+            try? self.store?.setMeta("capture_status", note)
+            // When capture started (at launch, and again on Resume): with "New Messages Only", mail
+            // and chat messages dated before this are left out (the engine reads it).
+            if new == .capturing { try? self.store?.setMeta("capturing_since", now) }
+        }
     }
 
     /// Re-read the counts and task list shown in the menu. Runs even while paused.

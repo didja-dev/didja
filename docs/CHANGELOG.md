@@ -6,6 +6,12 @@ Each entry says what changed, and what was **not verified** where that applies: 
 
 ## 2026-11-12
 
+### "New Messages Only" leaves out only what is dated before capture started
+- With **Older Messages: Ignore Them**, Didja now leaves out a mail or chat message only when its own date is before capture started (at launch, or when you last pressed Resume). The app records that moment (`meta.capturing_since`).
+- A Claude reply has no date, so it is never left out: a checklist that came while you were in another window, or one you scroll back up to read, becomes tasks. Before, anything already in a conversation when Didja first saw it was dropped, so those were lost (the maintainer hit it).
+- Email is now covered too: mail dated before capture started is not read (`mailTime` reads Gmail's and Outlook's dates). A date that cannot be told, like a chat time that cannot be read, is kept.
+- Tests: Claude lists already there or scrolled back to are captured; chat asks and emails from before the start are not put to the model, newer ones are; with no start recorded nothing is left out; the dates mail apps show are read. The old first-view helpers are gone. **Not verified** on the maintainer's Mac until the app is rebuilt and restarted.
+
 ### didja.dev: downloads from the releases repository, and a true privacy answer
 - Download, the version under it and the release-notes links come from `didja-dev/releases`, where the signed builds are, instead of the code repository (which has no releases): Download gave a 404 and the version read "v[VERSION]". `/download` and `/releases` follow. Code links still go to `didja-dev/didja`.
 - The FAQ's "Does anything leave my Mac?" no longer promises an "optional AI helper" that sends a redacted snippet (Didja has none). It now says what is true: nothing from the screen; Apple's model or your own Ollama model, both on the Mac; the daily update check; a task tool only if you connect one; and what your own Claude reads goes to your AI provider if you turn that on.

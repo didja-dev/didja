@@ -1,10 +1,10 @@
 import { suggestMerges } from './related.ts';
 import { signedFromEmail } from './esign.ts';
-import { accountOf, baseSubject, isAutomatic, isMine, isRecent, followsLink, mailKey, mailLinks, mailOrigin, mailSnippet, mailSource, mailTaskTitle, parseEmails, replyTitle, settleNeed, signedName } from './email.ts';
+import { accountOf, baseSubject, isAutomatic, isMine, isRecent, followsLink, mailKey, mailTime, mailLinks, mailOrigin, mailSnippet, mailSource, mailTaskTitle, parseEmails, replyTitle, settleNeed, signedName } from './email.ts';
 import type { MailIdentity, MailReader } from './email.ts';
-import { arrivedWhileShown, chatApp, chatKey, asksForAcknowledgement, chatTaskTitle, isEmojiOnly, isPositiveEmoji, isReaction, lineHash, plainReactions, reactedTo, namesMe, chatSourceRef, chatTime, isMine as isMyMessage, mayAskOfMe, parseChatMessages, plainlyDefers } from './chat.ts';
+import { chatApp, chatKey, asksForAcknowledgement, chatTaskTitle, isEmojiOnly, isPositiveEmoji, isReaction, lineHash, plainReactions, reactedTo, namesMe, chatSourceRef, chatTime, isMine as isMyMessage, mayAskOfMe, parseChatMessages, plainlyDefers, sentBefore } from './chat.ts';
 import type { ChatMessage, ChatReader, ReplyJudge } from './chat.ts';
-import { assemble, classifySource, extractCommands, dropEarlierMessages, extractChecklists, newestMessage, sourceRef } from './extract.ts';
+import { assemble, classifySource, extractCommands, extractChecklists, sourceRef } from './extract.ts';
 import { rewordPlacesOnce } from './missed.ts';
 import { isWhereItIsDone, learnedWhere, placeOf, relevantSnippet, siteOf } from './looksdone.ts';
 import type { Looker } from './looksdone.ts';
@@ -240,14 +240,9 @@ export function pollOnce(store: Store, now: Date = new Date(), opts: PollOptions
     claudeWindows.add(windowKey(latest));
 
     const chat = kind !== 'claude-code';
-    // You chose tasks from new messages only: leave out the messages that were already in this
-    // conversation when you first looked at it, which is also where scrolling back leads.
-    let source = text;
-    if (chat && store.onlyNewMessages()) {
-      const first = store.firstMessageView(latest.bundleId, latest.windowTitle);
-      const seen = first === null ? null : newestMessage(first);
-      if (seen !== null) source = dropEarlierMessages(text, seen);
-    }
+    // A Claude reply has no date, so "only new messages" never leaves one out: a list you scroll
+    // back to see, or one that arrived while you were in another window, is still yours.
+    const source = text;
     const lists = extractChecklists(source, { claudeOnly: chat, joinWrapped: !chat, includeAssistant: true });
     // Commands Claude tells you to run, outside any list (a list's own commands are already in it).
     const listed = lists.flatMap((l) => l.items.flatMap(function all(i: ChecklistItem): string[] {
@@ -413,9 +408,14 @@ function readMail(
 
   if (!reader) return { created, suggested };
   store.forgetEmailChecksBefore(EMAIL_CHECKS_VERSION);
+  // Only new messages: leave out mail plainly sent before capture started.
+  const start = store.onlyNewMessages() ? store.captureStartedAt() : null;
+  const startMinute = start ? new Date(Math.floor(start.getTime() / 60_000) * 60_000) : null;
   for (const email of emails) {
     // Fresh mail from people, with a body to read: not old mail, not machines.
     if (!isRecent(email.date, now) || isAutomatic(email) || email.body.length === 0) continue;
+    const sent = startMinute ? mailTime(email.date, now) : null;
+    if (startMinute && sent && sent.getTime() < startMinute.getTime()) continue;
     // Your own message asks nothing of you: an answer just noticed above, or,
     // where the page says who it went to (Gmail's "to me"), one not sent to you.
     // Outlook shows names, not "me": a message sent as the account the window
@@ -599,8 +599,8 @@ function readChat(
   const reader = opts.chatReader;
   if (!reader) return { created, completed, suggested };
   let asked = 0;
-  const onlyNew = store.onlyNewMessages();
-  const firstShown = new Map<string, Date | null>();
+  // Only new messages: leave out what was plainly sent before capture started.
+  const start = store.onlyNewMessages() ? store.captureStartedAt() : null;
   for (const [index, m] of messages.entries()) {
     if (!mayAskOfMe(m, me, now)) continue;
     const key = chatKey(app, m);
@@ -609,12 +609,7 @@ function readChat(
       store.touch(shown.id, latest.ts);
       continue;
     }
-    if (onlyNew) {
-      // Only messages sent once the chat was on screen, not older ones you scroll back to.
-      if (!firstShown.has(m.chat)) firstShown.set(m.chat, store.firstChatSighting(latest.bundleId, m.chat));
-      const since = firstShown.get(m.chat);
-      if (!since || !arrivedWhileShown(m, since, now)) continue;
-    }
+    if (start && sentBefore(m, start, now)) continue;
     if (store.emailVerdict(key) !== null) continue;
     // Already answered on screen: a reply of yours sent after it that does not put it off.
     const sent = chatTime(m.time, now);

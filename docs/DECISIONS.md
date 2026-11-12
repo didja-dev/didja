@@ -4,6 +4,8 @@ Choices made while building ScrolledAway, with the reason, so they are not re-ar
 
 ## 2026-11-12
 
+- **"New Messages Only" goes by dates, not by what was first on screen** (the maintainer chose it after a Claude checklist was missed). It now means "sent since capture started": a mail or chat message dated earlier is left out. A Claude reply has no date, so it is always read, accepting that scrolling back to an old Claude conversation can bring up its lists. A missing or unreadable date keeps the message: the rule only ever leaves out what is plainly old.
+
 - **didja.dev takes downloads from `didja-dev/releases`, not the code repository** (found before going public). The builds and the appcast already live there (release.yml, scripts/release.sh); pointing the site at the same place keeps one source of truth. Code links stay on `didja-dev/didja`.
 - **The FAQ's privacy answer was rewritten instead of kept from Brand V1** (the maintainer approved). Brand V1 described an AI helper that sends snippets; Didja never built one, and a privacy page must not promise or warn about things the app does not do.
 

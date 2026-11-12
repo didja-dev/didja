@@ -244,6 +244,42 @@ export function isRecent(date: string | null, now: Date = new Date()): boolean {
   return age > -24 * 3600_000 && age < 3 * 24 * 3600_000;
 }
 
+/**
+ * When an email was sent, as far as the date the mail app shows says: "(2 hours ago)", "Today at
+ * 9:15", "Yesterday, 18:00", "Mon 11/9/2026 9:15 AM", "8 Nov 2026, 10:00". Null when it cannot be told.
+ */
+export function mailTime(date: string | null, now: Date = new Date()): Date | null {
+  if (!date) return null;
+  const text = date.trim();
+  const ago = text.match(/\((\d+)\s+(minute|hour|day)s?\s+ago\)/i);
+  if (ago) {
+    const unit = { minute: 60_000, hour: 3_600_000, day: 86_400_000 }[ago[2]!.toLowerCase() as 'minute' | 'hour' | 'day'];
+    return new Date(now.getTime() - Number(ago[1]) * unit);
+  }
+  const clock = text.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
+  const at = (day: Date): Date | null => {
+    if (!clock) return null;
+    let hour = Number(clock[1]);
+    if (clock[3]) hour = (hour % 12) + (/pm/i.test(clock[3]) ? 12 : 0);
+    const d = new Date(day);
+    d.setHours(hour, Number(clock[2]), 0, 0);
+    return d;
+  };
+  if (/^(today|היום)\b/i.test(text) || /^\d{1,2}:\d{2}(\s*(AM|PM))?$/i.test(text)) return at(now);
+  if (/^(yesterday|אתמול)\b/i.test(text)) return at(new Date(now.getTime() - 86_400_000));
+  const slashed = text.match(/\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/);
+  if (slashed) {
+    // Month and day swap places with the language: use the one reading that falls in the last
+    // few days (the only mail read at all, see isRecent); if both or neither do, it cannot be told.
+    const [a, b, year] = [Number(slashed[1]), Number(slashed[2]), Number(slashed[3])];
+    const readings = [[a, b], [b, a]].filter(([m]) => m! <= 12).map(([m, d]) => at(new Date(year, m! - 1, d!)) ?? new Date(year, m! - 1, d!));
+    const recent = [...new Set(readings.map((r) => r.getTime()))].filter((t) => now.getTime() - t > -86_400_000 && now.getTime() - t < 3 * 86_400_000);
+    return recent.length === 1 ? new Date(recent[0]!) : null;
+  }
+  const parsed = Date.parse(text.replace(/\bat\b/i, '').replace(/,/g, ' '));
+  return Number.isNaN(parsed) ? null : new Date(parsed);
+}
+
 /** The title to fall back on when the model's own wording is not usable. */
 export function replyTitle(email: Email): string {
   return `Reply to ${email.fromName}: ${email.subject.trim()}`.slice(0, 200);

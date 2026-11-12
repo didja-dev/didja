@@ -183,7 +183,7 @@ struct GeneralSettingsView: View {
                         Text("Accept Automatically").tag(true)
                     }.labelsHidden().fixedSize()
                 }
-                row("Older messages", "Take tasks from messages already there when you open a conversation, or only from new ones.") {
+                row("Older messages", "Take tasks from all messages, or only from ones sent since capture started (at launch, or when you last pressed Resume). Mail and chat messages show when they were sent; a Claude reply does not, so it is always read, even when you scroll back to it.") {
                     Picker("", selection: $capture.onlyNewMessages) {
                         Text("From All Messages").tag(false)
                         Text("New Messages Only").tag(true)

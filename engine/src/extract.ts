@@ -123,40 +123,6 @@ const BULLET_LINE = /^\s*[-•*·●○◦▪■⎿└├]\s+/;
 /** A section line written by the capture layer at the start of each chat message: "⟦Message 23⟧". */
 const SECTION_LINE = /^⟦.*⟧$/;
 const USER_LABEL = /^\s*You said:/;
-/** A Claude message's section: numbered once it is finished, or the one still streaming in. */
-const MESSAGE_SECTION = /^⟦(?:Message (\d+)|Currently streaming message)⟧$/;
-
-/**
- * The highest message number among a conversation's message sections; 0 when the only
- * message is one still streaming in; null when the text has no message sections at all.
- */
-export function newestMessage(text: string): number | null {
-  let newest: number | null = null;
-  for (const line of text.split(/\r?\n/)) {
-    const m = line.match(MESSAGE_SECTION);
-    if (m) newest = Math.max(newest ?? 0, m[1] ? Number(m[1]) : 0);
-  }
-  return newest;
-}
-
-/**
- * The text without the messages numbered `seen` or lower: what was already in the
- * conversation when you first looked at it, including what scrolling back brings up.
- * A message still streaming in is always kept, and so is text outside any message.
- */
-export function dropEarlierMessages(text: string, seen: number): string {
-  const kept: string[] = [];
-  let skipping = false;
-  for (const line of text.split(/\r?\n/)) {
-    if (SECTION_LINE.test(line)) {
-      const n = line.match(MESSAGE_SECTION)?.[1];
-      skipping = n !== undefined && Number(n) <= seen;
-    }
-    if (!skipping) kept.push(line);
-  }
-  return kept.join('\n');
-}
-
 /**
  * Put a window's text back together from its observations.
  *
