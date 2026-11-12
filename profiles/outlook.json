@@ -1,0 +1,66 @@
+{
+  "id": "outlook",
+  "name": "Outlook",
+  "kind": "email",
+  "status": "builtIn",
+  "about": "Outlook for Mac. The open email's sender, recipients and date are labelled elements; its subject is the first line of the header. Outlook's own label words follow its language, so only what follows the first colon is kept.",
+  "match": {
+    "bundleIds": [
+      "com.microsoft.Outlook"
+    ]
+  },
+  "linkTargets": "webArea",
+  "rules": [
+    {
+      "is": "line",
+      "where": {
+        "identifier": "messageHeaderFromContent"
+      },
+      "text": {
+        "attr": "value",
+        "dropLabel": 1
+      },
+      "line": "From: {v}"
+    },
+    {
+      "is": "line",
+      "where": {
+        "identifier": "messageHeaderRecipientsContent"
+      },
+      "text": {
+        "attr": "value",
+        "dropLabel": 2
+      },
+      "line": "To: {v}"
+    },
+    {
+      "is": "line",
+      "where": {
+        "identifier": "messageHeaderTimeStampContent"
+      },
+      "text": {
+        "attr": "value"
+      },
+      "line": "Date: {v}"
+    },
+    {
+      "is": "emailHeader",
+      "where": {
+        "identifier": "HeaderMainContainer"
+      }
+    },
+    {
+      "is": "line",
+      "where": {
+        "role": [
+          "AXButton"
+        ]
+      },
+      "text": {
+        "attr": "description",
+        "pattern": "^0*(?<count>[1-9]\\d*) (?<name>\\S+).*(?i:reactions?)$"
+      },
+      "line": "Reactions: {count} {name}"
+    }
+  ]
+}

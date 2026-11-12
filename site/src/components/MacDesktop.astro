@@ -1,0 +1,301 @@
+---
+/**
+ * The demo: a Mac desktop where Claude gives the steps to make didja.dev public, you do them in
+ * Terminal, GitHub and Cloudflare, and Didja (in the menu bar) ticks each one with what it saw.
+ * Scenes 0–4 play in turn once the story is in view (public/scripts/site.js sets `data-scene` on the stage):
+ * an element with `data-in="a-b"` shows in scenes a to b (`"a"`: from a on), and a task with
+ * `data-done="n"` is ticked from scene n. Drawn at 1040×650 and scaled to fit.
+ * Everything is HTML and CSS: no images, nothing from another host (the page's CSP allows none).
+ */
+import { story } from '../content';
+import Mark from './Mark.astro';
+
+interface Props {
+  /** The scene to start at; a still (`still`) stays there and ignores scrolling. */
+  scene?: number;
+  still?: boolean;
+  label?: string;
+}
+const { scene = 0, still = false, label } = Astro.props;
+
+/** `code` and **bold** in a step's title. */
+const rich = (s: string) =>
+  s.replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+const tick = '<path d="m5 12 5 5 9-10"></path>';
+---
+<div class:list={['stage', { still }]} data-stage data-scene={scene} data-still={still ? '' : undefined} role="img"
+     aria-label={label ?? 'A Mac: Claude gives five steps to make didja.dev public; as each is done in Terminal, GitHub and Cloudflare, Didja ticks it in the menu bar, asks about one, and nudges about the last.'}>
+  <div class="desk" aria-hidden="true">
+    <div class="wallpaper"></div>
+
+    <!-- Menu bar -->
+    <div class="menubar">
+      <span class="mb-left">
+        <svg class="apple" viewBox="0 0 17 20" width="12" height="14"><path d="M14.2 10.6c0-2.6 2.1-3.8 2.2-3.9-1.2-1.8-3.1-2-3.7-2-1.6-.2-3.1.9-3.9.9-.8 0-2-.9-3.4-.9C3.6 4.8 2 5.8 1.1 7.4c-1.9 3.2-.5 8 1.3 10.6.9 1.3 1.9 2.7 3.3 2.6 1.3-.1 1.8-.8 3.4-.8s2 .8 3.4.8c1.4 0 2.3-1.3 3.2-2.6 1-1.5 1.4-2.9 1.4-3-.1 0-2.9-1.1-2.9-4.4zM11.6 2.9c.7-.9 1.2-2.1 1.1-3.3-1 0-2.3.7-3 1.5-.7.8-1.2 2-1.1 3.2 1.2.1 2.3-.6 3-1.4z"></path></svg>
+        <strong class="app" data-in="0-0">Claude</strong>
+        <strong class="app" data-in="1-1">Terminal</strong>
+        <strong class="app" data-in="2-4">Safari</strong>
+        <span>File</span><span>Edit</span><span>View</span><span>Window</span><span>Help</span>
+      </span>
+      <span class="mb-right">
+        <span class="didja-item" data-didja-item><Mark size={15} stroke={9} /><span data-open-count>5</span></span>
+        <svg viewBox="0 0 24 24" width="15" height="15"><path d="M2 9a15 15 0 0 1 20 0M5.5 12.5a10 10 0 0 1 13 0M9 16a5 5 0 0 1 6 0"></path><circle cx="12" cy="19.5" r="1.2"></circle></svg>
+        <svg viewBox="0 0 28 14" width="24" height="12"><rect x="1" y="1" width="23" height="12" rx="3.5"></rect><rect class="fill" x="3" y="3" width="15" height="8" rx="2"></rect><path d="M26 5v4"></path></svg>
+        <span>Wed 21:45</span>
+      </span>
+    </div>
+    <span class="caught" data-in="0-0">+5 from Claude</span>
+
+    <!-- Claude Desktop -->
+    <div class="win claude" data-in="0">
+      <div class="titlebar"><i></i><i></i><i></i><span>Claude</span></div>
+      <div class="claude-body">
+        <aside class="claude-side">
+          <span class="side-new">+ New chat</span>
+          <span class="side-head">Recents</span>
+          <span class="side-item on">{story.conversation}</span>
+          <span class="side-item">Fix the auth redirect</span>
+          <span class="side-item">Stripe webhooks</span>
+          <span class="side-item">Brand guide v1</span>
+        </aside>
+        <div class="chat">
+          <p class="you">{story.ask}</p>
+          <div class="reply">
+            <p>{story.intro}</p>
+            <ol>
+              {story.steps.map((s, i) => <li class="streams" data-delay={i} set:html={rich(s.title)}></li>)}
+            </ol>
+            <p class="streams" data-delay="5">{story.outro}</p>
+          </div>
+          <div class="composer">Reply to Claude…</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Terminal -->
+    <div class="win terminal" data-in="1">
+      <div class="titlebar dark"><i></i><i></i><i></i><span>didja — zsh — 80×24</span></div>
+      <pre class="term"><span class="prompt">~/didja (main) $</span> git push -u origin main
+<span class="dim">Enumerating objects: 2148, done.
+Compressing objects: 100% (1206/1206), done.
+Writing objects: 100% (2148/2148), 3.91 MiB | 8.2 MiB/s, done.</span>
+To github.com:didja-dev/didja.git
+ * [new branch]      main -&gt; main
+branch 'main' set up to track 'origin/main'.
+<span class="prompt">~/didja (main) $</span> <span class="cursor"></span></pre>
+    </div>
+
+    <!-- Safari: GitHub, then Cloudflare -->
+    <div class="win browser" data-in="2">
+      <div class="titlebar"><i></i><i></i><i></i>
+        <span class="address" data-in="2-2">github.com/didja-dev/didja/settings</span>
+        <span class="address" data-in="3">dash.cloudflare.com › Workers &amp; Pages › didja</span>
+      </div>
+      <div class="page gh" data-in="2-2">
+        <div class="gh-top"><span class="gh-dot"></span><span>didja-dev / <strong>didja</strong></span>
+          <span class="badge" data-in="2-2">Public</span></div>
+        <div class="gh-tabs"><span>Code</span><span>Issues</span><span>Pull requests</span><span>Actions</span><span class="on">Settings</span></div>
+        <div class="gh-main">
+          <div class="gh-nav"><span class="on">General</span><span>Access</span><span>Branches</span><span>Pages</span><span>Secrets</span></div>
+          <div class="gh-content">
+            <h4>Danger Zone</h4>
+            <div class="danger">
+              <div><strong>Change repository visibility</strong><span>This repository is currently public.</span></div>
+              <span class="btn-danger">Change visibility</span>
+            </div>
+            <div class="danger"><div><strong>Archive this repository</strong><span>Mark it archived and read-only.</span></div><span class="btn-danger">Archive</span></div>
+            <div class="flash">✓ Visibility changed to public. Anyone on the internet can see this repository.</div>
+          </div>
+        </div>
+      </div>
+      <div class="page cf" data-in="3">
+        <div class="cf-top"><span class="cf-logo"></span><span>Workers &amp; Pages › <strong>didja</strong></span></div>
+        <div class="cf-tabs"><span>Deployments</span><span class="on">Custom domains</span><span>Settings</span></div>
+        <div class="cf-content">
+          <div class="cf-row head"><span>Domain</span><span>Status</span><span>SSL</span></div>
+          <div class="cf-row"><span>didja.pages.dev</span><span class="ok">● Active</span><span>Universal</span></div>
+          <div class="cf-row"><span><strong>didja.dev</strong></span><span class="ok">● Active</span><span>Universal</span></div>
+          <div class="cf-row"><span>www.didja.dev</span><span class="ok">● Active</span><span>Universal</span></div>
+          <p class="cf-note">Production branch <code>main</code> · last deploy 2 min ago from <code>didja-dev/didja</code></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Didja's Quick View, open under its menu bar icon -->
+    <div class="quick" data-in="0">
+      <div class="q-head"><span class="q-tile"><Mark size={16} stroke={9} /></span><strong>Didja</strong>
+        <span class="q-count"><span data-open-count>5</span> open</span></div>
+      <div class="q-group">Claude — {story.conversation}</div>
+      {story.steps.map((s, i) => (
+        <div class="task" data-done={i < 3 ? String(i + 1) : i === 3 ? '4' : undefined}>
+          <span class="box"><svg viewBox="0 0 24 24" width="11" height="11" set:html={tick}></svg></span>
+          <span class="t">
+            <span class="t-title">{s.short}</span>
+            {i < 3 && <span class="t-ev">{s.evidence}</span>}
+            {i === 3 && (
+              <>
+                <span class="t-ev">you confirmed</span>
+                <span class="ask" data-in="3-3"><span>Looks done? <em>Active on dash.cloudflare.com</em></span>
+                  <span class="ask-btns"><span class="yes">Yes, done</span><span>Not yet</span></span></span>
+              </>
+            )}
+            {i === 4 && <span class="t-away" data-in="3">scrolled away 12 min ago</span>}
+          </span>
+        </div>
+      ))}
+    </div>
+
+    <!-- Notifications -->
+    <div class="notes" data-in="4">
+      <div class="note"><span class="n-icon msg"></span><span><strong>{story.ping.from}</strong><span>{story.ping.text}</span></span><span class="n-time">now</span></div>
+      <div class="note nudge"><span class="n-icon"><Mark size={18} stroke={9} /></span><span><strong>{story.nudge.title}</strong><span>{story.nudge.body}</span></span><span class="n-time">now</span></div>
+    </div>
+  </div>
+</div>
+
+<style>
+  .stage { --s: 1; position: relative; width: 100%; aspect-ratio: 1040 / 650; border-radius: 18px; overflow: hidden;
+    box-shadow: 0 1px 0 rgba(255,255,255,.6) inset, 0 40px 80px -30px rgba(20,20,20,.45), 0 0 0 1px rgba(20,20,20,.12); background: #2a2622; }
+  .desk { position: absolute; left: 0; top: 0; width: 1040px; height: 650px; transform: scale(var(--s)); transform-origin: 0 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Inter', system-ui, sans-serif; color: #1d1d1f; font-size: 13px; line-height: 1.4; }
+  .wallpaper { position: absolute; inset: 0;
+    background:
+      radial-gradient(120% 90% at 85% 110%, #c9863f 0%, rgba(201,134,63,0) 55%),
+      radial-gradient(90% 70% at 10% 100%, #8a5a3a 0%, rgba(138,90,58,0) 60%),
+      linear-gradient(170deg, #f1d9b5 0%, #e3b98a 38%, #b9845c 70%, #5d4031 100%); }
+
+  /* What is shown in which scene */
+  [data-in] { transition: opacity .55s ease, transform .55s cubic-bezier(.2,.8,.2,1); }
+  [data-in]:not(.on) { opacity: 0; pointer-events: none; }
+  .win[data-in]:not(.on) { transform: translateY(14px) scale(.985); }
+  .app[data-in]:not(.on), .address[data-in]:not(.on) { display: none; }
+
+  /* Menu bar */
+  .menubar { position: absolute; left: 0; right: 0; top: 0; height: 26px; display: flex; justify-content: space-between; align-items: center;
+    padding: 0 14px; background: rgba(250, 246, 240, .55); backdrop-filter: blur(20px) saturate(1.6); -webkit-backdrop-filter: blur(20px) saturate(1.6);
+    font-size: 13px; z-index: 30; }
+  .mb-left, .mb-right { display: flex; align-items: center; gap: 18px; }
+  .mb-right { gap: 14px; }
+  .apple { fill: #1d1d1f; }
+  .mb-right svg { fill: none; stroke: #1d1d1f; stroke-width: 2; stroke-linecap: round; }
+  .mb-right svg circle, .mb-right .fill { fill: #1d1d1f; stroke: none; }
+  .didja-item { display: flex; align-items: center; gap: 5px; padding: 1px 7px; border-radius: 5px; background: rgba(20,20,20,.12); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .caught { position: absolute; top: 32px; right: 210px; z-index: 31; padding: 3px 9px; border-radius: 999px; background: #FFD93D; color: #141414; font-weight: 600; font-size: 12px;
+    box-shadow: 0 6px 16px -6px rgba(0,0,0,.35); }
+  .caught.on { animation: pop 2.4s ease both; }
+  @keyframes pop { 0% { opacity: 0; transform: translateY(-6px) } 12%, 80% { opacity: 1; transform: none } 100% { opacity: 0 } }
+
+  /* Windows */
+  .win { position: absolute; border-radius: 11px; overflow: hidden; background: #fff;
+    box-shadow: 0 0 0 .5px rgba(0,0,0,.28), 0 22px 60px -12px rgba(0,0,0,.45); }
+  .titlebar { height: 30px; display: flex; align-items: center; gap: 8px; padding: 0 12px; background: #f3f1ec; border-bottom: 1px solid #e3e0d8; font-size: 12.5px; color: #59564f; position: relative; }
+  .titlebar i { width: 12px; height: 12px; border-radius: 999px; background: #ff5f57; box-shadow: inset 0 0 0 .5px rgba(0,0,0,.15); }
+  .titlebar i:nth-child(2) { background: #febc2e; } .titlebar i:nth-child(3) { background: #28c840; }
+  .titlebar > span { position: absolute; left: 0; right: 0; text-align: center; pointer-events: none; }
+  .titlebar.dark { background: #2b2a28; border-color: #1c1b1a; color: #b8b5ad; }
+
+  .claude { left: 24px; top: 48px; width: 610px; height: 540px; z-index: 10; }
+  .claude-body { display: flex; height: calc(100% - 30px); background: #faf9f5; }
+  .claude-side { width: 150px; padding: 12px 10px; display: flex; flex-direction: column; gap: 4px; background: #f0eee6; border-right: 1px solid #e5e2d8; font-size: 12px; color: #4a473f; }
+  .side-new { padding: 6px 8px; border-radius: 7px; background: #fff; box-shadow: 0 0 0 1px #e1ddd2; font-weight: 600; margin-bottom: 8px; }
+  .side-head { font-size: 11px; color: #8d897e; padding: 4px 8px; }
+  .side-item { padding: 5px 8px; border-radius: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .side-item.on { background: #e4e0d4; color: #1d1d1f; font-weight: 500; }
+  .chat { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 14px; padding: 18px 22px; position: relative; }
+  .you { align-self: flex-end; max-width: 78%; margin: 0; padding: 9px 13px; border-radius: 14px; background: #ece8dd; font-size: 13.5px; }
+  .reply { font-family: ui-serif, Georgia, 'Times New Roman', serif; font-size: 15px; line-height: 1.55; color: #262420; }
+  .reply p { margin: 0 0 8px; }
+  .reply ol { margin: 0 0 10px; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
+  .reply :global(code) { font-family: ui-monospace, 'JetBrains Mono', monospace; font-size: 12.5px; background: #ebe7dc; padding: 1px 5px; border-radius: 5px; }
+  .streams { opacity: 0; transform: translateY(4px); transition: opacity .4s ease, transform .4s ease; }
+  .claude.on .streams { opacity: 1; transform: none; }
+  .claude.on .streams[data-delay="1"] { transition-delay: .25s; } .claude.on .streams[data-delay="2"] { transition-delay: .5s; }
+  .claude.on .streams[data-delay="3"] { transition-delay: .75s; } .claude.on .streams[data-delay="4"] { transition-delay: 1s; }
+  .claude.on .streams[data-delay="5"] { transition-delay: 1.25s; }
+  .composer { margin-top: auto; padding: 12px 14px; border-radius: 14px; background: #fff; box-shadow: 0 0 0 1px #e1ddd2, 0 4px 14px -8px rgba(0,0,0,.2); color: #9a968b; }
+
+  .terminal { left: 86px; top: 250px; width: 540px; height: 230px; z-index: 12; background: #1e1d1b; }
+  .term { margin: 0; padding: 12px 14px; font: 12px/1.6 ui-monospace, 'JetBrains Mono', monospace; color: #e8e6df; white-space: pre-wrap; }
+  .term .prompt { color: #9bd28c; } .term .dim { color: #8e8b83; }
+  .cursor { display: inline-block; width: 7px; height: 14px; background: #e8e6df; vertical-align: -2px; animation: blink 1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  .browser { left: 44px; top: 70px; width: 600px; height: 480px; z-index: 14; }
+  .address { left: 90px !important; right: 90px !important; margin: 0 auto; max-width: 330px; padding: 3px 10px; border-radius: 7px; background: #e6e3db; color: #3d3b36; font-size: 12px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; top: 5px; }
+  .page { position: absolute; inset: 30px 0 0 0; }
+  .gh { background: #fff; color: #1f2328; }
+  .gh-top { display: flex; align-items: center; gap: 10px; padding: 12px 18px 8px; font-size: 15px; }
+  .gh-dot { width: 18px; height: 18px; border-radius: 4px; background: #FFD93D; box-shadow: inset 0 0 0 4px #141414; }
+  .badge { padding: 1px 8px; border-radius: 999px; border: 1px solid #d1d9e0; font-size: 11.5px; color: #59636e; }
+  .gh-tabs { display: flex; gap: 18px; padding: 0 18px; border-bottom: 1px solid #d1d9e0; font-size: 13px; color: #59636e; }
+  .gh-tabs span { padding: 8px 0; } .gh-tabs .on { color: #1f2328; font-weight: 600; box-shadow: inset 0 -2px 0 #fd8c73; }
+  .gh-main { display: flex; gap: 18px; padding: 16px 18px; }
+  .gh-nav { width: 120px; display: flex; flex-direction: column; gap: 2px; font-size: 13px; }
+  .gh-nav span { padding: 5px 8px; border-radius: 6px; } .gh-nav .on { background: #eef1f4; font-weight: 600; box-shadow: inset 2px 0 0 #0969da; }
+  .gh-content { flex: 1; }
+  .gh-content h4 { margin: 0 0 8px; font-size: 16px; font-weight: 600; }
+  .danger { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 12px 14px; border: 1px solid #ff8182; font-size: 12.5px; }
+  .danger:first-of-type { border-radius: 7px 7px 0 0; } .danger + .danger { border-top: 0; border-radius: 0 0 7px 7px; }
+  .danger div { display: flex; flex-direction: column; } .danger span { color: #59636e; }
+  .btn-danger { padding: 4px 10px; border-radius: 6px; border: 1px solid #d1d9e0; background: #f6f8fa; color: #d1242f !important; font-weight: 600; white-space: nowrap; }
+  .flash { margin-top: 14px; padding: 10px 12px; border-radius: 7px; background: #dafbe1; border: 1px solid #aceebb; color: #1a7f37; font-size: 12.5px;
+    opacity: 0; transform: translateY(6px); transition: opacity .5s .6s ease, transform .5s .6s ease; }
+  .gh.on .flash { opacity: 1; transform: none; }
+
+  .cf { background: #fafafa; color: #313131; }
+  .cf-top { display: flex; align-items: center; gap: 10px; padding: 12px 18px; background: #fff; border-bottom: 1px solid #e6e6e6; font-size: 14px; }
+  .cf-logo { width: 22px; height: 12px; border-radius: 12px 12px 3px 3px; background: linear-gradient(90deg, #f6821f, #fbad41); }
+  .cf-tabs { display: flex; gap: 18px; padding: 0 18px; background: #fff; border-bottom: 1px solid #e6e6e6; font-size: 13px; color: #6b6b6b; }
+  .cf-tabs span { padding: 9px 0; } .cf-tabs .on { color: #0051c3; box-shadow: inset 0 -2px 0 #0051c3; font-weight: 600; }
+  .cf-content { padding: 16px 18px; }
+  .cf-row { display: grid; grid-template-columns: 1.6fr 1fr 1fr; padding: 10px 12px; background: #fff; border: 1px solid #e6e6e6; border-top: 0; font-size: 12.5px; }
+  .cf-row.head { border-top: 1px solid #e6e6e6; border-radius: 7px 7px 0 0; background: #f2f2f2; color: #6b6b6b; font-weight: 600; }
+  .cf-row:last-of-type { border-radius: 0 0 7px 7px; }
+  .ok { color: #1a7f37; font-weight: 600; }
+  .cf-note { margin: 12px 2px 0; font-size: 12px; color: #6b6b6b; }
+  .cf-note code { font: 11.5px ui-monospace, monospace; background: #ececec; padding: 1px 5px; border-radius: 4px; }
+
+  /* Didja's Quick View */
+  .quick { position: absolute; top: 32px; right: 74px; width: 300px; z-index: 25; padding: 10px 8px 8px; border-radius: 14px;
+    background: rgba(250, 250, 247, .94); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+    box-shadow: 0 0 0 .5px rgba(0,0,0,.25), 0 24px 50px -16px rgba(0,0,0,.5); }
+  .quick[data-in]:not(.on) { transform: translateY(-8px); }
+  .stage[data-scene="4"] .quick { transform: translateY(150px); }
+  .q-head { display: flex; align-items: center; gap: 7px; padding: 0 6px 8px; border-bottom: 1px solid #e7e5dd; margin-bottom: 6px; }
+  .q-tile { width: 20px; height: 20px; border-radius: 5px; background: #FFD93D; display: grid; place-items: center; }
+  .q-count { margin-left: 4px; padding: 1px 8px; border-radius: 999px; background: #FFF6CC; font-size: 11.5px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .q-group { padding: 4px 6px 2px; font-size: 10.5px; font-weight: 600; color: #6c6a63; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .task { display: flex; gap: 8px; padding: 6px 6px; border-radius: 8px; font-size: 12.5px; transition: background .4s ease; }
+  .box { flex: none; width: 15px; height: 15px; margin-top: 1px; border-radius: 999px; box-shadow: inset 0 0 0 1.5px #9d9b93; display: grid; place-items: center; transition: background .35s ease, box-shadow .35s ease; }
+  .box svg { fill: none; stroke: #fff; stroke-width: 3.2; stroke-linecap: round; stroke-linejoin: round; opacity: 0; transform: scale(.4); transition: opacity .3s ease .1s, transform .35s cubic-bezier(.3,1.6,.5,1) .1s; }
+  .t { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+  .t-title { transition: color .35s ease; }
+  .t-ev { font-size: 11px; color: #1F7A4D; max-height: 0; opacity: 0; overflow: hidden; transition: max-height .4s ease, opacity .4s ease; }
+  .t-away { font-size: 11px; color: #9A4A00; }
+  .task.done .box { background: #1F7A4D; box-shadow: none; }
+  .task.done .box svg { opacity: 1; transform: none; }
+  .task.done .t-title { color: #8a8880; text-decoration: line-through; text-decoration-color: rgba(0,0,0,.25); }
+  .task.done .t-ev { max-height: 18px; opacity: 1; }
+  .task.just { background: #FFF6CC; }
+  .ask { display: flex; flex-direction: column; gap: 5px; margin-top: 4px; padding: 7px 8px; border-radius: 8px; background: #FFF6CC; font-size: 11.5px; }
+  .ask em { font-style: normal; color: #6c6a63; }
+  .ask[data-in]:not(.on) { display: none; }
+  .ask-btns { display: flex; gap: 6px; } .ask-btns span { padding: 2px 9px; border-radius: 999px; box-shadow: inset 0 0 0 1px #141414; font-weight: 600; }
+  .ask-btns .yes { background: #141414; color: #FAFAF7; animation: press 2.8s 1.2s ease infinite; }
+  @keyframes press { 0%, 70%, 100% { transform: none } 76% { transform: scale(.92) } }
+
+  /* Notifications */
+  .notes { position: absolute; top: 34px; right: 10px; width: 330px; z-index: 40; display: flex; flex-direction: column; gap: 8px; }
+  .note { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: 14px; background: rgba(246, 244, 239, .9);
+    backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); box-shadow: 0 0 0 .5px rgba(0,0,0,.2), 0 14px 34px -14px rgba(0,0,0,.5); font-size: 12.5px;
+    opacity: 0; transform: translateX(30px); transition: opacity .5s ease, transform .5s cubic-bezier(.2,.8,.2,1); }
+  .notes.on .note { opacity: 1; transform: none; }
+  .notes.on .note.nudge { transition-delay: 1.4s; }
+  .note > span:nth-child(2) { flex: 1; display: flex; flex-direction: column; }
+  .n-icon { flex: none; width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; background: #FFD93D; }
+  .n-icon.msg { background: linear-gradient(#5ff777, #13c23a); }
+  .n-time { font-size: 11px; color: #8a8880; }
+</style>

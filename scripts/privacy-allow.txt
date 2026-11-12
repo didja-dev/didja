@@ -1,0 +1,62 @@
+# Words the privacy check (scripts/privacy_check.py) never treats as private on their own:
+# app and product names, generic chat headings, and the made-up names the tests and docs use.
+# One per line, any case. Real people never go here: add them to the private list instead.
+claude
+claude code
+chatgpt
+didja
+teams
+whatsapp
+slack
+gmail
+outlook
+microsoft outlook
+linear
+docusign
+chat
+chat participants
+team
+general
+inbox
+me
+you
+# made-up people used in fixtures and docs
+mike
+mike rosen
+mikey
+rosie
+sam
+sam carter
+sam brooks
+dana
+noa
+noa katz
+tamar
+tamar levi
+tamar cohen
+shira
+shira rosen
+shira bar
+jordan
+jordan lee
+lena
+lena hale
+sarah
+school office
+מייק
+נועה
+נועה כץ
+תמר
+תמר כהן
+שירה
+מיכל
+מיכל כץ
+דנה
+github
+scrolledaway
+omar
+omar haddad
+noa bar-lev
+# Common words that ended up in the private list from window titles and reactions.
+workflow
++ 1

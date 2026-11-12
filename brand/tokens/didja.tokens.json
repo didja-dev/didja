@@ -1,0 +1,101 @@
+{
+  "color": {
+    "paper": {
+      "$value": "#FAFAF7",
+      "$type": "color"
+    },
+    "white": {
+      "$value": "#FFFFFF",
+      "$type": "color"
+    },
+    "ink": {
+      "$value": "#141414",
+      "$type": "color"
+    },
+    "ink-2": {
+      "$value": "#222220",
+      "$type": "color"
+    },
+    "graphite": {
+      "$value": "#3D3D38",
+      "$type": "color"
+    },
+    "pencil": {
+      "$value": "#5B5B55",
+      "$type": "color"
+    },
+    "line": {
+      "$value": "#E4E3DC",
+      "$type": "color"
+    },
+    "placeholder-bg": {
+      "$value": "#F1F0EA",
+      "$type": "color"
+    },
+    "placeholder-border": {
+      "$value": "#C9C8BE",
+      "$type": "color"
+    },
+    "highlighter": {
+      "$value": "#FFD93D",
+      "$type": "color"
+    },
+    "highlighter-soft": {
+      "$value": "#FFF6CC",
+      "$type": "color"
+    },
+    "done": {
+      "$value": "#1F7A4D",
+      "$type": "color"
+    },
+    "nudge": {
+      "$value": "#9A4A00",
+      "$type": "color"
+    },
+    "button-border": {
+      "$value": "#8A8980",
+      "$type": "color"
+    },
+    "button-border-dark": {
+      "$value": "#76756E",
+      "$type": "color"
+    },
+    "tag-dark": {
+      "$value": "#3A3216",
+      "$type": "color"
+    },
+    "chip-dark": {
+      "$value": "#2A2A27",
+      "$type": "color"
+    }
+  },
+  "font": {
+    "display": {
+      "$value": "Bricolage Grotesque",
+      "weights": [
+        700,
+        800
+      ]
+    },
+    "body": {
+      "$value": "Inter",
+      "weights": [
+        400,
+        500,
+        600
+      ]
+    },
+    "mono": {
+      "$value": "JetBrains Mono",
+      "weights": [
+        500
+      ]
+    }
+  },
+  "radius": {
+    "pill": "999px",
+    "card": "18px",
+    "cta": "28px",
+    "tile": "22%"
+  }
+}

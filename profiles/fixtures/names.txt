@@ -1,0 +1,23 @@
+# The made-up people and chats app profile fixtures may name (scripts/privacy_check.py fixtures).
+# A fixture naming anyone else is refused. Never add a real person, chat or company here.
+# people
+mike rosen
+sam carter
+dana levi
+ron cohen
+noa katz
+tamar levi
+lena hale
+jordan lee
+omar haddad
+מייק
+נועה כץ
+תמר כהן
+# chats and channels
+family
+design
+design review
+choir
+team
+general
+acme

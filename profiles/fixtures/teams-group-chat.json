@@ -1,0 +1,57 @@
+{
+  "about": "A Teams group chat. Ron mentions you; Sam, not you, answers. A system notice is left out.",
+  "profile": "teams",
+  "app": "com.microsoft.teams2",
+  "window": "Chat | Design review | Microsoft Teams",
+  "outline": [
+    "AXWindow title=\"Chat | Design review | Microsoft Teams\"",
+    " AXGroup dom=\"chat-header-19:a1b2c3@thread.v2\"",
+    "  AXHeading title=\"Design review\"",
+    " AXGroup dom=\"content-control-message-7\"",
+    "  AXStaticText value=\"Ron Cohen added Sam Carter to the chat.\"",
+    " AXGroup dom=\"message-body-1794226016279\" title=\"Ron Cohen mentioned you. Mike, can you review the deck?\"",
+    "  AXGroup dom=\"author-1794226016279\"",
+    "   AXStaticText value=\"Ron Cohen\"",
+    "  AXGroup dom=\"timestamp-1794226016279\" title=\"11 November 2026 09:40.\"",
+    "  AXGroup dom=\"content-1794226016279\"",
+    "   AXStaticText value=\"Mike, can you review the deck?\"",
+    " AXGroup dom=\"message-body-1794226016300\" title=\"Sam Carter: I reviewed it\"",
+    "  AXGroup dom=\"author-1794226016300\"",
+    "   AXStaticText value=\"Sam Carter\"",
+    "  AXGroup dom=\"timestamp-1794226016300\" title=\"11 November 2026 09:45.\"",
+    "  AXGroup dom=\"content-1794226016300\"",
+    "   AXStaticText value=\"I reviewed it, looks fine to me\"",
+    " AXTextArea value=\"\" focused"
+  ],
+  "lines": [
+    "⟦Chat message: Design review (group) — from Ron Cohen, mentions me — 11 November 2026 09:40⟧",
+    "Mike, can you review the deck?",
+    "⟦Page⟧",
+    "⟦Chat message: Design review (group) — from Sam Carter — 11 November 2026 09:45⟧",
+    "I reviewed it, looks fine to me",
+    "⟦Page⟧"
+  ],
+  "expect": {
+    "messages": [
+      {
+        "chat": "Design review",
+        "kind": "group",
+        "from": "Ron Cohen",
+        "mentionsMe": true,
+        "time": "11 November 2026 09:40",
+        "body": "Mike, can you review the deck?"
+      },
+      {
+        "chat": "Design review",
+        "kind": "group",
+        "from": "Sam Carter",
+        "mentionsMe": false,
+        "time": "11 November 2026 09:45",
+        "body": "I reviewed it, looks fine to me"
+      }
+    ],
+    "open": [
+      "Answer Ron Cohen"
+    ]
+  }
+}

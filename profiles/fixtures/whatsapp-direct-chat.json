@@ -1,0 +1,58 @@
+{
+  "about": "A direct chat. Sam asks twice; you answer the first, so only the second is still asked of you.",
+  "profile": "whatsapp",
+  "app": "net.whatsapp.WhatsApp",
+  "window": "WhatsApp",
+  "outline": [
+    "AXWindow title=\"WhatsApp\"",
+    " AXTable id=\"ChatListView_TableView\"",
+    "  AXRow desc=\"Sam Carter\" value=\"‎Sam Carter, Also, are you free on Tuesday?, 9:45\"",
+    " AXTable id=\"ChatMessagesTableView\" desc=\"‎Messages in chat with Sam Carter\"",
+    "  AXCell id=\"WAMessageBubbleTableViewCell\" desc=\"‎message, Can you send the deck by Friday?, 9:40, ‎Received from Sam Carter\"",
+    "  AXCell id=\"WAMessageBubbleTableViewCell\" desc=\"‎Your message, Sure, sending it now, 9:42, ‎Sent to Sam Carter, ‎Read\"",
+    "  AXCell id=\"WAMessageBubbleTableViewCell\" desc=\"‎message, Also, are you free on Tuesday?, 9:45, ‎Received from Sam Carter\"",
+    " AXTextArea value=\"Type a message\""
+  ],
+  "lines": [
+    "⟦Page⟧",
+    "⟦Chat message: Sam Carter (direct) — from Sam Carter — 9:40⟧",
+    "Can you send the deck by Friday?",
+    "⟦Chat message: Sam Carter (direct) — from me — 9:42⟧",
+    "Sure, sending it now",
+    "⟦Chat message: Sam Carter (direct) — from Sam Carter — 9:45⟧",
+    "Also, are you free on Tuesday?",
+    "⟦Page⟧",
+    "Type a message"
+  ],
+  "expect": {
+    "messages": [
+      {
+        "chat": "Sam Carter",
+        "kind": "direct",
+        "from": "Sam Carter",
+        "mentionsMe": false,
+        "time": "9:40",
+        "body": "Can you send the deck by Friday?"
+      },
+      {
+        "chat": "Sam Carter",
+        "kind": "direct",
+        "from": "me",
+        "mentionsMe": false,
+        "time": "9:42",
+        "body": "Sure, sending it now"
+      },
+      {
+        "chat": "Sam Carter",
+        "kind": "direct",
+        "from": "Sam Carter",
+        "mentionsMe": false,
+        "time": "9:45",
+        "body": "Also, are you free on Tuesday?"
+      }
+    ],
+    "open": [
+      "Answer Sam Carter"
+    ]
+  }
+}

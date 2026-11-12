@@ -1,0 +1,39 @@
+{
+  "about": "Outlook for Mac in German: its label words go, ours stay. One reaction on the email.",
+  "profile": "outlook",
+  "app": "com.microsoft.Outlook",
+  "window": "Inbox • mike@example.com",
+  "outline": [
+    "AXWindow title=\"Inbox • mike@example.com\"",
+    " AXGroup id=\"HeaderMainContainer\"",
+    "  AXStaticText value=\"Q3 budget numbers\"",
+    "  AXStaticText id=\"messageHeaderFromContent\" value=\"Von: Dana Levi, dana@example.com\"",
+    "  AXStaticText id=\"messageHeaderRecipientsContent\" value=\"Empfänger: An: mike@example.com\"",
+    "  AXStaticText id=\"messageHeaderTimeStampContent\" value=\"Today at 9:15\"",
+    " AXButton desc=\"1 Like reaction\"",
+    " AXWebArea",
+    "  AXGroup",
+    "   AXStaticText value=\"Hi Mike, can you send me the updated numbers by Thursday?\"",
+    "  AXGroup",
+    "   AXStaticText value=\"Thanks, Dana\""
+  ],
+  "lines": [
+    "⟦Email: Q3 budget numbers⟧",
+    "From: Dana Levi, dana@example.com",
+    "To: mike@example.com",
+    "Date: Today at 9:15",
+    "Reactions: 1 Like",
+    "Hi Mike, can you send me the updated numbers by Thursday?",
+    "Thanks, Dana"
+  ],
+  "expect": {
+    "emails": [
+      {
+        "subject": "Q3 budget numbers",
+        "from": "Dana Levi, dana@example.com",
+        "to": "mike@example.com",
+        "date": "Today at 9:15"
+      }
+    ]
+  }
+}

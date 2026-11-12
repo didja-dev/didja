@@ -1,0 +1,4 @@
+#!/bin/sh
+# Didja: nothing personal or secret in a commit (scripts/privacy_check.py). Never skip it with --no-verify.
+export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+exec /usr/bin/python3 -I "$(git rev-parse --show-toplevel)/scripts/privacy_check.py" staged

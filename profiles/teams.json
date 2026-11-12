@@ -1,0 +1,113 @@
+{
+  "id": "teams",
+  "name": "Teams",
+  "kind": "chat",
+  "status": "builtIn",
+  "about": "Microsoft Teams (the new app). The chat header is chat-header-<thread id>; a thread id ending @thread.v2 is a group. Each message is message-body-N holding author-N, timestamp-N and content-N.",
+  "match": {
+    "bundleIds": [
+      "com.microsoft.teams2"
+    ]
+  },
+  "rules": [
+    {
+      "is": "chatName",
+      "where": {
+        "role": [
+          "AXGroup"
+        ],
+        "dom": {
+          "prefix": "chat-header-"
+        }
+      },
+      "groupIf": {
+        "dom": {
+          "contains": [
+            "@thread.v2",
+            "@thread.tacv2",
+            "@thread.skype"
+          ]
+        }
+      },
+      "chat": [
+        {
+          "of": {
+            "dom": {
+              "prefix": "chat-topic-person-"
+            }
+          },
+          "all": true,
+          "join": ", "
+        },
+        {
+          "of": {
+            "role": [
+              "AXHeading"
+            ]
+          },
+          "attr": "title",
+          "reject": [
+            "participants"
+          ]
+        }
+      ]
+    },
+    {
+      "is": "skip",
+      "where": {
+        "role": [
+          "AXGroup"
+        ],
+        "dom": {
+          "prefix": "content-control-message-"
+        }
+      }
+    },
+    {
+      "is": "message",
+      "where": {
+        "role": [
+          "AXGroup"
+        ],
+        "dom": {
+          "prefix": "message-body-"
+        }
+      },
+      "idAfter": "message-body-",
+      "unless": {
+        "classPrefix": "fui-ChatControlMessage"
+      },
+      "from": {
+        "of": {
+          "dom": "author-$id"
+        }
+      },
+      "time": {
+        "of": {
+          "dom": "timestamp-$id"
+        },
+        "attr": [
+          "title",
+          "text"
+        ],
+        "trim": ". "
+      },
+      "body": {
+        "dom": "content-$id"
+      },
+      "mentionsMe": {
+        "attr": "title",
+        "contains": "mentioned you"
+      },
+      "myReaction": {
+        "of": {
+          "class": [
+            "diverse-reaction-pill-checked"
+          ]
+        },
+        "attr": "title",
+        "pattern": "^\\d+ (?<v>.+?) (?i:reaction)"
+      }
+    }
+  ]
+}

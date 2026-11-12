@@ -1,0 +1,34 @@
+# Nothing personal or secret reaches the repository (CLAUDE.md, "Personal content").
+# The same check as the local git hooks, without the private names list (which never leaves the
+# maintainer's Mac): email addresses, phone numbers, screenshots, database files, and gitleaks
+# over the commits being pushed.
+name: Privacy
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: The checker's own tests
+        run: python3 -I -m unittest discover -s scripts -p 'test_*.py'
+      - name: App profile fixtures hold only made-up text
+        run: python3 -I scripts/privacy_check.py fixtures
+      - name: Install gitleaks
+        run: |
+          curl -sSfL https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz \
+            | tar -xz -C /usr/local/bin gitleaks
+      - name: Check what this push or pull request adds
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          if [ -z "$BASE" ] || ! git cat-file -e "$BASE" 2>/dev/null; then BASE=0000000000000000000000000000000000000000; fi
+          python3 -I scripts/privacy_check.py range "$BASE" "$HEAD"

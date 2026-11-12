@@ -1,0 +1,20 @@
+name: Feature request
+description: An idea for Didja.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What do you lose track of today, and where?
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What you'd like Didja to do
+    validations:
+      required: true
+  - type: markdown
+    attributes:
+      value: Didja keeps everything on your Mac. Ideas that need screen text to leave the device can't be built.

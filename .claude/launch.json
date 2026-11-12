@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "didja-site",
+      "runtimeExecutable": "bunx",
+      "runtimeArgs": ["--cwd", "site", "astro", "preview", "--port", "4321"],
+      "port": 4321
+    }
+  ]
+}

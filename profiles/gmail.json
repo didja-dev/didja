@@ -1,0 +1,98 @@
+{
+  "id": "gmail",
+  "name": "Gmail",
+  "kind": "email",
+  "status": "builtIn",
+  "about": "Gmail in a browser. Its page marks the parts of an open conversation with short class names that have been stable for years. Gmail shows the sender's name, not the address.",
+  "match": {
+    "urlPrefixes": [
+      "https://mail.google.com/"
+    ]
+  },
+  "rules": [
+    {
+      "is": "emailSubject",
+      "where": {
+        "role": [
+          "AXGroup",
+          "AXHeading",
+          "AXCell"
+        ],
+        "class": [
+          "hP"
+        ]
+      },
+      "text": "text"
+    },
+    {
+      "is": "emailMessage",
+      "where": {
+        "role": [
+          "AXGroup",
+          "AXHeading",
+          "AXCell"
+        ],
+        "class": [
+          "h7"
+        ]
+      }
+    },
+    {
+      "is": "line",
+      "where": {
+        "role": [
+          "AXGroup",
+          "AXHeading",
+          "AXCell"
+        ],
+        "class": [
+          "gF",
+          "gD"
+        ]
+      },
+      "text": {
+        "attr": [
+          "title",
+          "text"
+        ],
+        "squash": true
+      },
+      "line": "From: {v}"
+    },
+    {
+      "is": "line",
+      "where": {
+        "role": [
+          "AXGroup",
+          "AXHeading",
+          "AXCell"
+        ],
+        "class": [
+          "g3"
+        ]
+      },
+      "text": {
+        "squash": true
+      },
+      "line": "Date: {v}"
+    },
+    {
+      "is": "line",
+      "where": {
+        "role": [
+          "AXGroup",
+          "AXHeading",
+          "AXCell"
+        ],
+        "class": [
+          "ajw"
+        ]
+      },
+      "text": {
+        "squash": true,
+        "pattern": "^(?i:to )?(?<v>.*)$"
+      },
+      "line": "To: {v}"
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+#!/bin/sh
+# Didja: check every commit being pushed, its changes and its message, and run gitleaks on them.
+export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+root="$(git rev-parse --show-toplevel)"
+zero=0000000000000000000000000000000000000000
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [ "$local_sha" = "$zero" ] && continue   # deleting a branch
+  /usr/bin/python3 -I "$root/scripts/privacy_check.py" range "$remote_sha" "$local_sha" || exit 1
+done
+exit 0

@@ -1,0 +1,21 @@
+{
+  "name": "didja-site",
+  "private": true,
+  "type": "module",
+  "description": "didja.dev: the landing page (Astro, static, deployed on Cloudflare Pages)",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "deploy": "astro build && npx wrangler pages deploy dist --project-name didja"
+  },
+  "dependencies": {
+    "@fontsource/bricolage-grotesque": "^5.3.0",
+    "@fontsource/inter": "^5.3.0",
+    "@fontsource/jetbrains-mono": "^5.3.0",
+    "astro": "^7.4.11"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

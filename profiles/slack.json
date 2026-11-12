@@ -1,0 +1,59 @@
+{
+  "id": "slack",
+  "name": "Slack",
+  "kind": "chat",
+  "status": "builtIn",
+  "about": "Slack's desktop app, from its page's long-stable class names. Not tried live. Whether a conversation is direct is not known, so it is read like a group: only what names you is taken.",
+  "match": {
+    "bundleIds": [
+      "com.tinyspeck.slackmacgap"
+    ]
+  },
+  "rules": [
+    {
+      "is": "chatName",
+      "where": {
+        "class": [
+          "p-view_header__channel_title",
+          "p-view_header__text"
+        ]
+      },
+      "chat": "text"
+    },
+    {
+      "is": "message",
+      "where": {
+        "class": [
+          "c-message_kit__background",
+          "c-message_kit__message"
+        ]
+      },
+      "from": {
+        "of": {
+          "class": [
+            "c-message__sender_button",
+            "c-message__sender"
+          ]
+        }
+      },
+      "time": {
+        "of": {
+          "class": [
+            "c-timestamp"
+          ]
+        },
+        "attr": [
+          "description",
+          "title",
+          "text"
+        ]
+      },
+      "body": {
+        "class": [
+          "c-message_kit__blocks",
+          "p-rich_text_section"
+        ]
+      }
+    }
+  ]
+}

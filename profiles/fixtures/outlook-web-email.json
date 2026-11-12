@@ -1,0 +1,39 @@
+{
+  "about": "Outlook on the web in Safari. The conversation's own heading is not a message.",
+  "url": "https://outlook.office.com/mail/inbox/id/AAQk",
+  "profile": "outlook-web",
+  "app": "com.apple.Safari",
+  "window": "Mail - Mike Rosen - Outlook",
+  "outline": [
+    "AXWindow title=\"Mail - Mike Rosen - Outlook\"",
+    " AXWebArea url=\"https://outlook.office.com/mail/inbox/id/AAQk\"",
+    "  AXHeading dom=\"CONV_SNCQ_SUBJECT\" title=\"Budget approval\"",
+    "  AXHeading dom=\"MSG_AAQk_SUBJECT\" title=\"Budget approval\"",
+    "  AXGroup dom=\"MSG_AAQk_FROM\" title=\"From: Dana Levi\"",
+    "  AXGroup dom=\"MSG_AAQk_TO\"",
+    "   AXStaticText value=\"To:  Mike Rosen\"",
+    "  AXGroup dom=\"MSG_AAQk_DATETIME\" title=\"Wed 11/11/2026 9:15 AM\"",
+    "  AXGroup dom=\"UniqueMessageBody_1\"",
+    "   AXStaticText value=\"Mike, can you approve the budget today?\"",
+    "  AXStaticText value=\"Reply all\""
+  ],
+  "lines": [
+    "⟦Email 1: Budget approval⟧",
+    "From: Dana Levi",
+    "To: Mike Rosen",
+    "Date: Wed 11/11/2026 9:15 AM",
+    "Mike, can you approve the budget today?",
+    "⟦Page⟧",
+    "Reply all"
+  ],
+  "expect": {
+    "emails": [
+      {
+        "subject": "Budget approval",
+        "from": "Dana Levi",
+        "to": "Mike Rosen",
+        "date": "Wed 11/11/2026 9:15 AM"
+      }
+    ]
+  }
+}

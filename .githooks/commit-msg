@@ -1,0 +1,3 @@
+#!/bin/sh
+# Didja: no private names, addresses or phone numbers in a commit message.
+exec /usr/bin/python3 -I "$(git rev-parse --show-toplevel)/scripts/privacy_check.py" message "$1"

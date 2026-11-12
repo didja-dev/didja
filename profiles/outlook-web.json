@@ -1,0 +1,113 @@
+{
+  "id": "outlook-web",
+  "name": "Outlook on the web",
+  "kind": "email",
+  "status": "builtIn",
+  "about": "Outlook on the web. Its reading pane gives each part of an open message a DOM id ending in what it is (MSG_…_SUBJECT, MSG_…_FROM), and the body one starting UniqueMessageBody.",
+  "match": {
+    "hosts": [
+      "outlook.cloud.microsoft",
+      "outlook.office.com",
+      "outlook.office365.com",
+      "outlook.live.com"
+    ]
+  },
+  "rules": [
+    {
+      "is": "emailBody",
+      "where": {
+        "role": [
+          "AXGroup",
+          "AXHeading"
+        ],
+        "dom": {
+          "prefix": "UniqueMessageBody"
+        }
+      }
+    },
+    {
+      "is": "emailSection",
+      "where": {
+        "role": [
+          "AXGroup",
+          "AXHeading"
+        ],
+        "dom": {
+          "prefix": "MSG_",
+          "suffix": "_SUBJECT"
+        }
+      },
+      "text": {
+        "attr": [
+          "title",
+          "text"
+        ]
+      }
+    },
+    {
+      "is": "line",
+      "where": {
+        "role": [
+          "AXGroup",
+          "AXHeading"
+        ],
+        "dom": {
+          "prefix": "MSG_",
+          "suffix": "_FROM"
+        }
+      },
+      "text": {
+        "attr": [
+          "title",
+          "text"
+        ],
+        "squash": true,
+        "dropLabel": 1
+      },
+      "line": "From: {v}"
+    },
+    {
+      "is": "line",
+      "where": {
+        "role": [
+          "AXGroup",
+          "AXHeading"
+        ],
+        "dom": {
+          "prefix": "MSG_",
+          "suffix": "_TO"
+        }
+      },
+      "text": {
+        "attr": [
+          "title",
+          "text"
+        ],
+        "squash": true,
+        "dropLabel": 1
+      },
+      "line": "To: {v}"
+    },
+    {
+      "is": "line",
+      "where": {
+        "role": [
+          "AXGroup",
+          "AXHeading"
+        ],
+        "dom": {
+          "prefix": "MSG_",
+          "suffix": "_DATETIME"
+        }
+      },
+      "text": {
+        "attr": [
+          "title",
+          "text"
+        ],
+        "squash": true
+      },
+      "line": "Date: {v}"
+    }
+  ]
+}

@@ -1,0 +1,491 @@
+import AppKit
+import ApplicationServices
+import Combine
+
+/// How long captured text is kept. 24 hours is the most; you can choose less.
+enum Retention: Int, CaseIterable, Identifiable {
+    case hour = 1, sixHours = 6, day = 24
+
+    var id: Int { rawValue }
+    var seconds: TimeInterval { TimeInterval(rawValue) * 3600 }
+    var label: String {
+        switch self {
+        case .hour: return "1 Hour"
+        case .sixHours: return "6 Hours"
+        case .day: return "24 Hours"
+        }
+    }
+    /// As in "212 observations in 6h".
+    var short: String { "\(rawValue)h" }
+
+    /// The engine reads this from the database's meta table and expires by it too.
+    static let metaKey = "retention_hours"
+    static let defaultsKey = "retentionHours"
+    /// What was chosen; 24 hours if nothing, or nothing valid, was.
+    static func saved(in defaults: UserDefaults = .standard) -> Retention {
+        Retention(rawValue: defaults.integer(forKey: defaultsKey)) ?? .day
+    }
+}
+
+/// The question asked before all captured text is deleted, and how its answer is read.
+enum ForgetPrompt {
+    static let title = "Delete all captured text?"
+    static func message(observations: Int) -> String {
+        let what = observations == 1 ? "1 piece of text" : "\(observations) pieces of text"
+        return "\(what) captured in the last day will be deleted. Tasks already found stay. Ticking that depends on recent text, such as \u{201C}looks done\u{201D}, starts again from what you see next."
+    }
+    /// The first button deletes; it is not the default, so Return cancels.
+    static let buttons = ["Delete", "Cancel"]
+
+    /// True only for the Delete button. Anything else, closing the alert included, keeps the text.
+    static func deletes(_ response: NSApplication.ModalResponse) -> Bool {
+        response == .alertFirstButtonReturn
+    }
+}
+
+/// Decides when to capture, runs the capture, and writes observations.
+///
+/// Triggers: the frontmost app changing, accessibility notifications from the
+/// focused app (focus, title, value changed), and a 5s poll. Triggers are
+/// coalesced so capture runs at most once a second. Only the focused window of
+/// the frontmost app is ever read.
+final class CaptureCoordinator: ObservableObject {
+    enum Status: Equatable {
+        case starting
+        case needsAccessibility
+        case capturing
+        case paused
+        case failed(String)
+
+        var label: String {
+            switch self {
+            case .starting: return "Starting…"
+            case .needsAccessibility: return "Needs Accessibility access"
+            case .capturing: return "Capturing"
+            case .paused: return "Paused"
+            case .failed(let why): return why
+            }
+        }
+    }
+
+    @Published private(set) var status: Status = .starting
+    @Published private(set) var observationCount = 0
+    /// Tasks the engine has found, for the menu. Read-only here.
+    @Published private(set) var tasks = TaskBoard(
+        showsRecentlyDone: UserDefaults.standard.bool(forKey: "showsRecentlyDone"),
+        sort: TaskBoard.Sort(rawValue: UserDefaults.standard.string(forKey: "taskSort") ?? "") ?? .source,
+        focus: UserDefaults.standard.string(forKey: "taskFocus"))
+    /// Whether the panel's "Recently done" list is unfolded. Folded unless you open it.
+    @Published var showsRecentlyDone = UserDefaults.standard.bool(forKey: "showsRecentlyDone") {
+        didSet {
+            UserDefaults.standard.set(showsRecentlyDone, forKey: "showsRecentlyDone")
+            tasks.showsRecentlyDone = showsRecentlyDone
+        }
+    }
+    /// How the list is ordered, and which app's tasks it is narrowed to, if any.
+    @Published var sort = TaskBoard.Sort(rawValue: UserDefaults.standard.string(forKey: "taskSort") ?? "") ?? .source {
+        didSet {
+            UserDefaults.standard.set(sort.rawValue, forKey: "taskSort")
+            tasks.sort = sort
+        }
+    }
+    @Published var focus: String? = UserDefaults.standard.string(forKey: "taskFocus") {
+        didSet {
+            UserDefaults.standard.set(focus, forKey: "taskFocus")
+            tasks.focus = focus
+        }
+    }
+    /// Accept "looks done" for you instead of asking. Off unless you turn it on. The engine
+    /// reads the choice from the database, where the rules about ticking live.
+    @Published var acceptsLooksDone = UserDefaults.standard.bool(forKey: "acceptsLooksDone") {
+        didSet {
+            UserDefaults.standard.set(acceptsLooksDone, forKey: "acceptsLooksDone")
+            applyLooksDoneMode()
+        }
+    }
+
+    private func applyLooksDoneMode() {
+        let mode = acceptsLooksDone ? "accept" : "ask"
+        queue.async { try? self.store?.setMeta("looks_done", mode) }
+    }
+
+    /// Make tasks only from messages that arrive after you first looked at a conversation,
+    /// not from older ones you scroll back to (SCR-27). Off unless you turn it on. The engine
+    /// reads the choice from the database, where the rules about tasks live.
+    @Published var onlyNewMessages = UserDefaults.standard.bool(forKey: "onlyNewMessages") {
+        didSet {
+            UserDefaults.standard.set(onlyNewMessages, forKey: "onlyNewMessages")
+            applyOnlyNewMessages()
+        }
+    }
+
+    private func applyOnlyNewMessages() {
+        let value = onlyNewMessages ? "on" : "off"
+        queue.async { try? self.store?.setMeta("only_new", value) }
+    }
+
+    @Published var isPaused: Bool {
+        didSet {
+            UserDefaults.standard.set(isPaused, forKey: Self.pausedKey)
+            if !isPaused { requestCapture() }
+            refreshStatus()
+        }
+    }
+
+    /// How long captured text is kept. Choosing less deletes what is older at once.
+    @Published var retention = Retention.saved() {
+        didSet {
+            UserDefaults.standard.set(retention.rawValue, forKey: Retention.defaultsKey)
+            applyRetention()
+        }
+    }
+
+    private static let pausedKey = "capturePaused"
+    private static let pollInterval: TimeInterval = 5
+    private static let debounce: TimeInterval = 1
+    /// Below this much accessibility text, try OCR instead.
+    private static let minAXChars = 40
+    private static let minOCRInterval: TimeInterval = 10
+    private static let maxObservationChars = 20_000
+
+    private let queue = DispatchQueue(label: "dev.didja.capture", qos: .utility)
+    private let supportDirectory: URL
+
+    // Touched only on the main thread.
+    private var pollTimer: Timer?
+    private var summaryTimer: Timer?
+    private var capturePending = false
+    private var observer: AXObserver?
+    private var observedPID: pid_t = 0
+    private var failure: String?
+
+    // Touched only on `queue`.
+    private var store: ObservationStore?
+    private var policy: PrivacyPolicy?
+    private var differ = Differ()
+    private var archives = ArchiveWatcher()
+    private var preparedPIDs = Set<pid_t>()
+    private var lastOCR = Date.distantPast
+    /// The last app other than Didja that was in front: what Report a Problem describes.
+    private(set) var lastApp: NSRunningApplication?
+    private var lastPrune = Date.distantPast
+    private var ttl = Retention.saved().seconds
+
+    init(supportDirectory: URL = ObservationStore.defaultDirectory) {
+        self.supportDirectory = supportDirectory
+        isPaused = UserDefaults.standard.bool(forKey: Self.pausedKey)
+    }
+
+    // MARK: Lifecycle (main thread)
+
+    func start() {
+        do {
+            // No valid privacy policy, no capture.
+            let policy = try PrivacyPolicy.load(userFile: supportDirectory.appendingPathComponent(ExcludeList.fileName))
+            let store = try ObservationStore(directory: supportDirectory)
+            queue.sync {
+                self.policy = policy
+                self.store = store
+                // Your name, so the engine can tell your chat messages, and messages naming you, from others'.
+                let name = NSFullUserName().trimmingCharacters(in: .whitespacesAndNewlines)
+                if !name.isEmpty { try? store.setMeta("my_name", name) }
+            }
+        } catch {
+            failure = error.localizedDescription
+            refreshStatus()
+            return
+        }
+
+        if !AXIsProcessTrusted() {
+            // Shows the system dialog pointing at Privacy & Security → Accessibility.
+            AXIsProcessTrustedWithOptions(["AXTrustedCheckOptionPrompt": true] as CFDictionary)
+        }
+
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self, selector: #selector(frontmostAppChanged),
+            name: NSWorkspace.didActivateApplicationNotification, object: nil)
+        pollTimer = Timer.scheduledTimer(withTimeInterval: Self.pollInterval, repeats: true) { [weak self] _ in
+            self?.requestCapture()
+        }
+        // Every second, so a finished item leaves its place on time.
+        summaryTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+            self?.refreshSummary()
+        }
+        applyRetention()
+        applyLooksDoneMode()
+        applyOnlyNewMessages()
+        refreshStatus()
+        requestCapture()
+    }
+
+    /// The exclude list changed: read it again, and forget what was already kept
+    /// from anything it now covers. A list that cannot be read stops capture.
+    func reloadPolicy() {
+        do {
+            let policy = try PrivacyPolicy.load(userFile: supportDirectory.appendingPathComponent(ExcludeList.fileName))
+            if pollTimer == nil {
+                // Capture never started, because the list was broken. It is readable now.
+                failure = nil
+                start()
+            }
+            queue.async {
+                self.policy = policy
+                _ = try? self.store?.deleteObservations { bundleID, title, url in
+                    !(policy.allowsApp(bundleID: bundleID) && policy.allowsWindow(title: title) && policy.allowsURL(url))
+                }
+            }
+        } catch {
+            queue.sync { self.policy = nil } // no valid policy, no capture
+            failure = error.localizedDescription
+        }
+        refreshStatus()
+        refreshSummary()
+    }
+
+    /// Tell the engine how long text is kept, and drop what is already older.
+    private func applyRetention() {
+        let retention = retention
+        queue.async {
+            self.ttl = retention.seconds
+            try? self.store?.setMeta(Retention.metaKey, String(retention.rawValue))
+            _ = try? self.store?.deleteObservations(olderThan: Date().addingTimeInterval(-retention.seconds))
+        }
+        refreshSummary()
+    }
+
+    /// Delete every observation now. Tasks already found stay; what is on screen
+    /// at this moment is not kept again unless it changes.
+    /// "Go to Source": raise the window a task was captured in and scroll to its line,
+    /// under the same exclude list as capture. Runs on the capture queue, so it never
+    /// reads a window at the same moment capture does.
+    func goToSource(_ place: TaskPlace, done: @escaping (SourceJumper.Outcome) -> Void = { _ in }) {
+        queue.async { [weak self] in
+            let outcome = SourceJumper.go(to: place, policy: self?.policy)
+            DispatchQueue.main.async { done(outcome) }
+        }
+    }
+
+    /// What Report a Problem needs from the window you were last in (SCR-42): its outline and the
+    /// lines capture keeps from it now, read once, in memory, on the capture queue, with the same
+    /// checks as capture (the exclude list, its title and address, never a secure field or your
+    /// draft). And the lines kept from that app lately. Calls `done` on the main thread.
+    struct WindowReading {
+        var app: String
+        var bundleID: String
+        var appVersion: String?
+        var windowTitle: String
+        var url: String?
+        var outline: OutlineElement?
+        var lines: [String]
+        var kept: [String]
+        var profile: AppProfile?
+    }
+
+    func readForDiagnostics(done: @escaping (Result<WindowReading, DiagnosticsRefusal>) -> Void) {
+        guard !isPaused else { return done(.failure(.paused)) }
+        guard let app = lastApp, !app.isTerminated, let bundleID = app.bundleIdentifier else { return done(.failure(.noWindow)) }
+        queue.async {
+            func finish(_ r: Result<WindowReading, DiagnosticsRefusal>) { DispatchQueue.main.async { done(r) } }
+            guard let policy = self.policy, policy.allowsApp(bundleID: bundleID) else { return finish(.failure(.excluded)) }
+            AXCapture.prepare(pid: app.processIdentifier, bundleID: bundleID)
+            guard let window = AXCapture.focusedWindow(pid: app.processIdentifier) else { return finish(.failure(.noWindow)) }
+            guard policy.allowsWindow(title: window.title) else { return finish(.failure(.excluded)) }
+            var limits = AXCapture.Limits()
+            limits.skipFocusedInput = !PrivacyPolicy.terminalBundleIDs.contains(bundleID)
+            limits.app = bundleID
+            let text = AXCapture.read(window: window.element, title: window.title, appName: app.localizedName ?? "", limits: limits)
+            guard policy.allowsWindow(title: text.windowTitle), policy.allowsURL(text.url) else { return finish(.failure(.excluded)) }
+            let outline = AXCapture.withLargeStack { OutlineElement.copy(LiveElement(ref: window.element)) }
+            let kept = (try? self.store?.recentLines(bundleID: bundleID, limit: 80)) ?? []
+            let profile = AppProfiles.forApp(bundleID) ?? AppProfiles.builtIn.first { $0.match.matches(url: text.url) }
+            finish(.success(WindowReading(
+                app: app.localizedName ?? bundleID, bundleID: bundleID,
+                appVersion: app.bundleURL.flatMap { Bundle(url: $0)?.infoDictionary?["CFBundleShortVersionString"] as? String },
+                windowTitle: text.windowTitle, url: text.url, outline: outline, lines: text.lines, kept: kept, profile: profile)))
+        }
+    }
+
+    func forgetCapturedText() {
+        queue.async {
+            _ = try? self.store?.deleteObservations(olderThan: .distantFuture)
+            // And the lines kept around open tasks (SCR-31): they are screen text too.
+            try? self.store?.deleteTaskContext()
+        }
+        refreshSummary()
+    }
+
+    func openAccessibilitySettings() {
+        let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!
+        NSWorkspace.shared.open(url)
+    }
+
+    private func refreshStatus() {
+        let new: Status
+        if let failure { new = .failed(failure) }
+        else if !AXIsProcessTrusted() { new = .needsAccessibility }
+        else if isPaused { new = .paused }
+        else { new = .capturing }
+        guard new != status else { return }
+        status = new
+        // Leave a note in the database so `didja status` can say why nothing is arriving.
+        let note = "\(new.label) (since \(ISO8601DateFormatter().string(from: Date())), app at \(Bundle.main.bundlePath))"
+        queue.async { try? self.store?.setMeta("capture_status", note) }
+    }
+
+    /// Re-read the counts and task list shown in the menu. Runs even while paused.
+    func refreshSummary() {
+        queue.async {
+            guard let store = self.store,
+                  let count = try? store.observationCount(),
+                  let tasks = try? store.tasks()
+            else { return }
+            DispatchQueue.main.async {
+                self.observationCount = count
+                let lingering = TaskBoard.lingering(in: tasks, now: Date())
+                if self.tasks.tasks != tasks || self.tasks.lingering != lingering {
+                    self.tasks = TaskBoard(tasks: tasks, lingering: lingering, showsRecentlyDone: self.showsRecentlyDone,
+                                           sort: self.sort, focus: self.focus)
+                }
+            }
+        }
+    }
+
+    @objc private func frontmostAppChanged() {
+        requestCapture()
+    }
+
+    /// Ask for a capture soon. Any number of requests within the debounce window become one capture.
+    func requestCapture() {
+        guard !capturePending else { return }
+        capturePending = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.debounce) { [weak self] in
+            guard let self else { return }
+            self.capturePending = false
+            self.refreshStatus()
+            guard self.status == .capturing, let app = NSWorkspace.shared.frontmostApplication else { return }
+            if app.processIdentifier != ProcessInfo.processInfo.processIdentifier { self.lastApp = app }
+            self.observe(app)
+            let target = Target(pid: app.processIdentifier, bundleID: app.bundleIdentifier,
+                                name: app.localizedName ?? "")
+            self.queue.async { self.capture(target) }
+        }
+    }
+
+    // MARK: Accessibility notifications (main thread)
+
+    private func observe(_ app: NSRunningApplication) {
+        let pid = app.processIdentifier
+        guard pid != observedPID else { return }
+        if let observer {
+            CFRunLoopRemoveSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(observer), .defaultMode)
+        }
+        observer = nil
+        observedPID = pid
+        // Don't listen to ourselves, or to apps we would not read anyway.
+        guard pid != ProcessInfo.processInfo.processIdentifier else { return }
+
+        var created: AXObserver?
+        let callback: AXObserverCallback = { _, _, _, refcon in
+            guard let refcon else { return }
+            Unmanaged<CaptureCoordinator>.fromOpaque(refcon).takeUnretainedValue().requestCapture()
+        }
+        guard AXObserverCreate(pid, callback, &created) == .success, let created else { return }
+        let element = AXUIElementCreateApplication(pid)
+        let refcon = Unmanaged.passUnretained(self).toOpaque()
+        for name in ["AXFocusedWindowChanged", "AXFocusedUIElementChanged", "AXTitleChanged", "AXValueChanged"] {
+            AXObserverAddNotification(created, element, name as CFString, refcon)
+        }
+        CFRunLoopAddSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(created), .defaultMode)
+        observer = created
+    }
+
+    // MARK: Capture (capture queue)
+
+    private struct Target {
+        var pid: pid_t
+        var bundleID: String?
+        var name: String
+    }
+
+    private func capture(_ target: Target, quickLook: Bool = false) {
+        guard let policy, let store else { return }
+        // An app with no bundle ID can't be checked against the denylist, so it is never read.
+        guard let bundleID = target.bundleID,
+              bundleID != Bundle.main.bundleIdentifier,
+              policy.allowsApp(bundleID: bundleID)
+        else { return }
+
+        if preparedPIDs.insert(target.pid).inserted {
+            AXCapture.prepare(pid: target.pid, bundleID: bundleID)
+        }
+        // Check the window's title before reading anything inside it.
+        guard let window = AXCapture.focusedWindow(pid: target.pid),
+              policy.allowsWindow(title: window.title)
+        else { return }
+
+        // What you are typing right now is a draft, not something to keep; a terminal is the exception.
+        var limits = AXCapture.Limits()
+        limits.skipFocusedInput = !PrivacyPolicy.terminalBundleIDs.contains(bundleID)
+        limits.app = bundleID
+        let text = AXCapture.read(window: window.element, title: window.title, appName: target.name, limits: limits)
+        guard policy.allowsWindow(title: text.windowTitle), policy.allowsURL(text.url) else { return }
+
+        var lines = text.lines
+        var source = ObservationStore.Source.ax
+        let axChars = lines.reduce(0) { $0 + $1.count }
+        if OCRCapture.shouldRun(axChars: axChars, permitted: OCRCapture.isPermitted, enabled: OCRCapture.isEnabled,
+                                sinceLast: Date().timeIntervalSince(lastOCR),
+                                minChars: Self.minAXChars, minInterval: Self.minOCRInterval) {
+            lastOCR = Date()
+            let recognized = Self.runOCR(pid: target.pid, windowTitle: window.title, allows: policy.allowsWindow(title:))
+            if recognized.reduce(0, { $0 + $1.count }) > axChars {
+                lines = recognized
+                source = .ocr
+            }
+        }
+
+        let key = Differ.windowKey(bundleID: bundleID, title: text.windowTitle, url: text.url)
+        // An email archived just now is noted for the engine, whether or not anything else is new.
+        let archived = archives.archived(windowKey: key, lines: lines).map(ArchiveWatcher.line(forSubject:))
+        if archives.wantsAnotherLook, !quickLook {
+            // An email just left the pane, or the "Archived" notice just went away. If an email
+            // was archived, the notice (re)appears within a second or so, sometimes for less
+            // than a second, which ordinary captures (at most one a second) can miss. Look at
+            // this window a few more times, quickly, while it is still the one in front.
+            for delay in ArchiveWatcher.quickLooks {
+                queue.asyncAfter(deadline: .now() + delay) { [weak self] in
+                    guard NSWorkspace.shared.frontmostApplication?.processIdentifier == target.pid else { return }
+                    self?.capture(target, quickLook: true)
+                }
+            }
+        }
+        let fresh = differ.newLines(windowKey: key, lines: lines) + archived
+        do {
+            if !fresh.isEmpty {
+                try store.insert(
+                    bundleID: bundleID, app: target.name, windowTitle: text.windowTitle, url: text.url,
+                    source: source, text: String(fresh.joined(separator: "\n").prefix(Self.maxObservationChars)))
+            }
+            if Date().timeIntervalSince(lastPrune) > 600 {
+                lastPrune = Date()
+                try store.deleteObservations(olderThan: Date().addingTimeInterval(-ttl))
+            }
+        } catch {
+            let message = "Database error: \(error.localizedDescription)"
+            DispatchQueue.main.async {
+                self.failure = message
+                self.refreshStatus()
+            }
+        }
+    }
+
+    private static func runOCR(pid: pid_t, windowTitle: String, allows: @escaping (String) -> Bool) -> [String] {
+        let done = DispatchSemaphore(value: 0)
+        var lines: [String] = []
+        Task.detached {
+            lines = await OCRCapture.recognizeText(pid: pid, windowTitle: windowTitle, allows: allows)
+            done.signal()
+        }
+        return done.wait(timeout: .now() + 5) == .success ? lines : []
+    }
+}

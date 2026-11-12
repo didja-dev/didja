@@ -1,0 +1,53 @@
+{
+  "about": "A group. Ron asks Mike by name; Dana, not you, says it is done. The ask stays yours: someone else's reply must never tick it.",
+  "profile": "whatsapp",
+  "app": "net.whatsapp.WhatsApp",
+  "window": "WhatsApp",
+  "outline": [
+    "AXWindow title=\"WhatsApp\"",
+    " AXTable id=\"ChatMessagesTableView\" desc=\"‎Messages in chat with Family\"",
+    "  AXCell id=\"WAMessageBubbleTableViewCell\" desc=\"‎Message from Ron Cohen, Mike, can you pick up the cake?, 9:50, ‎Received in Family\"",
+    "  AXCell id=\"WAMessageBubbleTableViewCell\" desc=\"‎Message from Dana Levi, Done, I got it, 9:52, ‎Received in Family\"",
+    "  AXCell id=\"WAMessageBubbleTableViewCell\" desc=\"‎Message from Dana Levi, Anyone up for a walk?, 9:53, ‎Received in Family\""
+  ],
+  "lines": [
+    "⟦Chat message: Family (group) — from Ron Cohen — 9:50⟧",
+    "Mike, can you pick up the cake?",
+    "⟦Chat message: Family (group) — from Dana Levi — 9:52⟧",
+    "Done, I got it",
+    "⟦Chat message: Family (group) — from Dana Levi — 9:53⟧",
+    "Anyone up for a walk?",
+    "⟦Page⟧"
+  ],
+  "expect": {
+    "messages": [
+      {
+        "chat": "Family",
+        "kind": "group",
+        "from": "Ron Cohen",
+        "mentionsMe": false,
+        "time": "9:50",
+        "body": "Mike, can you pick up the cake?"
+      },
+      {
+        "chat": "Family",
+        "kind": "group",
+        "from": "Dana Levi",
+        "mentionsMe": false,
+        "time": "9:52",
+        "body": "Done, I got it"
+      },
+      {
+        "chat": "Family",
+        "kind": "group",
+        "from": "Dana Levi",
+        "mentionsMe": false,
+        "time": "9:53",
+        "body": "Anyone up for a walk?"
+      }
+    ],
+    "open": [
+      "Answer Ron Cohen"
+    ]
+  }
+}

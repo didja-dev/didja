@@ -1,0 +1,61 @@
+{
+  "about": "A Gmail conversation of two messages in Chrome.",
+  "url": "https://mail.google.com/mail/u/0/#inbox/FMfcgz",
+  "profile": "gmail",
+  "app": "com.google.Chrome",
+  "window": "Q3 numbers - mike@example.com - Gmail",
+  "outline": [
+    "AXWindow title=\"Q3 numbers - mike@example.com - Gmail\"",
+    " AXWebArea url=\"https://mail.google.com/mail/u/0/#inbox/FMfcgz\" title=\"Q3 numbers - mike@example.com - Gmail\"",
+    "  AXHeading class=\"hP\"",
+    "   AXStaticText value=\"Q3 numbers\"",
+    "  AXGroup class=\"h7 ie\"",
+    "   AXGroup class=\"gD\" title=\"Dana Levi\"",
+    "   AXGroup class=\"g3\"",
+    "    AXStaticText value=\"Mon 9 Nov, 15:05\"",
+    "   AXGroup class=\"iw ajw\"",
+    "    AXStaticText value=\"to me\"",
+    "   AXGroup class=\"a3s aiL\"",
+    "    AXStaticText value=\"Can you send the numbers?\"",
+    "  AXGroup class=\"h7\"",
+    "   AXGroup class=\"gD\" title=\"Ron Cohen\"",
+    "   AXGroup class=\"g3\"",
+    "    AXStaticText value=\"Mon 9 Nov, 16:20\"",
+    "   AXGroup class=\"iw ajw\"",
+    "    AXStaticText value=\"to Dana, me\"",
+    "   AXGroup class=\"a3s aiL\"",
+    "    AXStaticText value=\"Mike, please also add Q2.\"",
+    "  AXButton title=\"Reply\""
+  ],
+  "lines": [
+    "Q3 numbers",
+    "⟦Email 1: Q3 numbers⟧",
+    "From: Dana Levi",
+    "Date: Mon 9 Nov, 15:05",
+    "To: me",
+    "Can you send the numbers?",
+    "⟦Page⟧",
+    "⟦Email 2: Q3 numbers⟧",
+    "From: Ron Cohen",
+    "Date: Mon 9 Nov, 16:20",
+    "To: Dana, me",
+    "Mike, please also add Q2.",
+    "⟦Page⟧"
+  ],
+  "expect": {
+    "emails": [
+      {
+        "subject": "Q3 numbers",
+        "from": "Dana Levi",
+        "to": "me",
+        "date": "Mon 9 Nov, 15:05"
+      },
+      {
+        "subject": "Q3 numbers",
+        "from": "Ron Cohen",
+        "to": "Dana, me",
+        "date": "Mon 9 Nov, 16:20"
+      }
+    ]
+  }
+}

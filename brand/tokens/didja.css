@@ -1,0 +1,28 @@
+:root {
+  --paper: #FAFAF7;
+  --white: #FFFFFF;
+  --ink: #141414;
+  --ink-2: #222220;
+  --graphite: #3D3D38;
+  --pencil: #5B5B55;
+  --line: #E4E3DC;
+  --placeholder-bg: #F1F0EA;
+  --placeholder-border: #C9C8BE;
+  --highlighter: #FFD93D;
+  --highlighter-soft: #FFF6CC;
+  --done: #1F7A4D;
+  --nudge: #9A4A00;
+  --button-border: #8A8980;
+  --button-border-dark: #76756E;
+  --tag-dark: #3A3216;
+  --chip-dark: #2A2A27;
+
+  --font-display: "Bricolage Grotesque", system-ui, sans-serif;
+  --font-body: "Inter", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  --radius-pill: 999px;
+  --radius-card: 18px;
+  --radius-tile: 22%;
+  --radius-cta: 28px;
+}

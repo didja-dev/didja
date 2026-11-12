@@ -1,0 +1,9 @@
+{
+  "images" : [
+    { "idiom" : "universal", "filename" : "didja-lockup.pdf" },
+    { "idiom" : "universal", "filename" : "didja-lockup-on-dark.pdf",
+      "appearances" : [ { "appearance" : "luminosity", "value" : "dark" } ] }
+  ],
+  "info" : { "author" : "xcode", "version" : 1 },
+  "properties" : { "preserves-vector-representation" : true }
+}

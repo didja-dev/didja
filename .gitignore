@@ -1,0 +1,35 @@
+.DS_Store
+.env
+node_modules/
+*.db
+*.db-shm
+*.db-wal
+
+# Engine
+engine/dist/
+
+# Xcode
+app/build/
+DerivedData/
+xcuserdata/
+*.xcuserstate
+*.bun-build
+dist/
+app/build-release/
+app/build-release.log
+site/node_modules/
+site/dist/
+site/.astro/
+
+# Secrets and signing material (SCR-35)
+.env*
+!.env.example
+*.p12
+*.p8
+*.pem
+*.key
+*.mobileprovision
+engine/.*.bun-build
+
+# The maintainer's local automation rules (read by a scheduled task on their Mac). Not published.
+docs/AUTOPILOT.md

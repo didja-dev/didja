@@ -1,0 +1,54 @@
+name: Bug report
+description: Something was ticked when it shouldn't be, missed, or broke.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Please don't attach screenshots of private content** (email, chats, code, dashboards). Describe what was on screen, or recreate it with made-up text.
+        A privacy or security problem? Don't file it here: see [SECURITY.md](../blob/main/SECURITY.md).
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version
+      placeholder: "15.2"
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Didja version
+      description: Settings › General shows it.
+      placeholder: "0.3.0"
+    validations:
+      required: true
+  - type: input
+    id: source
+    attributes:
+      label: Which app the task came from
+      placeholder: "Claude Code in Ghostty, Outlook for Mac, Gmail in Safari…"
+    validations:
+      required: true
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What went wrong
+      options:
+        - Ticked when it wasn't done (wrong tick)
+        - Not ticked when it was done (missed tick)
+        - Became a task but shouldn't have
+        - Should have become a task but didn't
+        - Something else
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: The task's title, what you did, and what Didja did. The task's "Why?" (right-click → Why) helps a lot.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected

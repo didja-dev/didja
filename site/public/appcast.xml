@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Update feed for the app. Empty until auto-update ships; [VERSION] items are added per release. -->
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
+  <channel>
+    <title>Didja</title>
+    <link>https://didja.dev/appcast.xml</link>
+    <description>Didja releases</description>
+    <language>en</language>
+    <item>
+      <title>Version 0.4.1</title>
+      <pubDate>Wed, 11 Nov 2026 23:30:12 GMT</pubDate>
+      <sparkle:version>5</sparkle:version>
+      <sparkle:shortVersionString>0.4.1</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <description><![CDATA[<p>Didja 0.4.1: the first update delivered by Didja itself. If you are reading this in the update window, updates work.</p>]]></description>
+      <enclosure url="https://github.com/didja-dev/releases/releases/download/v0.4.1/Didja.dmg" type="application/octet-stream" sparkle:edSignature="RN/LbqePHva4rOcbWQOrfQWTQVZYrtSd1kHYxktBD3F8gzjCPYoIKwAft8O+xQsHWYBbJ1IG6ukNi81eloD9Dw==" length="48637432"/>
+    </item>
+  </channel>
+</rss>

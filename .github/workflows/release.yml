@@ -1,0 +1,80 @@
+# Release on a version tag (SCR-33): build, sign with Developer ID, notarise, staple, upload Didja.dmg
+# to a release in the public didja-dev/releases repository (files only; the code repository is private,
+# and Sparkle and the site need a download that works without signing in), add the signed update to the
+# appcast and deploy didja.dev.
+#
+# Repository secrets it needs (none are in the repo):
+#   DEVELOPER_ID_P12          base64 of the "Developer ID Application" certificate exported as .p12
+#   DEVELOPER_ID_P12_PASSWORD its password
+#   NOTARY_APPLE_ID, NOTARY_TEAM_ID, NOTARY_PASSWORD   an app-specific password for notarytool
+#   SPARKLE_PRIVATE_KEY       the EdDSA private key (generate_keys -x key.txt; paste the file's text)
+#   CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID         to deploy the site with the new appcast
+#   RELEASES_TOKEN            a fine-grained token with Contents: read and write on didja-dev/releases only
+#                             (the workflow's own token cannot write to another repository)
+name: Release
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+env:
+  # Where the DMGs are published. The appcast's download links point here too.
+  RELEASES_REPO: didja-dev/releases
+
+jobs:
+  release:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - name: Signing certificate and notary credentials
+        env:
+          P12: ${{ secrets.DEVELOPER_ID_P12 }}
+          P12_PASSWORD: ${{ secrets.DEVELOPER_ID_P12_PASSWORD }}
+          NOTARY_APPLE_ID: ${{ secrets.NOTARY_APPLE_ID }}
+          NOTARY_TEAM_ID: ${{ secrets.NOTARY_TEAM_ID }}
+          NOTARY_PASSWORD: ${{ secrets.NOTARY_PASSWORD }}
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          KEYCHAIN="$RUNNER_TEMP/release.keychain-db"
+          security create-keychain -p "" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "" "$KEYCHAIN"
+          echo "$P12" | base64 --decode > "$RUNNER_TEMP/id.p12"
+          security import "$RUNNER_TEMP/id.p12" -k "$KEYCHAIN" -P "$P12_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -k "" "$KEYCHAIN"
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
+          xcrun notarytool store-credentials scrolledaway --apple-id "$NOTARY_APPLE_ID" --team-id "$NOTARY_TEAM_ID" \
+            --password "$NOTARY_PASSWORD" --keychain "$KEYCHAIN"
+          printf '%s' "$SPARKLE_PRIVATE_KEY" > "$RUNNER_TEMP/sparkle.key"
+          rm -f "$RUNNER_TEMP/id.p12"
+      - name: Build, sign, notarise
+        env:
+          SPARKLE_KEY_FILE: ${{ runner.temp }}/sparkle.key
+          APPCAST_DOWNLOAD_BASE: https://github.com/${{ env.RELEASES_REPO }}/releases/download
+          RELEASE_NOTES: Didja ${{ github.ref_name }}
+        run: scripts/release.sh
+      - name: Upload to the release in didja-dev/releases
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          gh release view "$GITHUB_REF_NAME" --repo "$RELEASES_REPO" >/dev/null 2>&1 ||
+            gh release create "$GITHUB_REF_NAME" --repo "$RELEASES_REPO" --title "Didja $VERSION" --notes "Didja $VERSION"
+          gh release upload "$GITHUB_REF_NAME" dist/Didja.dmg --repo "$RELEASES_REPO" --clobber
+      - name: Publish the appcast
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          git config user.name "didja release"
+          git config user.email "release@didja.dev"
+          git add site/public/appcast.xml
+          git commit -m "Appcast: $GITHUB_REF_NAME"
+          git push origin HEAD:main
+          cd site && bun install --frozen-lockfile && bun run deploy
+      - name: Forget the keys
+        if: always()
+        run: rm -f "$RUNNER_TEMP/sparkle.key"; security delete-keychain "$RUNNER_TEMP/release.keychain-db" || true

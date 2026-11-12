@@ -1,0 +1,102 @@
+[
+ {
+  "id": "sent-mail",
+  "expect": "done",
+  "request": {
+   "task": "Send Sam the signed contract",
+   "app": "Outlook",
+   "page": "Outlook — Sent Items",
+   "text": "Sent Items\nTo: Sam Carter\nSubject: Signed contract\nAttached is the signed contract.\nSent 10:42"
+  }
+ },
+ {
+  "id": "draft-open",
+  "expect": "notDone",
+  "request": {
+   "task": "Send Sam the signed contract",
+   "app": "Outlook",
+   "page": "Outlook — Drafts",
+   "text": "Drafts\nTo: Sam Carter\nSubject: Signed contract\n[Draft] Attached is the signed contract.\nSend"
+  }
+ },
+ {
+  "id": "payment-confirmed",
+  "expect": "done",
+  "request": {
+   "task": "Pay the Acme invoice",
+   "app": "Safari",
+   "page": "pay.example.com/invoices",
+   "text": "Invoice INV-2041\nPayment received. Thank you!\nAmount paid: $120.00\nStatus: Paid"
+  }
+ },
+ {
+  "id": "payment-form",
+  "expect": "notDone",
+  "request": {
+   "task": "Pay the Acme invoice",
+   "app": "Safari",
+   "page": "pay.example.com/invoices",
+   "text": "Invoice INV-2041\nAmount due: $120.00\nCard number\nPay now"
+  }
+ },
+ {
+  "id": "env-var-set",
+  "expect": "done",
+  "request": {
+   "task": "Add STRIPE_KEY to the production environment",
+   "app": "Safari",
+   "page": "vercel.com/acme/settings",
+   "text": "Environment Variables\nSTRIPE_KEY  Production  Updated just now\nAdded environment variable"
+  }
+ },
+ {
+  "id": "env-var-page",
+  "expect": "notDone",
+  "request": {
+   "task": "Add STRIPE_KEY to the production environment",
+   "app": "Safari",
+   "page": "vercel.com/acme/settings",
+   "text": "Environment Variables\nAdd New\nKey\nValue\nNo environment variables yet"
+  }
+ },
+ {
+  "id": "task-mentioned",
+  "expect": "notDone",
+  "request": {
+   "task": "Book the venue for the offsite",
+   "app": "Notes",
+   "page": "Notes",
+   "text": "Offsite plan\n- Book the venue for the offsite\n- Send invites\n- Order food"
+  }
+ },
+ {
+  "id": "venue-booked",
+  "expect": "done",
+  "request": {
+   "task": "Book the venue for the offsite",
+   "app": "Safari",
+   "page": "venues.example.com/booking",
+   "text": "Booking confirmed\nThe Loft, 14 December\nConfirmation number 77812\nA receipt has been sent to your email."
+  }
+ },
+ {
+  "id": "form-submitted",
+  "expect": "done",
+  "request": {
+   "task": "Fill in the school trip form",
+   "app": "Safari",
+   "page": "forms.example.com/f/9",
+   "text": "Thanks! Your response has been recorded.\nSubmit another response"
+  }
+ },
+ {
+  "id": "form-half",
+  "expect": "notDone",
+  "request": {
+   "task": "Fill in the school trip form",
+   "app": "Safari",
+   "page": "forms.example.com/f/9",
+   "text": "School trip consent\nStudent name\nParent signature\nSubmit"
+  }
+ }
+]

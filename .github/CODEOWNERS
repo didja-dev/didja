@@ -1,0 +1,5 @@
+# The maintainers review every change; app profiles and their fixtures always need their approval,
+# since they decide what Didja reads in other people's apps.
+*               @didja-dev/maintainers
+/profiles/      @didja-dev/maintainers
+/scripts/privacy_check.py  @didja-dev/maintainers

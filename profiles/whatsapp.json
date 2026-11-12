@@ -1,0 +1,93 @@
+{
+  "id": "whatsapp",
+  "name": "WhatsApp",
+  "kind": "chat",
+  "status": "builtIn",
+  "about": "WhatsApp for Mac. Each message is a cell whose description says it all: \"message, Can you send it?, 9 October at 12:34, Received from Dana\". The chat list shows your own reactions.",
+  "match": {
+    "bundleIds": [
+      "net.whatsapp.WhatsApp"
+    ]
+  },
+  "stripBidiMarks": true,
+  "rules": [
+    {
+      "is": "reactionList",
+      "where": {
+        "identifier": "ChatListView_TableView"
+      },
+      "rowChat": "description",
+      "rowLabel": "value",
+      "reactions": [
+        "(?s)You reacted (?<emoji>.+?) to [\"“](?<quote>.*)[\"”]",
+        "(?s)You reacted (?<emoji>.+?) to (?<quote>.*)$"
+      ]
+    },
+    {
+      "is": "messageList",
+      "where": {
+        "identifier": "ChatMessagesTableView"
+      },
+      "chat": {
+        "attr": "description",
+        "pattern": "(?i)chat with (?<v>.+)$"
+      },
+      "item": {
+        "identifier": "WAMessageBubbleTableViewCell"
+      },
+      "label": "description",
+      "parse": [
+        {
+          "field": "label",
+          "pattern": "(?s)^(?<head>.*), (?<time>(?:(?:\\d{1,2} [^\\s,]+(?: \\d{4})?|[^\\s,]+day|Today|Yesterday) at )?\\d{1,2}:\\d{2}(?: ?[AaPp][Mm])?)(?<tail>(?:, .*)?)$",
+          "required": true
+        },
+        {
+          "field": "head",
+          "pattern": "(?s)^(?<kind>.*?)(?:, (?<text>.*))?$"
+        },
+        {
+          "field": "kind",
+          "pattern": "(?s)^(?i:your) (?<kind>.*)$",
+          "set": {
+            "mine": "yes"
+          }
+        },
+        {
+          "field": "tail",
+          "pattern": "^, Sent to",
+          "set": {
+            "mine": "yes"
+          }
+        },
+        {
+          "field": "kind",
+          "pattern": "(?s)^(?<kind>.*?) (?i:from) (?<from>.+)$",
+          "unless": "mine",
+          "set": {
+            "group": "yes"
+          }
+        },
+        {
+          "field": "tail",
+          "pattern": ", Received in ",
+          "set": {
+            "group": "yes"
+          }
+        },
+        {
+          "field": "tail",
+          "pattern": ", Received from (?<from>[^,]+)",
+          "unless": "from"
+        }
+      ],
+      "plainKinds": [
+        "message"
+      ],
+      "reactions": [
+        "(?s)You reacted (?<emoji>.+?) to [\"“](?<quote>.*)[\"”]",
+        "(?s)You reacted (?<emoji>.+?) to (?<quote>.*)$"
+      ]
+    }
+  ]
+}

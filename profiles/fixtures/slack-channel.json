@@ -1,0 +1,52 @@
+{
+  "about": "A Slack channel. Ron names you; a second message carries on from him without repeating his name.",
+  "profile": "slack",
+  "app": "com.tinyspeck.slackmacgap",
+  "window": "design (Channel) - Acme - Slack",
+  "outline": [
+    "AXWindow title=\"design (Channel) - Acme - Slack\"",
+    " AXGroup class=\"p-view_header__channel_title\"",
+    "  AXStaticText value=\"design\"",
+    " AXGroup class=\"c-message_kit__background\"",
+    "  AXButton class=\"c-message__sender_button\"",
+    "   AXStaticText value=\"Ron Cohen\"",
+    "  AXLink class=\"c-timestamp\" desc=\"Today at 9:30\"",
+    "  AXGroup class=\"c-message_kit__blocks\"",
+    "   AXStaticText value=\"@Mike can you check why the build is red?\"",
+    " AXGroup class=\"c-message_kit__background\"",
+    "  AXGroup class=\"c-message_kit__blocks\"",
+    "   AXStaticText value=\"It started after the last merge\""
+  ],
+  "lines": [
+    "design",
+    "⟦Chat message: design (unknown) — from Ron Cohen — Today at 9:30⟧",
+    "@Mike can you check why the build is red?",
+    "⟦Page⟧",
+    "⟦Chat message: design (unknown) — from Ron Cohen — Today at 9:30⟧",
+    "It started after the last merge",
+    "⟦Page⟧"
+  ],
+  "expect": {
+    "messages": [
+      {
+        "chat": "design",
+        "kind": "unknown",
+        "from": "Ron Cohen",
+        "mentionsMe": false,
+        "time": "Today at 9:30",
+        "body": "@Mike can you check why the build is red?"
+      },
+      {
+        "chat": "design",
+        "kind": "unknown",
+        "from": "Ron Cohen",
+        "mentionsMe": false,
+        "time": "Today at 9:30",
+        "body": "It started after the last merge"
+      }
+    ],
+    "open": [
+      "Answer Ron Cohen"
+    ]
+  }
+}

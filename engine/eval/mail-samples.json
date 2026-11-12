@@ -1,0 +1,178 @@
+[
+ {
+  "id": "en-question",
+  "expect": "reply",
+  "about": [
+   "q3",
+   "numbers"
+  ],
+  "email": {
+   "from": "Dana Levi",
+   "subject": "Q3 numbers",
+   "body": "Hi,\nCould you send me the updated Q3 numbers before Thursday's meeting?\nThanks,\nDana"
+  }
+ },
+ {
+  "id": "en-times",
+  "expect": "reply",
+  "about": [
+   "time",
+   "interview|slot"
+  ],
+  "email": {
+   "from": "Noa Bar-Lev",
+   "subject": "Interview slots",
+   "body": "Hello,\nWe'd like to invite you for a second interview. Which of these suits you: Tuesday 10:00, Wednesday 14:00 or Thursday 11:30?\nBest regards,\nNoa Bar-Lev\nTalent team"
+  }
+ },
+ {
+  "id": "en-paypal",
+  "expect": "action",
+  "about": [
+   "card|payment",
+   "paypal"
+  ],
+  "email": {
+   "from": "PayPal",
+   "subject": "Action required: update your card",
+   "body": "The card on your PayPal account has expired. Please log in and update your card details to keep using PayPal.\nPayPal"
+  }
+ },
+ {
+  "id": "en-sign",
+  "expect": "action",
+  "about": [
+   "sign",
+   "lease|agreement"
+  ],
+  "email": {
+   "from": "Ron Shapira",
+   "subject": "Lease renewal",
+   "body": "Hi,\nThe renewed lease agreement is in DocuSign. Please sign it by the end of the month.\nRegards,\nRon"
+  }
+ },
+ {
+  "id": "en-thanks",
+  "expect": "none",
+  "about": [],
+  "email": {
+   "from": "Yael Katz",
+   "subject": "Re: slides",
+   "body": "Got them, thanks a lot! Let me know if you have any questions.\nYael"
+  }
+ },
+ {
+  "id": "en-receipt",
+  "expect": "none",
+  "about": [],
+  "email": {
+   "from": "Wolt",
+   "subject": "Your order receipt",
+   "body": "Thanks for your order. Total: 84.00 ILS. Your food is on its way.\nNo action is needed."
+  }
+ },
+ {
+  "id": "en-forward",
+  "expect": "reply|action",
+  "about": [
+   "contract|lease",
+   "insurance"
+  ],
+  "asker": "Tamar Cohen",
+  "email": {
+   "from": "Shira Rosen",
+   "subject": "Fwd: Office move",
+   "forwarded": true,
+   "writtenBy": "Tamar Cohen",
+   "body": "---------- Forwarded message ---------\nFrom: Tamar Cohen <tamar@example.org>\nDate: Monday\nSubject: Office move\n\nHi,\nBefore the move, please send me the new rental contract and the insurance certificate.\nThanks,\nTamar Cohen"
+  }
+ },
+ {
+  "id": "he-plain-question",
+  "expect": "reply",
+  "about": [
+   "תאריך|מועד|date|time|meeting|פגישה"
+  ],
+  "email": {
+   "from": "יוסי לוי",
+   "subject": "פגישה בשבוע הבא",
+   "body": "היי,\nמתי נוח לך להיפגש בשבוע הבא? אני פנוי ביום שני או רביעי אחר הצהריים.\nתודה,\nיוסי"
+  }
+ },
+ {
+  "id": "he-plain-send",
+  "expect": "reply|action",
+  "about": [
+   "חשבונית|invoice",
+   "מרץ|march"
+  ],
+  "email": {
+   "from": "מיכל אברהם",
+   "subject": "חשבונית מרץ",
+   "body": "שלום,\nאשמח אם תשלח לי את החשבונית של חודש מרץ עד סוף השבוע.\nבברכה,\nמיכל אברהם\nהנהלת חשבונות"
+  }
+ },
+ {
+  "id": "he-forward-contract",
+  "expect": "reply|action",
+  "about": [
+   "חוזה|contract|lease",
+   "ביטוח|insurance"
+  ],
+  "asker": "תמר - מנה\"ח|תמר כהן",
+  "email": {
+   "from": "שירה",
+   "subject": "הועבר: חוזה שכירות",
+   "forwarded": true,
+   "writtenBy": "תמר כהן",
+   "body": "---------- הודעה שהועברה ----------\nמאת: תמר כהן <tamar@example.org>\nתאריך: יום ב׳\nנושא: חוזה שכירות\n\nשלום רב,\nלקראת חידוש ההתקשרות, אבקש לשלוח אלינו את חוזה השכירות החדש ואת אישור הביטוח בתוקף.\nפרטי החשבון לתשלום שכר הדירה לא השתנו.\nתודה רבה,\nתמר - מנה\"ח\nבברכה"
+  }
+ },
+ {
+  "id": "he-signature-quote",
+  "expect": "reply|action",
+  "about": [
+   "טופס|form|אישור|approval",
+   "חתום|חתימה|sign"
+  ],
+  "asker": "נועה - מש\"א|נועה כץ",
+  "email": {
+   "from": "נועה כץ",
+   "subject": "טופס 101",
+   "body": "שלום,\nנא למלא ולחתום על טופס 101 לשנת 2027 ולהחזיר אליי עד יום חמישי.\nתודה,\nנועה - מש\"א"
+  }
+ },
+ {
+  "id": "he-action-site",
+  "expect": "action",
+  "about": [
+   "פרטי|פרטים|details|כרטיס|card",
+   "חברת החשמל|electric"
+  ],
+  "email": {
+   "from": "חברת החשמל",
+   "subject": "עדכון אמצעי תשלום",
+   "body": "לקוח יקר,\nתוקף כרטיס האשראי שמוגדר לתשלום החשבון פג. יש להיכנס לאזור האישי באתר ולעדכן את פרטי הכרטיס.\nחברת החשמל"
+  }
+ },
+ {
+  "id": "he-none-thanks",
+  "expect": "none",
+  "about": [],
+  "email": {
+   "from": "שירה",
+   "subject": "תודה",
+   "body": "קיבלתי את המסמכים, תודה רבה! אם יש שאלות אני כאן.\nשירה"
+  }
+ },
+ {
+  "id": "he-none-notice",
+  "expect": "none",
+  "about": [],
+  "email": {
+   "from": "בית הספר",
+   "subject": "עדכון",
+   "body": "הורים יקרים,\nביום שישי הקרוב לא יתקיימו לימודים בשל יום המורה. אין צורך בפעולה.\nהנהלת בית הספר"
+  }
+ }
+]

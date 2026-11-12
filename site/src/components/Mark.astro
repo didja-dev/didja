@@ -1,0 +1,12 @@
+---
+/** The Prompt done mark: a terminal prompt whose underscore has become a tick (Brand V1). */
+interface Props { size?: number; stroke?: number }
+const { size = 32, stroke = 6.3 } = Astro.props;
+---
+<svg aria-hidden="true" width={size} height={size} viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="14" fill="#FFD93D"></rect>
+  <g fill="none" stroke="#141414" stroke-width={stroke} stroke-linecap="round" stroke-linejoin="round">
+    <path d="M11 19 L24 32 L11 45"></path>
+    <path d="M30 38 L37 45 L53 27"></path>
+  </g>
+</svg>

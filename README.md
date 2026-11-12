@@ -1,0 +1,71 @@
+<p align="center">
+  <img src="brand/logo/svg/didja-lockup.svg" alt="didja" width="220">
+</p>
+
+<h3 align="center">Ten tabs, four Claude sessions, one forgotten step.</h3>
+
+<p align="center">Didja remembers the steps you didn't finish, and ticks them off when you do.<br>
+<a href="https://didja.dev">didja.dev</a></p>
+
+---
+
+You're vibe coding in five places at once. Claude gives you a checklist, you do three steps, a new prompt pulls you away, and step four quietly disappears, until production breaks.
+
+Didja is a Mac menu bar app that notices those steps for you:
+
+- **Catch.** Checklists Claude writes for you, commands to run, and "don't forget" lines in email and chat become open items in the menu bar, grouped by where they came from.
+- **Watch.** As you work, it looks for proof each step is done: the right variable on the right settings page, the command run in a terminal, the reply actually sent.
+- **Tick, or ask.** When it is sure, it ticks the step. When it isn't, it asks. A step left hanging gets one gentle reminder.
+
+It works in the apps you already use: Claude, Claude Code in a terminal, Gmail, Outlook, WhatsApp, Teams, Slack and any browser tab. You can also connect Linear, Jira, Asana, Todoist or Notion.
+
+![The Quick View, with sample data](docs/images/popover-sample.png)
+
+<!-- Screenshot placeholder: swap for a real capture of the Quick View once one is ready. -->
+
+## Download
+
+**[Download the latest release](https://github.com/didja-dev/didja/releases/latest)** (a signed and notarised `.dmg`).
+
+- macOS 14 or later, on Apple silicon.
+- Didja asks for **Accessibility** to read the window you are working in. Screen Recording is optional, and is only used for apps that hide their text.
+- Didja checks for updates once a day. You can turn this off in Settings › General.
+
+## Privacy
+
+It reads your screen, so it never sends any of it anywhere.
+
+- **On your Mac only.** Reading, matching and the language model (Apple's on-device model, or a model you run in Ollama if you turn that on) all run locally. No account, no cloud, no analytics.
+- **Text, never pixels.** It keeps short pieces of text. No screenshots or video are ever stored.
+- **Forgets in 24 hours.** Captured text is deleted after a day at most. Your task list stays.
+- **Skips the sensitive stuff.** Password fields, password managers, private windows and anything on your exclude list are never read.
+- **Pause any time** from the menu bar or with ⌃⌥P.
+
+The only network traffic is the daily update check and, if you connect them, your task tools. **Settings › Privacy** in the app shows what is read, what is kept and where, with the live state of each. The full detail is in [docs/GUIDE.md](docs/GUIDE.md#privacy).
+
+## Build from source
+
+You need Xcode 16+ and [Bun](https://bun.sh).
+
+```bash
+# engine tests and type-check
+cd engine && bun install && bun test && bunx tsc --noEmit && cd ..
+
+# build the app (bundles the engine) and run the Swift tests
+xcodebuild -project app/Didja.xcodeproj -scheme Didja -configuration Debug -derivedDataPath app/build test
+
+open app/build/Build/Products/Debug/Didja.app
+```
+
+The project signs with the maintainer's Apple Development team. To build without that certificate, add `CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Automatic DEVELOPMENT_TEAM=` to the `xcodebuild` command. macOS will then ask for Accessibility again after every rebuild.
+
+## Learn more
+
+- [docs/GUIDE.md](docs/GUIDE.md): every feature, keyboard shortcuts, the CLI and privacy in detail
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): how capture, the engine and the app fit together
+- [docs/ROADMAP.md](docs/ROADMAP.md), [docs/CHANGELOG.md](docs/CHANGELOG.md), [docs/DECISIONS.md](docs/DECISIONS.md)
+- [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md)
+
+## License
+
+MIT. See [LICENSE](LICENSE).

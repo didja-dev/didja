@@ -1,0 +1,65 @@
+# The engine's tests on every push and pull request; the app's tests (which also run every app
+# profile's fixtures) when the app, the engine, the schema or the profiles change.
+name: Tests
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  engine:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - name: Engine tests and type-check (includes the profile fixtures' engine half)
+        working-directory: engine
+        run: |
+          bun install --frozen-lockfile
+          bun test
+          bunx tsc --noEmit
+
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      app: ${{ steps.diff.outputs.app }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: diff
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] || [ -z "$BASE" ] || ! git cat-file -e "$BASE" 2>/dev/null; then
+            echo "app=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          if git diff --name-only "$BASE" "$HEAD" | grep -qE '^(app|engine|schema|profiles)/'; then
+            echo "app=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "app=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  app:
+    needs: changes
+    if: needs.changes.outputs.app == 'true'
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - name: Engine packages (the app bundles the engine)
+        working-directory: engine
+        run: bun install --frozen-lockfile
+      - name: App tests, signed ad hoc (no certificate on CI)
+        run: |
+          set -o pipefail
+          xcodebuild -version
+          xcodebuild -project app/Didja.xcodeproj -scheme Didja -configuration Debug -derivedDataPath app/build \
+            CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Automatic DEVELOPMENT_TEAM= test > "$RUNNER_TEMP/xcodebuild.log" 2>&1 || {
+              grep -E 'error:|failed|\*\* TEST' "$RUNNER_TEMP/xcodebuild.log" | head -80; exit 1; }
+          grep -E '\*\* TEST|Executed [0-9]+ tests' "$RUNNER_TEMP/xcodebuild.log" | tail -3

@@ -1,0 +1,140 @@
+---
+/**
+ * Didja's Full View window, drawn in HTML and CSS in the shape of the real one (app/Didja/TaskViews.swift):
+ * the sidebar (Tasks, Sources, Settings, capture status), the list grouped by where things came
+ * from, and the detail pane for the chosen task: what would tick it and what has been seen.
+ * Drawn at 1040×712 and scaled to fit (public/scripts/site.js sets --s). Everything in it is made up.
+ */
+import Mark from './Mark.astro';
+import { fullView as v } from '../content';
+
+const icons: Record<string, string> = {
+  General: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/>',
+  Connections: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
+  'Your Names': '<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2"/><path d="M6 16c.6-1.5 1.7-2 3-2s2.4.5 3 2M14 10h4M14 13h3"/>',
+  'How It Decides': '<path d="M9 4a3 3 0 0 0-3 3 3 3 0 0 0-2 5 3 3 0 0 0 2 5 3 3 0 0 0 6 0V7a3 3 0 0 0-3-3ZM15 4a3 3 0 0 1 3 3 3 3 0 0 1 2 5 3 3 0 0 1-2 5 3 3 0 0 1-6 0"/>',
+  'Exclude List': '<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/><path d="M3 3l18 18"/>',
+  Privacy: '<path d="M12 3 4 6v6c0 4.4 3.4 8.3 8 9 4.6-.7 8-4.6 8-9V6Z"/><rect x="9.5" y="10.5" width="5" height="5" rx="1"/>',
+};
+---
+<div class="stage fv" data-stage role="img" aria-label={v.label}>
+  <div class="fv-win" aria-hidden="true">
+    <aside class="fv-side">
+      <div class="fv-lights"><i></i><i></i><i></i></div>
+      <div class="fv-lockup"><Mark size={22} stroke={8} /><span>didja</span></div>
+      <p class="fv-h">Tasks</p>
+      {v.filters.map((f) => <div class:list={['fv-row', { on: f.on }]}><span>{f.name}</span><em>{f.count}</em></div>)}
+      <p class="fv-h">Sources</p>
+      {v.sources.map((f) => <div class:list={['fv-row', { on: f.on }]}><span>{f.name}</span>{f.count && <em>{f.count}</em>}</div>)}
+      <p class="fv-h">Settings</p>
+      {v.settings.map((name) => (
+        <div class="fv-row fv-set"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" set:html={icons[name] ?? ''}></svg><span>{name}</span></div>
+      ))}
+      <div class="fv-status"><i></i>{v.status}</div>
+    </aside>
+
+    <main class="fv-main">
+      <div class="fv-bar">
+        <strong>Pending</strong><span class="fv-scope">Everything</span>
+        <span class="fv-btn">Expand All</span>
+        <span class="fv-btn">+ Add</span>
+        <span class="fv-search">⌕ Search</span>
+        <span class="fv-btn">Quick View</span>
+      </div>
+      <div class="fv-body">
+        <div class="fv-list">
+          {v.groups.map((g) => (
+            <div class="fv-group">
+              <div class="fv-source"><i></i>{g.source}</div>
+              {g.title && <div class="fv-title"><span class="fv-pie"></span>{g.title}<em>{g.progress}</em></div>}
+              {g.items.map((it) => (
+                <div class:list={['fv-item', { done: it.done, sel: it.selected, sub: g.title }]}>
+                  <span class="fv-box"></span>
+                  <span class="fv-text"><span>{it.title}</span>{it.meta && <small class:list={[it.tone]}>{it.meta}</small>}</span>
+                  {it.when && <em>{it.when}</em>}
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+        <section class="fv-detail">
+          <p class="fv-parent">{v.detail.parent}</p>
+          <h4>{v.detail.title}</h4>
+          <p class="fv-from">{v.detail.source}</p>
+          <div class="fv-actions"><span class="fv-btn dark">Mark Done</span><span class="fv-btn">Snooze</span><span class="fv-btn">Rename</span><span class="fv-btn">Copy</span></div>
+          <p class="fv-progress">{v.detail.progress}</p>
+          <p class="fv-why-h">{v.detail.whyTitle}</p>
+          <pre class="fv-why">{v.detail.why}</pre>
+          <span class="fv-btn fv-go">Go to Source</span>
+          <p class="fv-not">{v.detail.notAction}</p>
+        </section>
+      </div>
+      <div class="fv-hints">{v.hints}</div>
+    </main>
+  </div>
+</div>
+
+<style>
+  .fv { --s: 1; position: relative; width: 100%; aspect-ratio: 1040 / 712; border-radius: 14px; overflow: hidden;
+    box-shadow: 0 0 0 1px rgba(20,20,20,.12), 0 40px 80px -36px rgba(20,20,20,.45); background: #FBFBF8; }
+  .fv-win { position: absolute; left: 0; top: 0; width: 1040px; height: 712px; transform: scale(var(--s)); transform-origin: 0 0;
+    display: flex; font-family: -apple-system, BlinkMacSystemFont, var(--body); color: var(--ink); font-size: 13px; }
+
+  .fv-side { width: 210px; flex: none; padding: 14px 10px 10px; background: #F2F1EA; border-right: 1px solid rgba(20,20,20,.08); display: flex; flex-direction: column; gap: 1px; }
+  .fv-lights { display: flex; gap: 7px; padding: 0 6px 12px; }
+  .fv-lights i { width: 11px; height: 11px; border-radius: 999px; background: #FF5F57; }
+  .fv-lights i:nth-child(2) { background: #FEBC2E; }
+  .fv-lights i:nth-child(3) { background: #28C840; }
+  .fv-lockup { display: flex; align-items: center; gap: 7px; padding: 4px 8px 12px; font-family: var(--display); font-weight: 800; font-size: 20px; letter-spacing: -0.02em; }
+  .fv-h { margin: 12px 8px 3px; font-size: 11px; font-weight: 600; color: var(--pencil); }
+  .fv-h:first-of-type { margin-top: 0; }
+  .fv-row { display: flex; align-items: center; gap: 7px; padding: 5px 8px; border-radius: 7px; }
+  .fv-row span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .fv-row em { font-style: normal; font-size: 11px; color: var(--pencil); font-variant-numeric: tabular-nums; }
+  .fv-row.on { background: #FFF2B8; font-weight: 600; }
+  .fv-set svg { color: var(--pencil); flex: none; }
+  .fv-status { margin-top: auto; display: flex; align-items: center; gap: 7px; padding: 6px 8px 0; font-size: 11.5px; color: var(--pencil); }
+  .fv-status i { width: 7px; height: 7px; border-radius: 999px; background: var(--done); }
+
+  .fv-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .fv-bar { display: flex; align-items: center; gap: 8px; padding: 14px 18px 12px; border-bottom: 1px solid rgba(20,20,20,.07); }
+  .fv-bar strong { font-size: 17px; }
+  .fv-scope { color: var(--pencil); margin-right: auto; }
+  .fv-btn { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 7px; border: 1px solid #BDBCB2; font-weight: 600; font-size: 12px; background: #FFFFFF; white-space: nowrap; }
+  .fv-btn.dark { background: var(--ink); color: #FFFFFF; border-color: var(--ink); }
+  .fv-search { width: 150px; padding: 5px 10px; border-radius: 7px; background: #EEEDE6; color: var(--pencil); font-size: 12px; }
+
+  .fv-body { flex: 1; min-height: 0; display: flex; }
+  .fv-list { flex: 1; min-width: 0; padding: 6px 14px; overflow: hidden; }
+  .fv-group { padding: 6px 0 4px; }
+  .fv-source { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--pencil); padding: 3px 6px; }
+  .fv-source i { width: 5px; height: 5px; border-radius: 999px; background: #8A8980; }
+  .fv-title { display: flex; align-items: center; gap: 7px; padding: 3px 6px; font-weight: 700; font-size: 14px; }
+  .fv-title em { margin-left: auto; font-style: normal; font-weight: 400; font-size: 11px; color: var(--pencil); }
+  .fv-pie { width: 13px; height: 13px; border-radius: 999px; border: 1.6px solid var(--ink); background: conic-gradient(var(--ink) 0 50%, transparent 50% 100%); }
+  .fv-item { display: flex; align-items: flex-start; gap: 9px; padding: 6px 8px; border-radius: 8px; }
+  .fv-item.sub { margin-left: 18px; }
+  .fv-item em { margin-left: auto; font-style: normal; font-size: 11px; color: var(--pencil); white-space: nowrap; }
+  .fv-box { flex: none; width: 15px; height: 15px; margin-top: 2px; border-radius: 999px; border: 1.5px solid #8A8980; }
+  .fv-item.done .fv-box { background: var(--done) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 12 5 5 9-10'/%3E%3C/svg%3E") center / 10px no-repeat; border-color: var(--done); }
+  .fv-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+  .fv-item.done .fv-text > span { text-decoration: line-through; color: #77766E; }
+  .fv-text small { font: 10.5px var(--mono); color: var(--pencil); }
+  .fv-text small.seen { color: var(--done); }
+  .fv-text small.nudge { color: var(--nudge); }
+  .fv-item.sel { background: #FFF2B8; box-shadow: inset 0 0 0 1px rgba(20,20,20,.08); }
+
+  .fv-detail { width: 290px; flex: none; border-left: 1px solid rgba(20,20,20,.08); padding: 18px; display: flex; flex-direction: column; gap: 9px; }
+  .fv-detail p, .fv-detail h4, .fv-detail pre { margin: 0; }
+  .fv-parent { font-size: 11.5px; color: var(--pencil); }
+  .fv-detail h4 { font-size: 17px; line-height: 1.25; }
+  .fv-from { font-size: 11.5px; color: var(--pencil); margin-top: -4px; }
+  .fv-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+  .fv-progress { font-size: 12.5px; color: var(--graphite); }
+  .fv-why-h { font-weight: 600; font-size: 12.5px; margin-top: 4px; }
+  .fv-why { font: 11px/1.55 var(--mono); color: var(--graphite); white-space: pre-wrap; }
+  .fv-go { align-self: flex-start; }
+  .fv-not { margin-top: auto !important; font-size: 12px; color: var(--nudge); }
+
+  .fv-hints { padding: 9px 18px; border-top: 1px solid rgba(20,20,20,.07); font-size: 10.5px; color: var(--pencil); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+</style>
