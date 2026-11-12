@@ -6,6 +6,10 @@ Each entry says what changed, and what was **not verified** where that applies: 
 
 ## 2026-11-12
 
+### Didja Missed This offers every app you were in
+- "Where did you do it?" showed at most 8 places, with the app the task came from always last, so an email's own app (Outlook, where you approve or answer it) fell off the list, and so did apps behind many browser sites. Now each app you were in since the task gets a place before a second site of the same app, up to 16, and an email's or chat's own app keeps its place by when you were last there. A step from Claude still puts Claude last.
+- Checked on the maintainer's Mac: an Outlook approval task now lists Outlook third, and the apps that were cut off before.
+
 ### "New Messages Only" leaves out only what is dated before capture started
 - With **Older Messages: Ignore Them**, Didja now leaves out a mail or chat message only when its own date is before capture started (at launch, or when you last pressed Resume). The app records that moment (`meta.capturing_since`).
 - A Claude reply has no date, so it is never left out: a checklist that came while you were in another window, or one you scroll back up to read, becomes tasks. Before, anything already in a conversation when Didja first saw it was dropped, so those were lost (the maintainer hit it).

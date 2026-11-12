@@ -94,6 +94,9 @@ function screensAt(store: Store, site: string, since: string): Observation[] {
   return store.observationsSince(since).filter((o) => siteOf(o) === site);
 }
 
+/** How many places Didja Missed This offers at most. */
+export const MAX_PLACES = 16;
+
 export function missedReport(store: Store, id: number, now: Date = new Date()): MissedReport | null {
   const task = store.getTask(id);
   if (!task) return null;
@@ -119,11 +122,17 @@ export function missedReport(store: Store, id: number, now: Date = new Date()): 
     const named = [...p.site.split(/[.-]/), ...p.app.toLowerCase().split(/[^a-z0-9]+/)].some((w) => w.length >= 3 && kw.includes(w));
     p.watched = named || learnedWhere({ title: task.capturedTitle, sourceId: task.sourceId }, where(p), learned);
   }
-  // The likeliest first: where you were most recently, not the app the task came from.
-  const fromApp = (context?.app ?? '').toLowerCase();
-  const places = [...bySite.values()]
-    .sort((a, b) => Number(a.app.toLowerCase() === fromApp) - Number(b.app.toLowerCase() === fromApp) || b.last.localeCompare(a.last))
-    .slice(0, 8);
+  // The likeliest first: where you were most recently. A step from a conversation with Claude is
+  // done somewhere else, so that app goes last; an email or a chat ask is often done right where
+  // it came from (approved, answered, signed in Outlook itself), so its app keeps its place.
+  const fromApp = task.sourceKind === 'email' || task.sourceKind === 'chat' ? '' : (context?.app ?? '').toLowerCase();
+  const sorted = [...bySite.values()]
+    .sort((a, b) => Number(a.app.toLowerCase() === fromApp) - Number(b.app.toLowerCase() === fromApp) || b.last.localeCompare(a.last));
+  // Every app you were in is offered: its latest place before a second site of the same app,
+  // so many browser sites never push an app off the list. Shown in the order above.
+  const firstOfApp = sorted.filter((p, i) => sorted.findIndex((q) => q.app === p.app) === i);
+  const kept = new Set([...firstOfApp, ...sorted.filter((p) => !firstOfApp.includes(p))].slice(0, MAX_PLACES));
+  const places = sorted.filter((p) => kept.has(p));
   const watching = [
     `Screens whose app or site names one of: ${keywords(task.capturedTitle).join(', ') || '(no words to go by)'}.`,
     ...(task.criteria?.links ?? []).map((l) => `The page its email linked to: ${l}`),

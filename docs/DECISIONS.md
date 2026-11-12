@@ -4,6 +4,8 @@ Choices made while building ScrolledAway, with the reason, so they are not re-ar
 
 ## 2026-11-12
 
+- **Didja Missed This puts the task's own app last only for steps from Claude** (the maintainer could not pick Outlook for an Outlook approval). A step Claude gives is done somewhere else; an email or chat ask is often done right where it came from.
+
 - **"New Messages Only" goes by dates, not by what was first on screen** (the maintainer chose it after a Claude checklist was missed). It now means "sent since capture started": a mail or chat message dated earlier is left out. A Claude reply has no date, so it is always read, accepting that scrolling back to an old Claude conversation can bring up its lists. A missing or unreadable date keeps the message: the rule only ever leaves out what is plainly old.
 
 - **didja.dev takes downloads from `didja-dev/releases`, not the code repository** (found before going public). The builds and the appcast already live there (release.yml, scripts/release.sh); pointing the site at the same place keeps one source of truth. Code links stay on `didja-dev/didja`.

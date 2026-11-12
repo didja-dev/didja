@@ -136,3 +136,41 @@ test('the places you taught are shown with their conversation, and can be forgot
   expect(store.donePlacesShown()).toEqual([]);
   store.close();
 });
+
+test('every app you were in is offered, and an email\'s own app keeps its place', () => {
+  const store = new Store(':memory:');
+  const at = (m: number, app: string, url: string | null, text: string, windowTitle = app) =>
+    store.insertObservation({ ts: later(m).toISOString(), bundleId: `com.example.${app.replace(/\W/g, '')}`, app, windowTitle, url, source: 'ax', text });
+  const mail = at(0, 'Microsoft Outlook', null, 'From: Dana Levi\nPlease approve purchase order 4410', 'Inbox - Outlook');
+  const id = store.upsertTask({ distinct: 'po', title: 'Approve purchase order 4410', sourceKind: 'email', sourceRef: 'Microsoft Outlook — Dana Levi',
+    confidence: 1, position: null, ts: NOW.toISOString(), observationId: mail, markers: [], criteria: { service: null, hosts: [] } }).id;
+  at(1, 'Microsoft Outlook', null, 'Purchase order 4410\nApproved', 'Purchase order 4410 - Outlook');
+  for (let i = 0; i < 10; i++) at(2 + i, 'Microsoft Edge', `https://site${i}.example.com/`, `page ${i}`);
+  at(13, 'Claude', 'https://claude.ai/chat/x', 'a chat');
+  at(14, 'Linear', null, 'issues');
+  const r = missedReport(store, id, later(20))!;
+  const apps = r.places.map((p) => p.app);
+  expect(apps).toContain('Microsoft Outlook');
+  expect(apps).toContain('Linear');
+  expect(new Set(apps)).toEqual(new Set(['Microsoft Outlook', 'Microsoft Edge', 'Claude', 'Linear']));
+  expect(r.places.length).toBeLessThanOrEqual(16);
+  // Most recent first: Outlook is not pushed to the end for an email.
+  expect(r.places.map((p) => p.site).slice(0, 2)).toEqual(['linear', 'claude.ai']);
+  store.close();
+});
+
+test('a Claude step\'s own app is still offered, last, however many places come before it', () => {
+  const store = new Store(':memory:');
+  const at = (m: number, app: string, url: string | null, text: string) =>
+    store.insertObservation({ ts: later(m).toISOString(), bundleId: `com.example.${app.replace(/\W/g, '')}`, app, windowTitle: app, url, source: 'ax', text });
+  const asked = at(0, 'Claude', 'https://claude.ai/chat/x', 'Next:\nTurn on Project Level Override and select Save');
+  const id = store.upsertTask({ distinct: 'plo', title: 'Turn on Project Level Override and select Save', sourceKind: 'claude', sourceRef: 'Claude — Planner',
+    confidence: 1, position: null, ts: NOW.toISOString(), observationId: asked, markers: [], criteria: { service: null, hosts: [] } }).id;
+  for (let i = 0; i < 20; i++) at(2 + i, 'Microsoft Edge', `https://site${i}.example.com/`, `page ${i}`);
+  at(25, 'Claude', 'https://claude.ai/chat/x', 'later in the chat');
+  const r = missedReport(store, id, later(30))!;
+  expect(r.places.length).toBe(16);
+  expect(r.places.at(-1)!.app).toBe('Claude');
+  expect(r.places.slice(0, -1).every((p) => p.app === 'Microsoft Edge')).toBe(true);
+  store.close();
+});
