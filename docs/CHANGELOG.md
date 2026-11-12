@@ -7,6 +7,7 @@ Each entry says what changed, and what was **not verified** where that applies: 
 ## 2026-11-12
 
 ### Didja 0.5.0 (build 6)
+- The release build is signed ad hoc before being re-signed with Developer ID (`scripts/release.sh`), as the CI tests already were: the first run on GitHub stopped because its machine has no Apple Development certificate. Checked: a Release build this way succeeds on the maintainer's Mac.
 - The first release built on GitHub (`release.yml`, on a version tag): signed with Developer ID, notarised, its update signed with the Sparkle key, uploaded to `didja-dev/releases`, the appcast updated and didja.dev deployed. Everything above since 0.4.1 is in it: a model in Ollama for emails and "looks done?", keys for canvases, Didja Missed This offering every app, archive matching by subject without status tags, and New Messages Only reading every Claude reply.
 
 ### Release builds on GitHub use macOS 26

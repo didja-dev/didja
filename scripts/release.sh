@@ -37,8 +37,11 @@ SIGN_AS="$IDENTITY"
 IDENTITY="$HASH"
 
 log "Building Release"
+# Signed ad hoc here, as in CI's tests: every part is re-signed with Developer ID below, so the
+# build needs no Apple Development certificate (GitHub's machines have none).
 xcodebuild -project "$ROOT/app/Didja.xcodeproj" -scheme Didja -configuration Release \
-  -derivedDataPath "$BUILD" clean build > "$BUILD.log" 2>&1 || { grep -E "error:" "$BUILD.log" | head; echo "Build failed; see $BUILD.log" >&2; exit 1; }
+  -derivedDataPath "$BUILD" CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Automatic DEVELOPMENT_TEAM= \
+  clean build > "$BUILD.log" 2>&1 || { grep -E "error:" "$BUILD.log" | head; echo "Build failed; see $BUILD.log" >&2; exit 1; }
 rm -f "$ROOT"/engine/.*.bun-build
 [[ -x "$APP/Contents/Helpers/didja" ]] || { echo "The engine was not bundled (is bun installed?)" >&2; exit 1; }
 
