@@ -6,6 +6,9 @@ Each entry says what changed, and what was **not verified** where that applies: 
 
 ## 2026-11-12
 
+### Didja 0.5.0 (build 6)
+- The first release built on GitHub (`release.yml`, on a version tag): signed with Developer ID, notarised, its update signed with the Sparkle key, uploaded to `didja-dev/releases`, the appcast updated and didja.dev deployed. Everything above since 0.4.1 is in it: a model in Ollama for emails and "looks done?", keys for canvases, Didja Missed This offering every app, archive matching by subject without status tags, and New Messages Only reading every Claude reply.
+
 ### Release builds on GitHub use macOS 26
 - `release.yml` ran on `macos-15`, whose Xcode has no FoundationModels: a build made there would have compiled without Apple's on-device model (the code is guarded by `canImport`). It now runs on `macos-26`, like the app tests. **Not verified:** no release has run on GitHub yet (its secrets are not set).
 
