@@ -25,7 +25,7 @@ env:
 
 jobs:
   release:
-    runs-on: macos-15
+    runs-on: macos-26  # the same as the tests: macOS 15's Xcode has no FoundationModels, so the model would be left out
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2

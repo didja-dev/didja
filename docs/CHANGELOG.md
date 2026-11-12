@@ -6,6 +6,9 @@ Each entry says what changed, and what was **not verified** where that applies: 
 
 ## 2026-11-12
 
+### Release builds on GitHub use macOS 26
+- `release.yml` ran on `macos-15`, whose Xcode has no FoundationModels: a build made there would have compiled without Apple's on-device model (the code is guarded by `canImport`). It now runs on `macos-26`, like the app tests. **Not verified:** no release has run on GitHub yet (its secrets are not set).
+
 ### Archiving the follow-up email takes the task off the list too
 - An archive matched only an email with exactly the same subject, so archiving the workflow's "Closed: Purchase Order 4410…" left the "Action Required: Purchase Order 4410…" task open. An archive now also matches an email about the same matter: the same subject once a status tag in front ("Closed:", "Action Required:", "[External]", up to two of them, each one to three words) is set aside, when what remains is at least 20 characters. A different order number, or a short subject like "Lunch on Thursday", does not match. Still dismissed, never ticked.
 - Checked against the maintainer's real purchase-order email and the archive Didja saw: it would have been taken off the list.
