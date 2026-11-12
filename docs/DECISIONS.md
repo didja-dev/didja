@@ -4,6 +4,8 @@ Choices made while building ScrolledAway, with the reason, so they are not re-ar
 
 ## 2026-11-12
 
+- **Archiving an email, or another about the same matter, means you are no longer interested in its action** (the maintainer, restating the rule after archiving a "Closed:" follow-up). So the task is dismissed, not ticked and not asked about; matching by the subject without its status tag is allowed because a wrong dismissal is recoverable from the Dismissed view, and it still needs 20 characters of subject so short ones do not collide.
+
 - **Didja Missed This puts the task's own app last only for steps from Claude** (the maintainer could not pick Outlook for an Outlook approval). A step Claude gives is done somewhere else; an email or chat ask is often done right where it came from.
 
 - **"New Messages Only" goes by dates, not by what was first on screen** (the maintainer chose it after a Claude checklist was missed). It now means "sent since capture started": a mail or chat message dated earlier is left out. A Claude reply has no date, so it is always read, accepting that scrolling back to an old Claude conversation can bring up its lists. A missing or unreadable date keeps the message: the rule only ever leaves out what is plainly old.

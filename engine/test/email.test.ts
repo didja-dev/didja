@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
 import { formatWhy } from '../src/cli.ts';
-import { accountOf, isMine, followsLink, mailLinks, unwrapLink, forwardOf, mailKey, signedName, mailOrigin, mailSnippet, baseSubject, isAutomatic, isRecent, isReply, mailSource, mailTaskTitle, parseEmails } from '../src/email.ts';
+import { accountOf, isMine, followsLink, mailLinks, unwrapLink, forwardOf, mailKey, signedName, mailOrigin, mailSnippet, baseSubject, isAutomatic, isRecent, isReply, mailSource, mailTaskTitle, parseEmails, sameMatter } from '../src/email.ts';
 import type { MailReader, MailVerdict } from '../src/email.ts';
 import { pollOnce } from '../src/engine.ts';
 import { Store } from '../src/store.ts';
@@ -660,5 +660,37 @@ test('a reaction on the email you were asked to answer asks you, never ticks; it
   store.rejectSuggestion(1, NOW);
   outlook(store, '⟦Email⟧\nReactions: 1 Like', '2026-11-10T10:02:00.000Z');
   expect(pollOnce(store, NOW, { mailReader }).suggested).toBe(0);
+  store.close();
+});
+
+test('an archive is about the same matter when only the status tag in front differs', () => {
+  const ask = 'Action Required: Purchase order 4410 for USD 2,300.00 needs your sign-off.';
+  expect(sameMatter(ask, 'Closed: Purchase order 4410 for USD 2,300.00 needs your sign-off.')).toBe(true);
+  expect(sameMatter(ask, 'RE: Action Required: Purchase order 4410 for USD 2,300.00 needs your sign-off.')).toBe(true);
+  expect(sameMatter('[External] Approved: Expense report 77 for Acme travel', 'Expense report 77 for Acme travel')).toBe(true);
+  // Another order, or a subject that says too little once its tag is gone, is not the same matter.
+  expect(sameMatter(ask, 'Closed: Purchase order 4411 for USD 2,300.00 needs your sign-off.')).toBe(false);
+  expect(sameMatter('Reminder: Lunch on Thursday', 'Closed: Lunch on Thursday')).toBe(false);
+  expect(sameMatter('Q3 budget numbers', 'Q3 budget numbers')).toBe(true);
+  // A subject cut at 80 characters in the task's note still matches the full one.
+  const long = `Action Required: ${'Purchase order 4410 '.repeat(5)}`.slice(0, 80);
+  expect(sameMatter(long, `Closed: ${'Purchase order 4410 '.repeat(5)}and more`)).toBe(true);
+});
+
+test('archiving the "Closed:" email about an order takes the "Action Required:" task off the list', () => {
+  const store = new Store(':memory:');
+  const subject = (tag: string, n: number) => `${tag}: Purchase order ${n} for USD 2,300.00 needs your sign-off.`;
+  outlook(store, mail(subject('Action Required', 4410), 'Acme Approvals, approvals@acme.com', 'Please approve purchase order 4410.'));
+  outlook(store, mail(subject('Action Required', 4411), 'Acme Approvals, approvals@acme.com', 'Please approve purchase order 4411.'), '2026-11-10T10:00:30.000Z');
+  pollOnce(store, NOW, { mailReader: (email) => ({ need: 'action', task: `Approve purchase order ${email.subject.match(/\d{4}/)![0]}` }) });
+  expect(store.listTasks().map((t) => t.title).sort()).toEqual(['Approve purchase order 4410', 'Approve purchase order 4411']);
+
+  outlook(store, `⟦Archived email: ${subject('Closed', 4410)}⟧`, '2026-11-10T10:01:00.000Z');
+  expect(pollOnce(store, NOW, { mailReader: reader(NONE).mailReader }).archived).toBe(1);
+  expect(store.listTasks().map((t) => t.title)).toEqual(['Approve purchase order 4411']);
+  const gone = store.getTask(1)!;
+  expect(gone.title).toBe('Approve purchase order 4410');
+  expect(gone.status).toBe('dismissed');
+  expect(formatWhy(gone, store.listEvidence(gone.id))).toContain('you archived the email');
   store.close();
 });

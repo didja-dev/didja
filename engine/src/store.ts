@@ -26,6 +26,7 @@ import schema21 from '../../schema/021_done_places.sql' with { type: 'text' };
 import { contextLines } from './context.ts';
 import type { ContextLine } from './context.ts';
 import { renamedSource } from './extract.ts';
+import { sameMatter } from './email.ts';
 import { requiredMarkers } from './markers.ts';
 import type { Criteria, Marker } from './markers.ts';
 
@@ -1390,8 +1391,10 @@ export class Store {
   }
 
   /**
-   * The email was archived: its tasks leave the list. They are dismissed, not
-   * ticked, since archiving does not say the thing was done. Returns how many.
+   * The email was archived: its tasks leave the list. They are dismissed, not ticked: archiving
+   * says you no longer need it, not that it was done. The email the task came from, or another
+   * about the same matter ("Closed: Purchase order 4410" for "Action Required: Purchase order
+   * 4410"), in the same mailbox. Returns how many.
    */
   dismissArchived(mailbox: string, subject: string, now: Date): number {
     const rows = this.db
@@ -1402,8 +1405,10 @@ export class Store {
          WHERE s.kind = 'email' AND s.ref = ? AND t.status IN ('open', 'snoozed')`,
       )
       .all(mailbox) as { id: number; origin: string | null }[];
-    const named = subject.trim();
-    const hit = rows.filter((r) => r.origin?.endsWith(`— “${named.slice(0, 80)}”`));
+    const hit = rows.filter((r) => {
+      const from = r.origin?.match(/— “(.*)”$/)?.[1];
+      return from !== undefined && sameMatter(from, subject.trim());
+    });
     for (const { id } of hit) {
       this.setStatus(id, 'dismissed', now);
       this.addNote(id, 'judged', now.toISOString(), 'Dismissed: you archived the email');

@@ -163,6 +163,39 @@ export function parseEmails(text: string): Email[] {
 const PRESENCE = /\s+(available|away|busy|offline|do not disturb|be right back|out of office|in a meeting|in a call|presenting|focusing|appear away|appear offline|presence unknown|status unknown)$/i;
 
 /** "Re: Fwd: Q3 numbers" → "q3 numbers". */
+/**
+ * The subject without what a workflow puts in front of it to say how things stand: "Action
+ * Required: Purchase order 4410" and "Closed: Purchase order 4410" are the same matter. Reply and
+ * forward prefixes go too (baseSubject). Up to two such tags: one to three words and a colon, or a
+ * bracketed tag such as "[External]".
+ */
+export function coreSubject(subject: string): string {
+  let s = baseSubject(subject);
+  for (let i = 0; i < 2; i++) {
+    const next = s.replace(/^(\[[^\]]{1,24}\]\s*[:：]?\s*|[\p{L}]+(?: [\p{L}]+){0,2}\s*[:：]\s+)/u, '');
+    if (next === s) break;
+    s = baseSubject(next);
+  }
+  return s;
+}
+
+/** The fewest letters a subject keeps after its tags for an archive to match it by that alone. */
+const CORE_MIN = 20;
+
+/**
+ * Whether archiving the email `archived` is about the email a task came from (`origin`, as its
+ * origin note keeps it: at most 80 characters). The same subject, or the same matter under another
+ * status tag ("Closed:" for "Action Required:") when what remains is long enough to name it.
+ */
+export function sameMatter(origin: string, archived: string): boolean {
+  const cut = origin.length >= 80;
+  const a = baseSubject(origin), b = baseSubject(archived);
+  if (a === b || (cut && b.startsWith(a))) return true;
+  const ca = coreSubject(origin), cb = coreSubject(archived);
+  if (ca.length < CORE_MIN) return false;
+  return ca === cb || (cut && cb.startsWith(ca));
+}
+
 export function baseSubject(subject: string): string {
   let s = subject.trim();
   for (;;) {

@@ -6,6 +6,10 @@ Each entry says what changed, and what was **not verified** where that applies: 
 
 ## 2026-11-12
 
+### Archiving the follow-up email takes the task off the list too
+- An archive matched only an email with exactly the same subject, so archiving the workflow's "Closed: Purchase Order 4410…" left the "Action Required: Purchase Order 4410…" task open. An archive now also matches an email about the same matter: the same subject once a status tag in front ("Closed:", "Action Required:", "[External]", up to two of them, each one to three words) is set aside, when what remains is at least 20 characters. A different order number, or a short subject like "Lunch on Thursday", does not match. Still dismissed, never ticked.
+- Checked against the maintainer's real purchase-order email and the archive Didja saw: it would have been taken off the list.
+
 ### Didja Missed This offers every app you were in
 - "Where did you do it?" showed at most 8 places, with the app the task came from always last, so an email's own app (Outlook, where you approve or answer it) fell off the list, and so did apps behind many browser sites. Now each app you were in since the task gets a place before a second site of the same app, up to 16, and an email's or chat's own app keeps its place by when you were last there. A step from Claude still puts Claude last.
 - Checked on the maintainer's Mac: an Outlook approval task now lists Outlook third, and the apps that were cut off before.
