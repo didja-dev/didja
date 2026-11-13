@@ -4,7 +4,7 @@ import { accountOf, baseSubject, responseAction, isAutomatic, isMine, isRecent, 
 import type { MailIdentity, MailReader } from './email.ts';
 import { chatApp, chatKey, asksForAcknowledgement, chatTaskTitle, isEmojiOnly, isPositiveEmoji, isReaction, lineHash, plainReactions, reactedTo, namesMe, chatSourceRef, chatTime, isMine as isMyMessage, mayAskOfMe, parseChatMessages, plainlyDefers, sentBefore } from './chat.ts';
 import type { ChatMessage, ChatReader, ReplyJudge } from './chat.ts';
-import { assemble, classifySource, extractCommands, extractChecklists, sourceRef, TERMINALS } from './extract.ts';
+import { assemble, classifySource, doneByClaude, extractCommands, extractChecklists, sourceRef, splitClaudeCode, stepLine, TERMINALS } from './extract.ts';
 import { rewordPlacesOnce } from './missed.ts';
 import { isWhereItIsDone, learnedWhere, placeOf, relevantSnippet, siteOf } from './looksdone.ts';
 import type { Looker } from './looksdone.ts';
@@ -153,6 +153,7 @@ const TITLES_PER_POLL = 2;
 /** How long a queued list must sit unchanged before it is judged (it may still be streaming). */
 const JUDGE_SETTLE_MS = 6_000;
 const JUDGE_PER_POLL = 2;
+const CLAUDE_DID_IT = 'Claude did this itself: its own tools ran it after listing it, so it was not yours to do';
 const CLAUDE_SAID_SO = 'The text around this list shows it is what Claude was going to do, not something asked of you';
 const NOT_FOR_YOU = "On-device model: this list reads as Claude's own plan or report, not something asked of you";
 
@@ -243,7 +244,10 @@ export function pollOnce(store: Store, now: Date = new Date(), opts: PollOptions
     const chat = kind !== 'claude-code';
     // A Claude reply has no date, so "only new messages" never leaves one out: a list you scroll
     // back to see, or one that arrived while you were in another window, is still yours.
-    const source = text;
+    // In Claude Code only Claude's replies hold steps for you: not its tool calls and their output
+    // (a file it read, `cat` of a doc), nor what you typed (SCR-65).
+    const transcript = chat ? null : splitClaudeCode(text);
+    const source = transcript?.replies ?? text;
     const lists = extractChecklists(source, { claudeOnly: chat, joinWrapped: !chat, includeAssistant: true });
     // Commands Claude tells you to run, outside any list (a list's own commands are already in it).
     const listed = lists.flatMap((l) => l.items.flatMap(function all(i: ChecklistItem): string[] {
@@ -285,6 +289,12 @@ export function pollOnce(store: Store, now: Date = new Date(), opts: PollOptions
         wrap: only === null,
       });
       stats.newTasks += created;
+      // Steps Claude then carried out with its own tools are its, not yours: taken back, never ticked.
+      if (transcript?.split) {
+        const steps = list.items.flatMap(function all(i: ChecklistItem): ChecklistItem[] { return [i, ...i.children.flatMap(all)]; });
+        const did = steps.filter((i) => i.children.length === 0 && doneByClaude(i, transcript.tools, stepLine(source, i.title)));
+        stats.retracted += retract(store, did.map((i) => i.title), CLAUDE_DID_IT, now);
+      }
 
       if (unsettled && verdict === null && rootId !== null) {
         const slot = `${sourceRef(latest, kind)}\u0000${list.title ?? ''}`;

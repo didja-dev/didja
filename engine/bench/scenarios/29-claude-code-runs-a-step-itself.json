@@ -1,0 +1,63 @@
+{
+  "id": "claude-code-runs-a-step-itself",
+  "about": "Claude Code lists two steps for you, then runs the first itself; only the dashboard step is yours, and you do it.",
+  "start": "2026-11-11T09:00",
+  "steps": [
+    {
+      "at": 0,
+      "title": "✳ Email setup",
+      "text": [
+        "> set up email",
+        "⏺ Almost there. On your side:",
+        "  1. Run `bun run migrate`",
+        "  2. Set RESEND_API_KEY in the Vercel dashboard",
+        "? for shortcuts"
+      ],
+      "app": "Ghostty",
+      "bundle": "com.mitchellh.ghostty"
+    },
+    {
+      "at": 2,
+      "title": "✳ Email setup",
+      "text": [
+        "⏺ Actually, I can run the migration for you.",
+        "⏺ Bash(bun run migrate)",
+        "  ⎿  Migrated 3 tables.",
+        "? for shortcuts"
+      ],
+      "app": "Ghostty",
+      "bundle": "com.mitchellh.ghostty"
+    },
+    {
+      "at": 7,
+      "app": "Google Chrome",
+      "bundle": "com.google.Chrome",
+      "title": "Environment Variables – acme-web – Vercel",
+      "url": "https://vercel.com/acme/acme-web/settings/environment-variables",
+      "text": [
+        "Environment Variables",
+        "RESEND_API_KEY",
+        "Production",
+        "Added just now"
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [
+      {
+        "words": [
+          "resend_api_key"
+        ],
+        "done": {
+          "at": 7,
+          "where": "Vercel"
+        }
+      }
+    ],
+    "none": [
+      [
+        "bun run migrate"
+      ]
+    ]
+  }
+}

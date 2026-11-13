@@ -66,6 +66,8 @@ const EDITORS = new Set([
 ]);
 /** Text that only shows up in the Claude Code terminal UI. */
 const CLAUDE_CODE_SIGNATURES = /esc to interrupt|\? for shortcuts|shift\+tab to cycle|Claude Code|⏺/;
+/** Claude Code's own interface (its prompt box's hints), never words a document could hold. */
+const CLAUDE_CODE_UI = /esc to interrupt|\? for shortcuts|shift\+tab to cycle|accept edits on|bypass permissions on|plan mode on/i;
 
 /** Which Claude surface a window shows, or null if it is not a Claude window. */
 export function classifySource(
@@ -74,10 +76,13 @@ export function classifySource(
 ): SourceKind | null {
   if (window.bundleId === CLAUDE_DESKTOP) return 'claude-desktop';
   if (window.url && /^https?:\/\/([^/]+\.)?claude\.ai(\/|$)/i.test(window.url)) return 'claude-web';
-  if (TERMINALS.has(window.bundleId) || EDITORS.has(window.bundleId)) {
+  if (TERMINALS.has(window.bundleId)) {
     if (/claude/i.test(window.windowTitle) || /^\s*✳/.test(window.windowTitle)) return 'claude-code';
     if (CLAUDE_CODE_SIGNATURES.test(text)) return 'claude-code';
   }
+  // An editor shows documents: a file named CLAUDE.md, or a doc about Claude Code, is not Claude
+  // Code. Only the panel's own interface says it is there (SCR-65).
+  if (EDITORS.has(window.bundleId) && CLAUDE_CODE_UI.test(text)) return 'claude-code';
   return null;
 }
 
@@ -552,4 +557,101 @@ export function extractCommands(text: string): Checklist[] {
   }
   flush(lines.length);
   return lists;
+}
+
+// --- Claude Code transcripts (SCR-65) ----------------------------------------------------------
+
+/** "⏺ Bash(git push origin main)", "⏺ Update(src/auth.ts)", "⏺ Read 2 files (ctrl+o to expand)". */
+const TOOL_CALL = /^\s*⏺\s*([A-Z][A-Za-z]*)\((.*)\)\s*(?:…)?\s*$|^\s*⏺\s*(?:Read|Searched|Listed|Wrote|Updated|Ran) \d+ .*\(ctrl\+o/;
+/** A tool's output: "  ⎿  42 pass". */
+const TOOL_OUTPUT = /^\s*⎿/;
+/** What you typed: "> fix the login redirect" at the start of the line. */
+const USER_TURN = /^>\s/;
+
+export interface ClaudeCodeTranscript {
+  /** The text with only Claude's replies kept; every other line is blank, so line numbers stay. */
+  replies: string;
+  /** Claude's tool calls, in order, with the line each is on. */
+  tools: { tool: string; arg: string; line: number }[];
+  /** False when the text has no ⏺ at all: nothing to split by, and `replies` is the text as it was. */
+  split: boolean;
+}
+
+/**
+ * Split a Claude Code transcript into Claude's replies, its tool calls and their output, and what
+ * you typed. Only the replies hold steps for you: a list in a tool's output (a file Claude read,
+ * `cat` of a doc, test output) or in your own prompt is not one.
+ */
+export function splitClaudeCode(text: string): ClaudeCodeTranscript {
+  const lines = text.split(/\r?\n/);
+  if (!lines.some((l) => /^\s*⏺/.test(l))) return { replies: text, tools: [], split: false };
+  const tools: ClaudeCodeTranscript['tools'] = [];
+  let state: 'reply' | 'tool' | 'user' | 'none' = 'none';
+  const kept = lines.map((line, i) => {
+    const tool = line.match(TOOL_CALL);
+    if (tool) {
+      state = 'tool';
+      if (tool[1]) tools.push({ tool: tool[1], arg: tool[2]!.trim(), line: i });
+      return '';
+    }
+    if (/^\s*⏺/.test(line)) {
+      state = 'reply';
+      return line;
+    }
+    if (TOOL_OUTPUT.test(line)) {
+      state = 'tool';
+      return '';
+    }
+    if (USER_TURN.test(line)) {
+      state = 'user';
+      return '';
+    }
+    return state === 'reply' ? line : '';
+  });
+  return { replies: kept.join('\n'), tools, split: true };
+}
+
+/** Verbs of a step that a file edit carries out: "Add … to .env", "Update the README". */
+const EDIT_VERBS = /^(add|append|change|create|edit|fix|insert|put|remove|rename|replace|set|update|write|delete|paste)\b/i;
+/** A file a step names: `src/auth.ts`, README.md, .env. */
+const FILE_TOKEN = /(?:^|[\s`'"(])((?:[\w.-]+\/)*[\w-]*\.[A-Za-z][\w]{0,9})(?=$|[\s`'"),:;])/g;
+const SHELL_SPLIT = /\s*(?:&&|\|\||;)\s*/;
+
+/** The commands a step hands you, in backticks. */
+function stepCommands(item: { title: string; fragments: string[] }): string[] {
+  return [item.title, ...item.fragments].flatMap((t) => [...t.matchAll(/`([^`]+)`/g)].map((m) => m[1]!.trim()))
+    .filter((c) => commandLine(`\`${c}\``) !== null);
+}
+
+/**
+ * Whether a step was carried out by Claude's own tools after it was listed: a Bash call running
+ * the step's command, or an edit of the file a step to change something names. Only tool calls
+ * on a line after `from` count.
+ */
+export function doneByClaude(item: { title: string; fragments: string[] }, tools: ClaudeCodeTranscript['tools'], from: number): boolean {
+  const later = tools.filter((t) => t.line > from);
+  const norm = (c: string) => c.replace(/\s+/g, ' ').trim();
+  const commands = stepCommands(item).map(norm);
+  for (const t of later.filter((t) => t.tool === 'Bash')) {
+    for (const part of t.arg.split(SHELL_SPLIT).map(norm)) {
+      if (commands.some((c) => part === c || part.startsWith(`${c} `))) return true;
+    }
+  }
+  let rest = item.title;
+  for (let pass = 0; pass < 3; pass++) for (const re of LEAD_INS) rest = rest.replace(re, '');
+  if (!EDIT_VERBS.test(rest)) return false;
+  const files = [...item.title.matchAll(FILE_TOKEN)].map((m) => m[1]!).filter((f) => /[A-Za-z]/.test(f.split('.').pop()!));
+  if (files.length === 0) return false;
+  return later.some((t) => /^(Update|Write|Edit|MultiEdit)$/.test(t.tool) &&
+    files.some((f) => t.arg === f || t.arg.endsWith(`/${f}`) || (f.includes('/') && t.arg.endsWith(f))));
+}
+
+/** The line a step is on in the transcript, or -1. */
+export function stepLine(text: string, title: string): number {
+  const lines = text.split(/\r?\n/).map((l) => l.replace(/\s+/g, ' '));
+  const at = lines.findIndex((l) => l.includes(title.slice(0, 40)));
+  if (at >= 0) return at;
+  // A step named for the command it hands over ("Check it — run `x`"): the command's own line.
+  const code = title.match(/`([^`]+)`/)?.[0];
+  return code ? lines.findIndex((l) => l.includes(code)) : -1;
 }

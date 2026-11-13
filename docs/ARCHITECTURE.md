@@ -234,7 +234,17 @@ Baseline, 27 scenarios, 24 labelled tasks, 15 of them really done (2026-11-13, a
 | none (CI) | 11/24 (46%) | 11/13 (85%) | 2 | 5 | 0 | 10 | 0 | 0 |
 | Apple on-device | 18/24 (75%) | 18/20 (90%) | 2 | 8 | 2 | 5 | 0 | 0 |
 
-Median time from done to ticked or asked: under half a minute (the next poll). With no model, chats and emails make no tasks. What both runs miss: a one-step list ("Last step is on your side: 1. …") is never captured (`MIN_ITEMS = 2` in `extract.ts`), in Claude desktop, claude.ai and Claude Code; a command Claude Code asks you to run is not captured; the "looks done" pages (GitHub settings, Supabase) are never reached for those. What must not happen and does: a CLAUDE.md open in an editor makes tasks of its rules.
+Median time from done to ticked or asked: under half a minute (the next poll). With no model, chats and emails make no tasks. What both runs miss: a one-step list ("Last step is on your side: 1. …") is never captured (`MIN_ITEMS = 2` in `extract.ts`), in Claude desktop, claude.ai and Claude Code; a command Claude Code asks you to run is not captured; the "looks done" pages (GitHub settings, Supabase) are never reached for those. What must not happen and did: a CLAUDE.md open in an editor made tasks of its rules (fixed in SCR-65).
+
+After SCR-65 (Claude Code's tool output and docs in editors are not yours; steps Claude runs itself are taken back), 30 scenarios, 25 labelled tasks, 16 really done:
+
+| Model | Recall | Precision | Must not exist | Ticked | Asked | Missed | Wrong ticks | Wrong asks |
+|---|---|---|---|---|---|---|---|---|
+| none (CI), before SCR-65 | 12/25 (48%) | 12/17 (71%) | 5 | 6 | 0 | 10 | 0 | 0 |
+| none (CI) | 12/25 (48%) | 12/13 (92%) | 1 | 6 | 0 | 10 | 0 | 0 |
+| Apple on-device | 19/25 (76%) | 19/20 (95%) | 1 | 9 | 2 | 5 | 0 | 0 |
+
+The one task that must not exist is the step Claude then ran itself: it is taken back two minutes later, and the benchmark still counts it as made.
 
 ## Updates (SCR-33)
 

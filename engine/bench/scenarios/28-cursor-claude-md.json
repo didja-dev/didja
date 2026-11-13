@@ -1,0 +1,34 @@
+{
+  "id": "cursor-claude-md",
+  "about": "CLAUDE.md open in Cursor: its numbered rules are not your tasks.",
+  "start": "2026-11-11T09:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "Cursor",
+      "bundle": "com.todesktop.230313mzl4w4u92",
+      "title": "CLAUDE.md — acme-web",
+      "text": [
+        "# Acme web",
+        "## Working with Claude Code",
+        "1. Run `bun test` before every commit",
+        "2. Update docs/CHANGELOG.md with each change",
+        "3. Never commit .env files"
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [],
+    "none": [
+      [
+        "bun test"
+      ],
+      [
+        "changelog"
+      ],
+      [
+        ".env"
+      ]
+    ]
+  }
+}

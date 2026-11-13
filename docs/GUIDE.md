@@ -8,6 +8,7 @@ Milestone 2 of 6 (see [docs/ROADMAP.md](ROADMAP.md)):
 
 - The native capture layer writes text observations.
 - The engine turns numbered checklists that Claude wrote (Claude desktop, claude.ai, Claude Code in a terminal) into tasks.
+- In Claude Code only Claude's own replies count: a list in a tool's output (a file Claude read, `cat` of a doc) or in what you typed is not yours. A step Claude then carries out with its own tools (it runs the step's command, or edits the file a step to change names) leaves your list as **Claude did this itself**; it is never ticked as yours. An editor (VS Code, Cursor, Zed, Windsurf) counts as Claude Code only when Claude Code's own panel is in it, so a CLAUDE.md you have open makes no tasks.
 - A task is ticked on its own when its exact markers are seen in the right place: a command run at a terminal prompt (typed and entered, with its output or the next prompt after it, and nothing in that output saying it failed), an env var or URL on the site of the one service the task names. Tasks with nothing exact to look for stay manual.
 - Tasks with nothing exact to match ("Check the login flow works") are never ticked for you. When a later screen shows one looks done, the Quick View asks: **Yes, done** or **Not yet**.
 - Commands Claude tells you to run ("Check it: `curl ipinfo.io`", "…then run: `brew install jq`") become tasks too, and tick when you run them in a terminal.
