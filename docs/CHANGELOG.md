@@ -6,6 +6,13 @@ Each entry says what changed, and what was **not verified** where that applies: 
 
 ## 2026-11-13
 
+### Steps in any format become tasks (SCR-84)
+- Steps written as "Step 1 — …" or "### 2. …" headings, bullets under "Next steps:", "You'll need to:", "On your side:" and the like, boxes an app draws ("☐ …"), the rows of a table of what to set where, and a command in a code block (ChatGPT's "bash" / "Copy code") are read as numbered lists and commands are (`engine/src/steps.ts`).
+- A step that names its target (an env name, a URL or callback path, a dashboard path, a service, an API key or redirect URL, a command) is a step even without a known verb at its start. One step is a list when its lead-in hands it to you ("The only thing left for you:").
+- Never a task, as before: closing offers, the assistant's account of what it changed, explanations, and bullets no heading hands to you.
+- Benchmark, no model: recall 70% → 86%, precision 96% → 97%, ticked 26 → 32, wrong ticks 0; the first-day session finds all 9 of its tasks. Apple's model: recall 76% → 92%, wrong ticks 0, wrong asks 4 → 5 (questions only).
+- Not verified: real ChatGPT, Gemini and Copilot windows (how capture writes code blocks, tables and drawn boxes there is assumed from each app's accessibility text). Not built: steps written only as bold lead-ins with no number (capture's text has no bold), and numbered lists whose numbers are not in the text.
+
 ### Assistant profiles: ChatGPT, Gemini, Copilot, Codex and other AI tools are recognised (SCR-83)
 - Which window is which AI tool is now data, one file per tool in `profiles/assistants/` (`engine/src/assistants.ts`): Claude, claude.ai and Claude Code (their rules moved there unchanged), ChatGPT, Gemini, Copilot, Devin, Codex, Gemini CLI, Copilot CLI, Aider, OpenCode, Goose, Copilot in VS Code, Cursor and Windsurf. Each says how to recognise the tool (its app, its site, or in a terminal or editor its title and the text only it shows), how to tell your turn from its turn, and which lines are the agent's own work.
 - Their lists for you become tasks named after the tool, by the same rules as Claude's. A list under the agent's own plan heading is the agent's. A window showing one of them is not read for ticks, like a Claude window.

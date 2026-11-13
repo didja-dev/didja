@@ -4,6 +4,15 @@ Choices made while building ScrolledAway, with the reason, so they are not re-ar
 
 ## 2026-11-13
 
+- **Other step shapes are rewritten into the ones the extractor reads, not read by a second extractor** (SCR-84): headings, human-steps bullets, drawn boxes, tables and code blocks become numbered lines, "[ ]" boxes and backticked commands. Who a list is for, the action-share rule, sub-steps and markers then stay in one place, and Claude's existing lists read exactly as before (a test checks text with none of these shapes is unchanged).
+- **Bullets count only under a heading or lead-in that hands them to you** ("Next steps", "You'll need to", "On your side", "To finish setup", "Steps"…); bullets elsewhere (notes, "If you want, I can:") stay prose.
+- **Drawn boxes ("☐") count only in chat windows.** In a terminal they are an agent's own todo list (Claude Code's, read by SCR-85).
+- **Target words are precise**: "API key", "signing secret", "redirect URL", "DKIM", "OAuth client"… but not "token" or "secret" alone, so a note like "The token line is no longer needed" stays a note (an existing test).
+- **One step is a list when its lead-in is addressed to you.** SCR-64 found every one-step hand-off missed; a lead-in such as "The only thing left for you:" is as clear as a list gets. A single step with an unclear or Claude-speaking lead-in is still not one.
+- **Targets are not stored apart on the task**: the env names, URLs and commands a step names are already its markers (`extractMarkers`, from its title and context), which is what done detection reads.
+- **Bold lead-ins with no number are not read**: capture's text has no bold, so a bold line is indistinguishable from a sentence. Bold lead-ins inside numbered lists are read already.
+- **Scenario 40's label was too narrow**: it named the env var, which ChatGPT put in the step's paragraph, not its heading "Set the secret in Vercel". The label now names "secret" and "Vercel"; the step is the same.
+
 - **Assistant profiles are read by the engine only** (SCR-83). Capture needs nothing from them: it already sets AXManualAccessibility on every app it reads (`AXCapture.prepare`), Electron editors and ChatGPT included, so the issue's capture step was already true.
 - **Claude's profiles keep their source kinds** (`claude-desktop`, `claude-web`, `claude-code`) and are tried first (`order: 0`), so tasks made before group with new ones and Claude is recognised as before. Other tools' source kind is their id.
 - **In a terminal a title beats a signature, which beats weak signs together.** Copilot CLI prints "❯ 1. Yes" and "● … (shell)", Claude Code's weak pair; its own title or "tell Copilot what to do differently" must win. The cost: a terminal titled after another tool ("gemini") that runs Claude Code is now that tool. Rare, and the tab title is set by the tool.

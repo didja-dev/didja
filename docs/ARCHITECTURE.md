@@ -331,6 +331,19 @@ Same 99 scenarios, before → after:
 
 Every tool family's windows are recognised in all of its scenarios (the benchmark's new `recognised` column; `test/bench.test.ts` requires it). What is still missed is the shape of the steps, not the tool: ChatGPT's "Step 1 —" headings and code-block steps, Gemini's table, Copilot's bullets, a command handed over outside a list (Aider), the Claude app's "☐" boxes and bullets (SCR-84, SCR-85). The new task that must not exist is a nested bullet under a ChatGPT step read as a step of its own. The new wrong ask (with Apple's model) is a Gemini step asked on a page that does not show it; it is a question, never a tick.
 
+### After SCR-84: steps in any format
+
+`normalizeSteps` (`engine/src/steps.ts`) rewrites the other shapes assistants write as the numbered lines, boxes and backticked commands the extractor already reads, before `extractChecklists` and `extractCommands`: "Step N — …" and "### N. …" headings (their paragraph indented under them as context), bullets under a human-steps heading or lead-in (renumbered; sub-bullets stay details), glyph boxes in a chat ("☐", "☑"), table rows (header dropped), and a code block's "bash" / "Copy code" chrome around a command. So who a list is for, what counts as a step and its marker stay in `extract.ts`. `stepTarget` lets a step that names a target (env name, URL or path, dashboard path, service, a precise key word, a command) count without a known verb; and one step counts as a list when its lead-in is addressed to you.
+
+Same 99 scenarios, before → after (one label fixed: ChatGPT's "Step 3 — Set the secret in Vercel" heading is the GOOGLE_CLIENT_SECRET step; its words were the env name, which is in the paragraph, not the heading):
+
+| Model | Recall | Precision | Must not exist | Ticked | Asked | Missed | Wrong ticks | Wrong asks |
+|---|---|---|---|---|---|---|---|---|
+| none (CI) | 98 → 121 of 140 (70% → 86%) | 96% → 97% (121/125) | 3 → 3 | 26 → 32 | 0 → 0 | 34 → 28 | 0 | 0 |
+| Apple on-device | 106 → 129 (76% → 92%) | 96% → 97% (129/133) | 3 → 3 | 31 → 38 | 6 → 11 | 23 → 11 | 0 | 4 → 5 |
+
+By family with no model, recall: Claude app 74% → 97%, ChatGPT 47% → 87%, Gemini 67% → 83%, Copilot 57% → 100%, Claude Code 73% → 82%, first day 78% → 100% (all 9 tasks, ≥ 6 asked for). Still missed: Aider's declined command (no lead-in hands it over), Copilot CLI's single step after its own run, a Gemini step whose words are in a heading's paragraph, the nested-bullet case below; and email and chat asks, which need a model. The ChatGPT task that must not exist is still a nested bullet under a step read as a step of its own (that is how sub-steps work for Claude too). With Apple's model the new wrong ask is a question on a page that does not show the step, never a tick.
+
 ## How fast it is (SCR-75)
 
 Targets, at the 90th percentile on the maintainer's Mac, from the moment the screen showed it:
