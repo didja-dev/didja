@@ -1,0 +1,40 @@
+{
+  "id": "github-merged-notice",
+  "about": "Claude asks you to merge a pull request; GitHub then shows the merged notice naming it. Two signs with a model: the notice and the model's \"done\".",
+  "start": "2026-11-11T09:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "Claude",
+      "bundle": "com.anthropic.claudefordesktop",
+      "title": "Auth redirect fix",
+      "text": [
+        "⟦Message 2⟧",
+        "Claude responded: The fix is ready. On your side:",
+        "On your side:",
+        "1. Merge pull request #42 on GitHub",
+        "2. Tell Noa the fix is live"
+      ]
+    },
+    {
+      "at": 6,
+      "app": "Google Chrome",
+      "bundle": "com.google.Chrome",
+      "title": "Fix auth redirect by mike · Pull Request #42 · acme/web",
+      "url": "https://github.com/acme/web/pull/42",
+      "text": [
+        "Fix auth redirect #42",
+        "Merged",
+        "mike merged 1 commit into main",
+        "⟦Notice: Pull request #42 merged⟧"
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [
+      { "words": ["merge", "#42"], "done": { "at": 6, "where": "GitHub" } },
+      { "words": ["tell", "noa"], "done": null }
+    ],
+    "none": []
+  }
+}

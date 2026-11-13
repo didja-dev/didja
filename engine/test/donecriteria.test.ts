@@ -51,8 +51,11 @@ test('each new task is asked once, with its list, and what the model wrote is ke
   store.close();
 });
 
-test('its place, its id and a done phrase: shown to the looks-done model, and a suggestion, never a tick', () => {
+test('its place, its id and a done phrase: shown to the looks-done model, and with Ask Me a suggestion, never a tick', () => {
   const { store, task } = seeded();
+  // With Tick When Sure this is two signs and a tick (SCR-74, autotick.test.ts); Ask Me never ticks.
+  store.setMeta('looks_done', 'ask');
+  store.setMeta('looks_done_sure_once', 'yes');
   observe(store, portal('Order 4410\nOffsite catering\nStatus: Approved'));
   const { look, asked } = looker();
   expect(pollOnce(store, NOW, { looker: look }).suggested).toBe(1);

@@ -28,6 +28,7 @@ import schema23 from '../../schema/023_teaching_any_job.sql' with { type: 'text'
 import schema24 from '../../schema/024_window_key.sql' with { type: 'text' };
 import schema25 from '../../schema/025_outcomes.sql' with { type: 'text' };
 import schema26 from '../../schema/026_timings.sql' with { type: 'text' };
+import schema27 from '../../schema/027_trust.sql' with { type: 'text' };
 import { contextLines } from './context.ts';
 import { parseCriteria } from './donecriteria.ts';
 import type { DoneCriteria } from './donecriteria.ts';
@@ -124,7 +125,7 @@ export interface Observation {
  * What happened to a step (SCR-73), recorded in `outcomes` for "How Didja is doing". `ticked-*` are
  * ticks Didja made for you; the rest are your answers and actions.
  */
-export const TICKS = ['ticked-command', 'ticked-link', 'ticked-setting', 'ticked-file', 'ticked-screen', 'ticked-reply', 'ticked-tool', 'ticked-accepted'] as const;
+export const TICKS = ['ticked-command', 'ticked-link', 'ticked-setting', 'ticked-file', 'ticked-screen', 'ticked-reply', 'ticked-tool', 'ticked-accepted', 'ticked-sure'] as const;
 export type Outcome =
   | (typeof TICKS)[number]
   | 'asked' | 'yes' | 'not-yet' | 'done-by-hand' | 'shown-done'
@@ -135,6 +136,26 @@ export type Outcome =
  * "maybe" (0.2, no model) and every list judged or clear (0.3 and up); not counted, never nudged.
  */
 export const CHECKING_CONFIDENCE = 0.1;
+
+/** Yes answers since the last no that make a place trusted for ticking without asking (SCR-74). */
+export const TRUST_YES = 5;
+/** Only answers this recent count. */
+export const TRUST_DAYS = 30;
+
+/** The site or app of a place as "looks done?" names it ("Google Chrome — vercel.com/acme" → vercel.com). */
+export function siteOfPlace(place: string): string {
+  const [app, ...rest] = place.split(' — ');
+  const where = rest.join(' — ').trim();
+  const host = where.split('/')[0]!.toLowerCase().replace(/^www\./, '');
+  if (/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(host)) return host;
+  return (app ?? place).trim().toLowerCase();
+}
+
+/** The trust key for a task and a place (SCR-74): site or app · source kind · first verb. */
+export function trustKey(place: string, sourceKind: string, title: string): string {
+  const verb = title.match(/[\p{L}][\p{L}'-]*/u)?.[0]?.toLowerCase() ?? '';
+  return `${siteOfPlace(place)} · ${sourceKind} · ${verb}`;
+}
 
 /** What a timed event is measured against (SCR-75): ≤3 s, ≤10 s, or a chat ask's wait for your reply. */
 export type TimingPath = 'fast' | 'model' | 'wait';
@@ -463,7 +484,7 @@ export class Store {
     // The app migrates the same file. Take the write lock first so only one side runs each step.
     this.db.transaction(() => {
       const { user_version } = this.db.query('PRAGMA user_version').get() as { user_version: number };
-      [schema1, schema2, schema3, schema4, schema5, schema6, schema7, schema8, schema9, schema10, schema11, schema12, schema13, schema14, schema15, schema16, schema17, schema18, schema19, schema20, schema21, schema22, schema23, schema24, schema25, schema26].forEach((sql, i) => {
+      [schema1, schema2, schema3, schema4, schema5, schema6, schema7, schema8, schema9, schema10, schema11, schema12, schema13, schema14, schema15, schema16, schema17, schema18, schema19, schema20, schema21, schema22, schema23, schema24, schema25, schema26, schema27].forEach((sql, i) => {
         if (user_version < i + 1) this.db.exec(sql);
       });
     }).immediate();
@@ -919,8 +940,17 @@ export class Store {
     const ticked = status === 'open'
       ? this.steps(id).filter((s) => s.status === 'done' && (TICKS as readonly string[]).includes(this.lastOutcome(s.id) ?? '')).map((s) => s.id)
       : [];
+    // Where each was ticked from, read before reopening clears it (SCR-74).
+    const tickedFrom = new Map(ticked.map((step) => [step, this.getTask(step)?.acceptedFrom ?? null]));
     const changed = this.setOwnStatus(id, status, now, until);
-    for (const step of ticked) if (this.getTask(step)?.status === 'open') this.recordOutcome(step, 'reopened-after-tick', now);
+    for (const step of ticked) {
+      const task = this.getTask(step);
+      if (task?.status !== 'open') continue;
+      this.recordOutcome(step, 'reopened-after-tick', now);
+      // A tick from what a screen looked like, reopened: that place is not trusted any more (SCR-74).
+      const place = tickedFrom.get(step);
+      if (place) this.recordTrust(trustKey(place, task.sourceKind, task.capturedTitle), 'no', now);
+    }
     // "Yes, done" on a "looks done?": a positive lesson, kept for trust earned later (SCR-71).
     if (changed && before?.suggestion && before.status !== 'done') this.recordConfirmed(id, before.suggestion, now);
     // Merged tasks are one thing: finishing, reopening or dismissing one does the same to the others.
@@ -1057,6 +1087,25 @@ export class Store {
     if (!task) return;
     const verb = task.capturedTitle.match(/[\p{L}][\p{L}'-]*/u)?.[0]?.toLowerCase() ?? '';
     this.addNote(id, 'confirmed', now.toISOString(), `Confirmed by you: done in ${place} · ${task.sourceKind}${verb ? ` · ${verb}` : ''}`);
+    this.recordTrust(trustKey(place, task.sourceKind, task.capturedTitle), 'yes', now);
+  }
+
+  /** One answer that counts toward trust in a place (SCR-74). */
+  recordTrust(key: string, kind: 'yes' | 'no', now: Date = new Date()): void {
+    this.db.query('INSERT INTO trust_events (key, kind, ts) VALUES (?, ?, ?)').run(key, kind, now.toISOString());
+  }
+
+  /**
+   * True when "looks done" there may be ticked without asking (SCR-74): at least `TRUST_YES` yes
+   * answers in the last `TRUST_DAYS` days, all after the last no. A no ("not yet", or reopening a
+   * task Didja ticked) suspends the place until it has earned `TRUST_YES` more.
+   */
+  isTrusted(key: string, now: Date = new Date()): boolean {
+    const since = new Date(now.getTime() - TRUST_DAYS * 86_400_000).toISOString();
+    const rows = this.db.query('SELECT kind FROM trust_events WHERE key = ? AND ts >= ? ORDER BY id').all(key, since) as { kind: string }[];
+    let yes = 0;
+    for (const row of rows) yes = row.kind === 'no' ? 0 : yes + 1;
+    return yes >= TRUST_YES;
   }
 
   /** How many times you confirmed tasks done (SCR-71), for trust earned later. */
@@ -1951,9 +2000,33 @@ export class Store {
     return when && !Number.isNaN(when.getTime()) ? when : null;
   }
 
-  /** "Looks done" is accepted for you instead of asking ("accept"), or not ("ask", the default). */
-  looksDoneMode(): 'ask' | 'accept' {
-    return this.getMeta('looks_done') === 'accept' ? 'accept' : 'ask';
+  /**
+   * When a task looks done (SCR-74): ask you ("ask"), tick it when Didja is sure ("sure", the
+   * default), or accept every "looks done" ("accept"). Installs on "ask" before SCR-74 are moved to
+   * "sure" once, the maintainer's call; "accept" is kept.
+   */
+  looksDoneMode(): 'ask' | 'sure' | 'accept' {
+    const mode = this.getMeta('looks_done');
+    if (this.getMeta('looks_done_sure_once') === null) {
+      this.setMeta('looks_done_sure_once', 'yes');
+      if (mode !== 'accept') {
+        this.setMeta('looks_done', 'sure');
+        return 'sure';
+      }
+    }
+    return mode === 'accept' ? 'accept' : mode === 'ask' ? 'ask' : 'sure';
+  }
+
+  /**
+   * Tick a task that looks done because Didja is sure (SCR-74): two signs agreed, or you said yes
+   * there often enough. Labelled like an accepted one, so reopening it teaches and suspends the place.
+   */
+  tickSure(id: number, place: string, observationId: number | null, why: string, now: Date): void {
+    this.db
+      .query("INSERT INTO evidence (task_id, observation_id, ts, kind, detail) VALUES (?, ?, ?, 'judged', ?)")
+      .run(id, observationId, now.toISOString(), `Ticked for you: it looked done in ${place}, and ${why}`);
+    this.withOutcome(id, 'ticked-sure', now, () => this.setStatus(id, 'done', now));
+    this.db.query('UPDATE tasks SET accepted_from = ? WHERE id = ?').run(place, id);
   }
 
   /**
@@ -1992,6 +2065,7 @@ export class Store {
       .query("INSERT INTO evidence (task_id, observation_id, ts, kind, marker, detail) VALUES (?, NULL, ?, 'rejected', ?, ?)")
       .run(id, now.toISOString(), task.suggestion, `You said it was not done yet (${task.suggestion})`);
     this.recordOutcome(id, 'not-yet', now);
+    this.recordTrust(trustKey(task.suggestion, task.sourceKind, task.capturedTitle), 'no', now);
     return true;
   }
 

@@ -9,7 +9,7 @@ export interface Counts {
   /** Steps captured or added. */
   made: number;
   /** Ticked for you, by what showed it done. */
-  ticked: { command: number; link: number; setting: number; file: number; screen: number; reply: number; tool: number; accepted: number; total: number };
+  ticked: { command: number; link: number; setting: number; file: number; screen: number; reply: number; tool: number; accepted: number; sure: number; total: number };
   /** "Looks done?" asked, and your answers; `noAnswer` is still waiting or settled another way. */
   asked: number;
   yes: number;
@@ -95,14 +95,14 @@ export function sourceGroup(kind: string): (typeof SOURCES)[number] {
 function empty(): Counts {
   return {
     made: 0,
-    ticked: { command: 0, link: 0, setting: 0, file: 0, screen: 0, reply: 0, tool: 0, accepted: 0, total: 0 },
+    ticked: { command: 0, link: 0, setting: 0, file: 0, screen: 0, reply: 0, tool: 0, accepted: 0, sure: 0, total: 0 },
     asked: 0, yes: 0, notYet: 0, noAnswer: 0, byHand: 0, shownDone: 0, dismissed: 0, notAnAction: 0, freshStart: 0, reopenedAfterTick: 0,
   };
 }
 
 const TICK_FIELD: Partial<Record<Outcome, keyof Counts['ticked']>> = {
   'ticked-command': 'command', 'ticked-link': 'link', 'ticked-setting': 'setting', 'ticked-file': 'file',
-  'ticked-screen': 'screen', 'ticked-reply': 'reply', 'ticked-tool': 'tool', 'ticked-accepted': 'accepted',
+  'ticked-screen': 'screen', 'ticked-reply': 'reply', 'ticked-tool': 'tool', 'ticked-accepted': 'accepted', 'ticked-sure': 'sure',
 };
 
 function add(c: Counts, outcome: Outcome, n: number): void {
@@ -233,7 +233,7 @@ export function formatQuality(r: QualityReport): string {
     const t = c.ticked;
     const how = [
       ['command run', t.command], ['link opened', t.link], ['setting seen', t.setting], ['file', t.file],
-      ['seen on screen', t.screen], ['reply', t.reply], ['connected tool', t.tool], ['accepted "looks done"', t.accepted],
+      ['seen on screen', t.screen], ['reply', t.reply], ['connected tool', t.tool], ['accepted "looks done"', t.accepted], ['looked done, and Didja was sure', t.sure],
     ].filter(([, n]) => (n as number) > 0).map(([w, n]) => `${n} ${w}`);
     return [
       name,

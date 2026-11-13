@@ -42,8 +42,11 @@ test('a ticked box, a switch on, or a notice names the task; one shared word or 
   expect(namesTask('Send the invoice to Acme', 'Invoice template')).toBe(false);
 });
 
-test('a "[x] Approve 4410" line makes the task a candidate on any site, and the model is shown it; never a tick', () => {
+test('a "[x] Approve 4410" line makes the task a candidate on any site, and the model is shown it; with Ask Me never a tick', () => {
   const store = new Store(':memory:');
+  // With Tick When Sure the box and the model are two signs (SCR-74, autotick.test.ts); Ask Me never ticks.
+  store.setMeta('looks_done', 'ask');
+  store.setMeta('looks_done_sure_once', 'yes');
   const id = task(store, 'Approve 4410');
   observe(store, { windowTitle: 'Team checklist', url: 'https://notes.example.net/p/weekly', ts: at(20),
     text: 'Weekly checklist\n[x] Approve 4410\n[ ] Book the venue' });

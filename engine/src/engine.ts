@@ -16,7 +16,7 @@ import { findSightings, isComplete, RUN_WINDOW_MS } from './match.ts';
 import { splitSession, terminalLines } from './terminal.ts';
 import type { Checklist, ChecklistItem } from './extract.ts';
 import type { Job, NewChecklist, NewNode, Observation, Outcome, PendingChatAsk, Store, Task, Teaching, TimingPath } from './store.ts';
-import { CHECKING_CONFIDENCE, KEPT_KIND, KEPT_LIST } from './store.ts';
+import { CHECKING_CONFIDENCE, KEPT_KIND, KEPT_LIST, trustKey, TRUST_YES } from './store.ts';
 
 export interface PollStats {
   observations: number;
@@ -973,7 +973,9 @@ function lookForDone(store: Store, looker: Looker, observations: Observation[], 
   // Every screen worth a look for every task, best first (SCR-66): a screen that shows an id from the
   // task beats one that only shares words; a task you looked at more recently comes before an older one;
   // then the newest screen, the one most likely to show the finished state.
-  const candidates: { task: Task; o: Observation; snippet: string; score: number }[] = [];
+  // A second sign besides the model (SCR-74): what done looks like matched there, or a box ticked
+  // or a notice naming the task. With the model's "done" that is two signs: sure enough to tick.
+  const candidates: { task: Task; o: Observation; snippet: string; score: number; sign?: string }[] = [];
   for (const task of tasks) {
     const kept = store.context(task.id);
     const source = {
@@ -1016,13 +1018,13 @@ function lookForDone(store: Store, looker: Looker, observations: Observation[], 
         const ids = strongTokens(task.capturedTitle).filter((t) => hasToken(o, t));
         const near = relevantSnippet(task.capturedTitle, o, ids) ?? '';
         const snippet = near.includes(state.line) ? near : [state.line, near].filter(Boolean).join('\n');
-        candidates.push({ task, o, snippet, score: 9 });
+        candidates.push({ task, o, snippet, score: 9, sign: 'a box was ticked or a notice named it' });
         continue;
       }
       if (match === 'match') {
         const snippet = relevantSnippet(task.capturedTitle, o, matchedWords(done!, o));
         if (snippet) {
-          candidates.push({ task, o, snippet, score: 10 });
+          candidates.push({ task, o, snippet, score: 10, sign: 'what done looks like was there' });
           continue;
         }
       }
@@ -1037,8 +1039,9 @@ function lookForDone(store: Store, looker: Looker, observations: Observation[], 
   candidates.sort((a, b) => b.score - a.score || b.task.lastSeenAt.localeCompare(a.task.lastSeenAt) || b.o.id - a.o.id);
   // The local model answers in about two seconds, Apple's in several: it gets more looks.
   const budget = localModelOf(store) ? LOOKS_PER_POLL_LOCAL : LOOKS_PER_POLL;
-  for (const { task, o, snippet } of candidates) {
-    if (task.suggestion) continue;
+  const mode = store.looksDoneMode();
+  for (const { task, o, snippet, sign } of candidates) {
+    if (task.suggestion || task.status !== 'open') continue;
     const place = placeOf(o);
     if (store.rejectedPlaces(task.id).has(place)) continue;
     const key = new Bun.CryptoHasher('sha256').update(`${task.id}\n${snippet}`).digest('hex').slice(0, 32);
@@ -1049,12 +1052,31 @@ function lookForDone(store: Store, looker: Looker, observations: Observation[], 
     if (verdict === null) return suggested; // no model: nothing to do
     store.recordLooksDoneCheck(key, task.id, verdict, now);
     if (verdict === 'done') {
-      store.suggestDone(task.id, place, o.id, now);
-      task.suggestion = place;
+      const why = mode === 'sure' ? sureBecause(store, task, place, sign, now) : null;
+      if (why) {
+        store.tickSure(task.id, place, o.id, why, now);
+        task.status = 'done';
+      } else {
+        store.suggestDone(task.id, place, o.id, now);
+        task.suggestion = place;
+      }
       suggested++;
     }
   }
   return suggested;
+}
+
+/**
+ * Why Didja is sure a task the model saw done is done, or null to ask you (SCR-74): a second sign on
+ * the same screen, or a place where you said yes often enough with no "not yet" since. One sign alone
+ * only asks. A step with something exact to look for (a command) always asks (SCR-69).
+ */
+export function sureBecause(store: Store, task: Task, place: string, sign: string | undefined, now: Date): string | null {
+  if (task.auto) return null;
+  if (sign) return `${sign} too`;
+  const key = trustKey(place, task.sourceKind, task.capturedTitle);
+  if (store.isTrusted(key, now)) return `you said steps like it were done there ${TRUST_YES} times or more, with no "not yet" since`;
+  return null;
 }
 
 /**
