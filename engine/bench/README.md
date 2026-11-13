@@ -17,6 +17,8 @@ It prints one row per scenario and the totals:
 
 - **Speed** (SCR-75): each new task, tick and "looks done?" timed from the observation that showed it, as `didja quality` does, on a fake clock: the runner polls every 5 s like the engine, and each model call costs its measured median (`MODEL_COST_MS`: Apple 1 s, Ollama 2.5 s). Median and 90th percentile per kind.
 
+- **By tool** (SCR-82): the same counts per tool family, after the totals.
+
 It exits 1 on any wrong tick, and on a new task or sure tick with no model that takes over 3 s. `bun test` runs it with no model too (`test/bench.test.ts`).
 
 ## A scenario
@@ -27,6 +29,7 @@ It exits 1 on any wrong tick, and on a new task or sure tick with no model that 
 {
   "id": "terminal-failed-then-rerun",
   "about": "A push is rejected, then run again after a pull and accepted.",
+  "family": "claude-app",
   "start": "2026-11-11T09:00",
   "steps": [
     { "at": 0, "app": "Claude", "bundle": "com.anthropic.claudefordesktop", "title": "Release", "text": ["⟦Message 4⟧", "Claude responded: …", "`git push origin main`"] },
@@ -40,6 +43,7 @@ It exits 1 on any wrong tick, and on a new task or sure tick with no model that 
 ```
 
 - `steps` are observations as capture stores them: one window's **new** lines (what `Differ` reports), with the same `⟦…⟧` section lines, `at` minutes after `start` (local time). Optional `url` and `source` (`ax`, `ocr`).
+- `family` (SCR-82): the tool the tasks come from, one of `FAMILIES` in `run.ts`: an assistant (`claude-app`, `chatgpt`, `gemini`, `copilot`), a terminal agent (`claude-code`, `codex`, `gemini-cli`, `copilot-cli`, `aider`, `opencode`, `goose`), an editor agent (`vscode-copilot`, `cursor`, `windsurf`, `devin`), or `editor` (a document), `email`, `messaging`, `notes`, `first-day` (a new user's first session across tools) and `done-target` (where a step is done, and near-misses that must not tick). Write each tool's text in its real shape, with `⟦Message N⟧` sections only where capture writes them for that app.
 - `expect.tasks`: a task matches when every word is in its title (any case); `done` is null when it was never done. `expect.none`: tasks that must not exist, by the same rule.
 - Optional `me` (your name, default "Mike Rosen") and `tail` (minutes polled after the last step, default 15: a chat ask waits 10 for your reply).
 

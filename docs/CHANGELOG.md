@@ -6,6 +6,12 @@ Each entry says what changed, and what was **not verified** where that applies: 
 
 ## 2026-11-13
 
+### Benchmark: every AI tool's shape, a first-day session, and a report per tool (SCR-82)
+- 60 made-up scenarios added to `engine/bench/` (99 in all): ChatGPT, Gemini and Copilot replies; the Claude app's numbered steps, boxes and bullets; the editor agents (Copilot in VS Code, Cursor, Windsurf, Devin) with their run cards, "Ran …" lines, own todo lists and closing "Next steps"; the terminal agents (Claude Code old and new, Codex, Gemini CLI, Copilot CLI, Aider, OpenCode, Goose) with their approval prompts and plans; a new user's first session across Claude Code and the Claude app; and the pages where common steps are done, with near-misses that must not tick.
+- Each scenario names its tool family, and `bun bench/run.ts` prints a table per family. The baseline is in ARCHITECTURE › How well it works, by tool: no model, recall 38%, precision 96%, 0 wrong ticks; Apple's model, recall 44%, 0 wrong ticks, 3 wrong asks. ChatGPT, Gemini, Copilot and every agent but Claude Code make no task yet.
+- CI already fails on any wrong tick; a new test checks that every AI tool has a scenario that must make a task and one that must not, and that the first-day session expects at least six tasks.
+- No change to what the app does. Not verified: model numbers vary run to run (one run recorded); the scenarios are written from each tool's documented shape, not read from those tools' windows on a Mac, so how capture really writes ChatGPT, Gemini, Copilot or the editor agents' panels is not checked.
+
 ### Didja 0.8.0 (build 10)
 - Released from GitHub on a version tag, with SCR-79: Help › Troubleshooting Report… and `didja doctor` say why Didja reads nothing or makes no tasks (versions, permissions, capture's outcome log per app, engine and model status, drops by reason; counts and codes only), and let you copy, save, email it to Didja from your own mail app, or open a GitHub issue. Didja sends nothing itself.
 

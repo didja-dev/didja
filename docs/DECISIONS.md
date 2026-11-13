@@ -4,6 +4,13 @@ Choices made while building ScrolledAway, with the reason, so they are not re-ar
 
 ## 2026-11-13
 
+- **The corpus labels what really happened, so the baseline is low on purpose** (SCR-82): ChatGPT, Gemini, Copilot and every agent but Claude Code make no task today, and each scenario stays a miss until SCR-83–SCR-89 fix it. The gate for those issues is recall up, precision not down, and no wrong tick.
+- **60 new scenarios, 99 in all**: the issue's "at least 60" read as 60 added on top of SCR-64's 39, so every tool family has several and the earlier cases stay.
+- **A tool family per scenario, written in the file** (`family`), not guessed from the app: a Chrome window may be Gemini, Copilot, Devin, claude.ai or a done target. The existing 39 got theirs from their first window (Claude → `claude-app`, a terminal → `claude-code`, Outlook → `email`, WhatsApp and Teams → `messaging`).
+- **Message sections only where capture writes them**: the Claude and ChatGPT desktop apps get `⟦Message N⟧`; web chats (chatgpt.com, Gemini, Copilot, Devin) and terminals get none, and the editor agents' panels a `⟦Chat⟧` section like VS Code's terminal one. How capture really writes those panels is to be checked when they are supported (SCR-83).
+- **An approved agent command is the agent's, a declined one is yours**: Codex, Gemini CLI, Copilot CLI and Aider running a command after you allow it makes no task; Aider's command you decline, or Cursor's you skip and are handed, is labelled yours.
+- **The baseline records one run with Apple's model**; its numbers vary a little run to run (a second run differed by one ask). Wrong asks are listed, not gated: they are questions, never ticks.
+
 - **The troubleshooting report holds codes and counts only** (SCR-79): app names and bundle ids, result codes, line counts, versions, paths and settings, never screen text, window titles or task words, so it can be sent without masking. Engine error messages are included as they are (at most 300 characters each); they come from the engine, not the screen.
 - **Didja sends the report nowhere itself.** Email to Didja opens a `mailto:` in the user's own mail app and Open a GitHub Issue opens a filled-in page in the browser, the same pattern as Report a Bug; the user sends either. No new network call.
 - **The optional masked sample from the issue is not built yet**: Report a Problem with This Window… already gives a masked reading of one window. Left for a follow-up.

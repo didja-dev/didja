@@ -283,6 +283,41 @@ After SCR-67 (what done looks like), same 32 scenarios, Apple on-device: unchang
 
 After SCR-69 (terminals), with three scenarios added (35: a push with `-u` and a comment in an oh-my-zsh prompt, a migration run in VS Code's terminal, a dry run that must not tick), no model, before → after on the same 35: ticked 6 → 8, missed 14 → 12, wrong ticks 0 → 0. The first 32 are unchanged.
 
+## How well it works, by tool (SCR-82)
+
+The benchmark now covers every AI tool a user may take steps from, not only Claude: 60 scenarios added (99 in all, 140 labelled tasks, 60 of them really done), each in a tool family (`family` in the scenario; `bun bench/run.ts` prints a table per family after the totals). They are made up in each tool's real shape: ChatGPT's "Step 1 — …" headings, bold lead-ins, nested bullets, a code block as the step, a closing "If you want, I can…" and its own "Here's what I changed:"; Gemini's `##` sections, flat lists, a table and a closing question; Copilot's markdown; the Claude app's numbered steps, boxes and bullets; the editor agents' run cards, "Ran …" lines, own todo lists and closing "Next steps" (Copilot in VS Code, Cursor, Windsurf, Devin); the terminal agents' signatures (Claude Code old and new, Codex, Gemini CLI, Copilot CLI, Aider, OpenCode, Goose); a new user's first session across Claude Code in Ghostty and the Claude app; and the pages where common steps are done (a Vercel env list, Supabase Redirect URLs, Google's Authorized redirect URIs, a Stripe webhook Enabled, GitHub "Public", a Vercel domain's Valid Configuration, a migration's output), with near-misses that must not tick: the page open without the item, the name only in the chat, the agent's own "✓".
+
+Baseline, 2026-11-13 at `SCR-82`, before any of the work in SCR-83–SCR-89:
+
+| Model | Recall | Precision | Must not exist | Ticked | Asked | Missed | Wrong ticks | Wrong asks |
+|---|---|---|---|---|---|---|---|---|
+| none (CI) | 53/140 (38%) | 53/55 (96%) | 2 | 18 | 0 | 42 | 0 | 0 |
+| Apple on-device | 61/140 (44%) | 61/63 (97%) | 2 | 23 | 5 | 32 | 0 | 3 |
+
+By tool, no model (recall · ticked of really done):
+
+| Family | Scenarios | Recall | Precision | Ticked / done | Wrong ticks |
+|---|---|---|---|---|---|
+| claude-app | 25 | 28/38 (74%) | 100% | 9/18 | 0 |
+| claude-code | 9 | 8/11 (73%) | 80% | 5/8 | 0 |
+| first-day | 2 | 7/9 (78%) | 100% | 2/4 | 0 |
+| done-target | 7 | 10/13 (77%) | 100% | 2/4 | 0 |
+| chatgpt | 8 | 0/15 | — | 0/8 | 0 |
+| gemini | 6 | 0/12 | — | 0/3 | 0 |
+| copilot | 4 | 0/7 | — | 0/2 | 0 |
+| codex, gemini-cli, copilot-cli, aider, opencode, goose | 15 | 0/16 | — | 0/5 | 0 |
+| vscode-copilot, cursor, windsurf, devin | 9 | 0/11 | — | 0/2 | 0 |
+| email, messaging (no model makes none) | 11 | 0/8 | — | 0/6 | 0 |
+
+With Apple's model the Claude families tick or ask a few more and email and messaging find all 8; every other tool is unchanged, because only Claude windows, terminals, email and chat apps are read for steps today (`classifySource`). What the baseline shows:
+- **No task at all from ChatGPT, Gemini, Copilot, the editor agents, or terminal agents other than Claude Code.** Their windows are not recognised as an assistant, so their lists are never read (SCR-83, SCR-84).
+- **The Claude app's checklist of "☐" boxes and its plain bullets make no task** (only "[ ]" boxes and numbered lists are read), so the first-day session finds 7 of its 9 tasks, not all.
+- **A step Claude Code then runs itself is made first and taken back later**, counted as made (the two "must not exist").
+- **Wrong asks with Apple's model** are questions, never ticks: "Tell Noa the fix is live" on GitHub's merge page (from SCR-74), and a step naming a domain asked on a Vercel page that does not show it.
+- **No wrong tick** in any family, with or without a model, including the four near-misses.
+
+CI runs the no-model benchmark on every push and fails on any wrong tick; `test/bench.test.ts` also checks that every AI tool above has a scenario that must make a task and one that must not, and that the first-day session expects at least six tasks.
+
 ## How fast it is (SCR-75)
 
 Targets, at the 90th percentile on the maintainer's Mac, from the moment the screen showed it:
