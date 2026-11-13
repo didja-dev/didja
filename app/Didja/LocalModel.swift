@@ -42,6 +42,15 @@ enum LocalModel {
         ],
     ]
 
+    /// Who a list is for (SCR-70): the same answer shape as Apple's `Verdict`.
+    static let listSchema: [String: Any] = [
+        "type": "object", "required": ["audience"],
+        "properties": [
+            "audience": ["type": "string", "enum": ["user", "assistant"],
+                         "description": "user: the list tells the reader what to do themselves. assistant: the list is the assistant's own plan, or a report of what it did or how something works."],
+        ],
+    ]
+
     // MARK: Requests and answers (pure, tested)
 
     static func chatBody(model: String, system: String, prompt: String, schema: [String: Any]) -> Data {
@@ -71,6 +80,11 @@ enum LocalModel {
     static func lookReply(from answer: [String: Any], model: String) -> Judge.LookReply? {
         guard let seen = answer["seen"] as? String, ["done", "notDone", "unsure"].contains(seen) else { return nil }
         return Judge.LookReply(available: true, seen: seen, model: model)
+    }
+
+    static func listReply(from answer: [String: Any], model: String) -> Judge.Reply? {
+        guard let audience = answer["audience"] as? String, ["user", "assistant"].contains(audience) else { return nil }
+        return Judge.Reply(available: true, audience: audience, model: model)
     }
 
     /// The model names in Ollama's /api/tags reply.
@@ -111,6 +125,12 @@ enum LocalModel {
         guard let answer = await chat(model: model, system: Judge.compose(Judge.lookInstructions, request.teach),
                                       prompt: Judge.lookPrompt(for: request), schema: lookSchema) else { return nil }
         return lookReply(from: answer, model: model)
+    }
+
+    static func judgeList(_ request: Judge.Request, model: String) async -> Judge.Reply? {
+        guard let answer = await chat(model: model, system: Judge.compose(Judge.instructions, request.teach),
+                                      prompt: Judge.prompt(for: request), schema: listSchema) else { return nil }
+        return listReply(from: answer, model: model)
     }
 
     /// The models Ollama has on this Mac, or nil when Ollama is not running. For Settings.

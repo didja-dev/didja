@@ -49,7 +49,12 @@ enum Judge {
         var after: [String]?
         /// What the person asked just before the reply the list is in, when it is in view.
         var asked: String?
+        /// The whole reply the list is in, bounded by the engine (SCR-70).
+        var reply: String?
         var teach: Teach?
+        /// The local model to ask first, when you turned one on (LocalModel.swift). Lists only (SCR-70):
+        /// it was measured on them (engine/eval/lists.ts); titles stay with Apple's model.
+        var local: LocalModel.Choice?
     }
 
     struct Reply: Encodable {
@@ -401,7 +406,10 @@ enum Judge {
         let tail = after.isEmpty ? "" : "\nText after the list: \"\(after)\""
         let asked = (request.asked ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         let head = asked.isEmpty ? "" : "The person asked: \"\(asked.prefix(240))\"\n"
-        return "\(head)Introduced by: \"\(request.leadIn.prefix(200))\"\n\(steps)\(tail)\n\nWho is this list for, taken as a whole?"
+        // The whole reply, so the words around the list count too (SCR-70).
+        let reply = (request.reply ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let whole = reply.isEmpty ? "" : "The assistant's whole reply:\n\"\"\"\n\(reply.prefix(2000))\n\"\"\"\n"
+        return "\(head)\(whole)Introduced by: \"\(request.leadIn.prefix(200))\"\n\(steps)\(tail)\n\nWho is this list for, taken as a whole?"
     }
 
     /// Entry point for `Didja --judge`. Never returns.
@@ -423,6 +431,7 @@ enum Judge {
     }
 
     static func judge(_ request: Request) async -> Reply {
+        if let local = request.local, let reply = await LocalModel.judgeList(request, model: local.model) { return reply }
         #if canImport(FoundationModels)
         if #available(macOS 26.0, *) {
             return await OnDevice.judge(request)

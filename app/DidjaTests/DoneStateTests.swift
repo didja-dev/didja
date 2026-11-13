@@ -1,3 +1,4 @@
+import SQLite3
 import XCTest
 @testable import Didja
 
@@ -176,5 +177,26 @@ final class EditorTerminalTests: XCTestCase {
     func testATerminalWithoutFocusOrInAnotherAppIsNotMarked() throws {
         XCTAssertFalse(try lines(editor(focused: false), app: "com.microsoft.VSCode").contains("⟦Terminal⟧"))
         XCTAssertFalse(try lines(editor(focused: true), app: "com.google.Chrome").contains("⟦Terminal⟧"))
+    }
+}
+
+/// SCR-70: a list kept while no model could judge it is read as "maybe".
+final class MaybeTaskTests: XCTestCase {
+    func testALowConfidenceTaskIsMaybeAndOthersAreNot() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let store = try ObservationStore(directory: dir, migrations: ObservationStore.bundledMigrations())
+        var db: OpaquePointer?
+        XCTAssertEqual(sqlite3_open(dir.appendingPathComponent("didja.db").path, &db), SQLITE_OK)
+        XCTAssertEqual(sqlite3_exec(db, """
+            INSERT INTO sources (id, kind, ref) VALUES (1, 'claude', 'Claude — Demo');
+            INSERT INTO tasks (id, title, source, confidence, dedupe_key, created_at, last_seen_at)
+            VALUES (1, 'Maybe one', 1, 0.2, 'one', '2026-11-10T12:00:00.000Z', '2026-11-10T12:00:00.000Z'),
+                   (2, 'Sure one', 1, 0.3, 'two', '2026-11-10T12:00:00.000Z', '2026-11-10T12:00:00.000Z');
+            """, nil, nil, nil), SQLITE_OK)
+        sqlite3_close(db)
+        let tasks = try store.tasks()
+        XCTAssertEqual(tasks.first { $0.id == 1 }?.maybe, true)
+        XCTAssertEqual(tasks.first { $0.id == 2 }?.maybe, false)
     }
 }

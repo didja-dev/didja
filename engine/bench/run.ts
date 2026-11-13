@@ -75,7 +75,7 @@ export function modelOptions(model: ModelChoice): PollOptions {
   process.env.DIDJA_JUDGE ??= DEBUG_APP;
   const local = model.startsWith('ollama:') ? model.slice('ollama:'.length) : null;
   return {
-    judge: findJudge(), titler: findTitler(), looker: findLooker(() => local), mailReader: findMailReader(() => local),
+    judge: findJudge(() => local), titler: findTitler(), looker: findLooker(() => local), mailReader: findMailReader(() => local),
     chatReader: findChatReader(), replyJudge: findReplyJudge(), criteria: findCriteriaWriter(),
   };
 }

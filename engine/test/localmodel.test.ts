@@ -3,7 +3,7 @@ import { afterEach, expect, test } from 'bun:test';
 import { chmodSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { findJudge, findLooker, findMailReader } from '../src/cli.ts';
+import { findJudge, findLooker, findMailReader, findTitler } from '../src/cli.ts';
 import { localModelOf, setLocalModel } from '../src/localmodel.ts';
 import { Store } from '../src/store.ts';
 
@@ -46,8 +46,18 @@ test('emails and "looks done?" carry the local model when it is on, and nothing 
   expect(sent(dir, '--looks-done')).toEqual(look);
 });
 
+test('who a list is for carries the local model when it is on (SCR-70: measured in eval/lists.ts)', () => {
+  const dir = fakeJudge();
+  let model: string | null = 'qwen3.8:latest';
+  findJudge(() => model)!({ leadIn: 'Next steps:', steps: ['Run the migration'] });
+  expect(sent(dir, '--judge').local).toEqual({ model: 'qwen3.8:latest' });
+  model = null;
+  findJudge(() => model)!({ leadIn: 'Next steps:', steps: ['Run the migration'] });
+  expect(sent(dir, '--judge').local).toBeUndefined();
+});
+
 test('the jobs not measured against the local model never carry it', () => {
   const dir = fakeJudge();
-  findJudge()!({ leadIn: 'Next steps:', steps: ['Run the migration'] } as never);
-  expect(sent(dir, '--judge').local).toBeUndefined();
+  findTitler()!({ leadIn: 'Next steps:', steps: ['Run the migration'] } as never);
+  expect(sent(dir, '--title').local).toBeUndefined();
 });

@@ -225,7 +225,7 @@ struct TaskRow: View {
                     Text(Self.styled(item.title))
                         .fontWeight(weight)
                         .strikethrough(item.status == .done)
-                        .foregroundStyle(item.status == .open ? Color.primary : Color.secondary)
+                        .foregroundStyle(item.status == .open && !item.maybe ? Color.primary : Color.secondary)
                         .lineLimit(3)
                         .fixedSize(horizontal: false, vertical: true)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -326,6 +326,16 @@ struct TaskRow: View {
                             .padding(.vertical, 1)
                             .overlay(Capsule().stroke(Palette.done.opacity(0.4), lineWidth: 1))
                             .help("Ticked for you because it looked done in \(item.acceptedFrom ?? ""). Reopen it if it is not done.")
+                    }
+                    if item.maybe, item.status == .open, item.parentID == nil {
+                        // A quiet tag: no model could say whether this list is yours (SCR-70).
+                        Text("maybe")
+                            .font(.caption2.weight(.medium))
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 1)
+                            .overlay(Capsule().stroke(Color.secondary.opacity(0.35), lineWidth: 1))
+                            .help("No on-device model could say whether this list is for you or Claude's own plan. Dismiss it with Not an Action if it is not yours.")
                     }
                     if item.auto, item.status == .open {
                         Text("auto")

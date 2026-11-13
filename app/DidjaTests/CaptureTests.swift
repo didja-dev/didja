@@ -960,6 +960,8 @@ final class TaskBoardTests: XCTestCase {
             if board.tasks[index].id == 1 { board.tasks[index].acceptedFrom = "Google Chrome — vercel.com/acme/settings" }
             // The same thing seen in two places: drawn with its question.
             if board.tasks[index].id == 3 { board.tasks[index].asker = "Jordan Lee via Docusign" }
+            // Kept while no model could judge it (SCR-70): drawn quiet, with its tag.
+            if board.tasks[index].id == 5 { board.tasks[index].maybe = true }
             if board.tasks[index].id == 2 {
                 board.tasks[index].mergeWith = 99
                 board.tasks[index].mergeWithTitle = "Sign the loan agreement Sam is sending"

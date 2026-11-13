@@ -151,12 +151,13 @@ export function parseSnooze(spec: string, now: Date = new Date()): Date | null {
  * which sits next to this one inside the app bundle. Undefined when the engine
  * is run outside the bundle, in which case lists are judged by wording alone.
  */
-export function findJudge(): Judge | undefined {
+export function findJudge(local: () => string | null = () => null): Judge | undefined {
   const binary = process.env.DIDJA_JUDGE ?? join(dirname(process.execPath), '../MacOS/Didja');
   if (!existsSync(binary)) return undefined;
   return (list) => {
     try {
-      const run = Bun.spawnSync([binary, '--judge'], { stdin: Buffer.from(JSON.stringify(list)), timeout: 30_000 });
+      // The local model, if one is on, is asked first (SCR-70: it measured better on engine/eval/lists.ts).
+      const run = Bun.spawnSync([binary, '--judge'], { stdin: Buffer.from(JSON.stringify({ ...list, ...localField(local()) })), timeout: 45_000 });
       const reply = JSON.parse(run.stdout.toString()) as { available?: boolean; audience?: string; model?: string };
       if (!reply.available || (reply.audience !== 'user' && reply.audience !== 'assistant')) return null;
       return { audience: reply.audience, model: reply.model ?? 'on-device' };
@@ -422,12 +423,12 @@ async function main(argv: string[]): Promise<number> {
         const controller = new AbortController();
         for (const sig of ['SIGINT', 'SIGTERM'] as const) process.on(sig, () => controller.abort());
         console.log('Extracting tasks from new observations every 15s. Ctrl-C to stop.');
-        await runLoop(store, console.log, { signal: controller.signal, judge: findJudge(), titler: findTitler(), looker: findLooker(() => localModelOf(store)), mailReader: findMailReader(() => localModelOf(store)), chatReader: findChatReader(), replyJudge: findReplyJudge(), criteria: findCriteriaWriter(),
+        await runLoop(store, console.log, { signal: controller.signal, judge: findJudge(() => localModelOf(store)), titler: findTitler(), looker: findLooker(() => localModelOf(store)), mailReader: findMailReader(() => localModelOf(store)), chatReader: findChatReader(), replyJudge: findReplyJudge(), criteria: findCriteriaWriter(),
           sync: () => syncConnections(store, mcpRemote(store)), syncDue: () => writebackWaiting(store) });
         return 0;
       }
       case 'poll': {
-        const s = pollOnce(store, new Date(), { judge: findJudge(), titler: findTitler(), looker: findLooker(() => localModelOf(store)), mailReader: findMailReader(() => localModelOf(store)), chatReader: findChatReader(), replyJudge: findReplyJudge(), criteria: findCriteriaWriter() });
+        const s = pollOnce(store, new Date(), { judge: findJudge(() => localModelOf(store)), titler: findTitler(), looker: findLooker(() => localModelOf(store)), mailReader: findMailReader(() => localModelOf(store)), chatReader: findChatReader(), replyJudge: findReplyJudge(), criteria: findCriteriaWriter() });
         console.log(
           `observations=${s.observations} windows=${s.windows} claude=${s.claudeWindows} checklists=${s.checklists} new=${s.newTasks} sightings=${s.sightings} completed=${s.completed} judged=${s.judged} retracted=${s.retracted} titled=${s.titled} suggested=${s.suggested} emails=${s.emails} archived=${s.archived} expired=${s.expired}`,
         );

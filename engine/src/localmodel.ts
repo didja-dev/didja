@@ -1,8 +1,8 @@
 /**
  * A local model in Ollama, chosen by the maintainer as an exception to "Apple's on-device model
  * only" (docs/DECISIONS.md, 2026-11-12). Off until turned on in Settings › General. When on, the
- * two jobs it was measured on (emails, and whether a screen shows a task done; engine/eval/ollama.ts)
- * carry `local: { model }` to the app's judge, which asks Ollama on 127.0.0.1 and falls back to
+ * three jobs it was measured on (emails and whether a screen shows a task done, engine/eval/ollama.ts;
+ * who a list is for, engine/eval/lists.ts, SCR-70) carry `local: { model }` to the app's judge, which asks Ollama on 127.0.0.1 and falls back to
  * Apple's model when Ollama does not answer. The other jobs stay with Apple's model until they have
  * samples to measure on. The engine keeps the switch (`meta.local_model`); it never talks to Ollama.
  */

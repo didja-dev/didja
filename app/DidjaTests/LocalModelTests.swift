@@ -57,3 +57,24 @@ final class LocalModelTests: XCTestCase {
         XCTAssertEqual(LocalModel.modelNames(from: Data("nope".utf8)), [])
     }
 }
+
+/// SCR-70: the local model may judge who a list is for; an odd answer falls back to Apple's.
+final class LocalListJudgeTests: XCTestCase {
+    func testAListVerdictIsReadAndAnOddOneIsNot() throws {
+        XCTAssertEqual(LocalModel.listReply(from: ["audience": "assistant"], model: "m")?.audience, "assistant")
+        XCTAssertEqual(LocalModel.listReply(from: ["audience": "user"], model: "m")?.model, "m")
+        for odd: [String: Any] in [["audience": "User"], ["audience": "both"], ["who": "user"], [:]] {
+            XCTAssertNil(LocalModel.listReply(from: odd, model: "m"))
+        }
+        let body = try XCTUnwrap(JSONSerialization.jsonObject(with: LocalModel.chatBody(
+            model: "m", system: Judge.instructions, prompt: "p", schema: LocalModel.listSchema)) as? [String: Any])
+        XCTAssertEqual((body["format"] as? [String: Any])?["required"] as? [String], ["audience"])
+    }
+
+    func testTheJudgeRequestCarriesTheLocalModelAndTheReply() throws {
+        let request = try JSONDecoder().decode(Judge.Request.self, from: Data(
+            #"{"leadIn":"Next steps:","steps":["Run it"],"reply":"Done.\nNext steps:\n1. Run it","local":{"model":"qwen3.8:latest"}}"#.utf8))
+        XCTAssertEqual(request.local?.model, "qwen3.8:latest")
+        XCTAssertTrue(Judge.prompt(for: request).contains("The assistant's whole reply:\n\"\"\"\nDone.\nNext steps:\n1. Run it\n\"\"\""))
+    }
+}

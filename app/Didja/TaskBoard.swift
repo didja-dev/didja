@@ -43,6 +43,12 @@ struct TaskItem: Identifiable, Equatable {
     var alsoFrom: [String] = []
     /// Who asked, for a task from an email or a chat: "Jordan Lee via Docusign".
     var asker: String? = nil
+    /// Kept while no model could say whether its list is yours or Claude's own plan (SCR-70).
+    var maybe = false
+
+    /// The confidence the engine writes on a "maybe" list (engine `MAYBE_CONFIDENCE`); every other
+    /// list is stored above `maybeLimit`.
+    static let maybeLimit = 0.25
 
     /// The asker from what the engine keeps: a chat's sender, or the name in an email's
     /// "From an email: <name> — “<subject>”" note. Nil for yourself and for anything else.
