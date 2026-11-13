@@ -26,7 +26,8 @@ export interface Sighting {
 }
 
 /** What a shell prompt ends with, just before the typed command. */
-const PROMPT_BEFORE_COMMAND = /[%$❯➜>#]\s*$/;
+/** Prompt glyphs: zsh/bash defaults, starship/pure (❯), oh-my-zsh (➜), and themes ending in › or » (SCR-80). */
+const PROMPT_BEFORE_COMMAND = /[%$❯➜>#›»]\s*$/;
 
 function hostOf(url: string | null): string | null {
   if (!url) return null;

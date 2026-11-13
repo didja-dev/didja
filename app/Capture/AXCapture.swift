@@ -651,6 +651,10 @@ enum AXCapture {
                 node.children.forEach { visit($0) }
                 flush()
                 listDepth -= 1
+            case "AXCheckBox" where node.subrole == "AXToggleButton":
+                // A toolbar toggle ("Sidebar", "Good response") is a button, not a box someone ticks:
+                // written as one, never as "[ ] …", so app chrome can't read as a checklist (SCR-80).
+                visitBlock(node)
             case "AXCheckBox", "AXRadioButton", "AXSwitch":
                 toggle(node)
             case "AXLink", "AXButton":

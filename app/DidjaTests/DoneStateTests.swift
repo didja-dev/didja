@@ -25,6 +25,19 @@ final class DoneStateTests: XCTestCase {
         XCTAssertEqual(out, ["[x] Send a copy to Noa", "[ ] Mark as urgent", "[-] Include attachments", "[x] Weekly", "[ ] Monthly"])
     }
 
+    /// SCR-80: a toolbar toggle is a button; only a box someone ticks is written as "[ ] …".
+    func testAToggleButtonIsNotWrittenAsABox() throws {
+        let out = try lines("""
+        AXWindow title="Chat"
+         AXCheckBox/AXToggleButton title="Sidebar panel" value="0"
+         AXCheckBox/AXToggleButton title="Good response" value="0"
+         AXCheckBox title="Bring a spare charger" value="0"
+        """)
+        XCTAssertFalse(out.contains { $0.hasPrefix("[") && $0.contains("Sidebar") })
+        XCTAssertFalse(out.contains { $0.hasPrefix("[") && $0.contains("Good response") })
+        XCTAssertEqual(out.last, "[ ] Bring a spare charger")
+    }
+
     func testASwitchIsOnOrOff() throws {
         let out = try lines("""
         AXWindow title="Repository settings"

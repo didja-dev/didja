@@ -6,6 +6,14 @@ Each entry says what changed, and what was **not verified** where that applies: 
 
 ## 2026-11-13
 
+### Newer Claude Code, checklists, and everyday steps become tasks (SCR-80)
+- A new user's Didja read Claude Code in Ghostty and the Claude app but made no tasks. Fixed in four places:
+  - **Newer Claude Code in a terminal** is recognised by its status line ("✻ Baked for 4s · done 13:13"), or by its "●" replies and "❯" prompt together, when the tab title says nothing. Its steps written as a name with the command under it ("1. Folder", then `mkdir -p components/widget`, at the same indent or after a blank line) become tasks carrying the command, so running it ticks them. A box in front ("- [ ] 1. Folder") is read through.
+  - **Checklists of boxes** ("[ ] Run the tool…" from the Claude app, "- [ ] …" in a terminal) are read like numbered lists, under the same rules: mostly action steps, and not Claude's own plan. Ticked boxes are skipped. Capture writes a toolbar toggle (AXCheckBox/AXToggleButton: "Sidebar", "Good response") as a button, never as "[ ] …", so app chrome can't become a step.
+  - **Everyday verbs** count as steps: get, back (up), bring, charge, insert, format, flash, prepare, gather, contact, message, print, restore, take, return and others. "1. Get a USB stick… 2. Back up anything on it… 3. Make sure…" was ignored because only one step started with a known verb.
+  - **Prompts ending in › or »** count before a command, so a command run there ticks its task.
+- Tests: made-up sessions of the same shape (engine), toggles not written as boxes (Swift). **Not verified** on the user's Mac until the next release.
+
 ### Didja 0.7.0 (build 8)
 - Its release ran end to end on GitHub, appcast and site included. The site read "v[VERSION]": GitHub's API refused the build machine's request. didja.dev now takes the version from the appcast in the repository, which the release updates first, and asks the API only if that cannot be read. Checked: a build shows v0.7.0.
 - Released from GitHub on a version tag. In it since 0.6.0: speed targets measured per stage, in `didja quality` and the benchmark (SCR-75); an event-driven engine with a fast lane for new tasks and sure ticks and a separate queue for model questions (SCR-76); one warm judge process instead of a new one per question, and Ollama kept loaded (SCR-77); unclear lists shown at once as "checking…" (SCR-78); and earned auto-tick, Tick When Didja Is Sure, as the default (SCR-74).

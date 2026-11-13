@@ -4,6 +4,9 @@ Choices made while building ScrolledAway, with the reason, so they are not re-ar
 
 ## 2026-11-13
 
+- **Checklists of boxes count like numbered lists, toggle buttons never do** (SCR-80, a new user's Claude app writes its steps as boxes to tick). The same rules decide (mostly actions, not Claude's own plan), so this widens what is read, not what is kept; a toolbar toggle is an AXCheckBox with the AXToggleButton subrole and is written as a button, so "Good response" or "Sidebar" can't make a list.
+- **Newer Claude Code is recognised by its status line, or "●" and "❯" together, not by either alone** (SCR-80). A "❯" prompt theme and "●" in a status tool are common in plain terminals.
+
 - **Tick When Didja Is Sure is the default, for new and existing installs** (SCR-74, the maintainer). An install on Ask Me moves once (`meta.looks_done_sure_once`; the app's own flag the same); one on Accept Automatically keeps it. Ask Me stays available.
 - **No "both models say done" signal** (the maintainer): asking two models on every look doubles the time and the memory. The second signs are what done looks like matched there, or a ticked box or notice naming the task, each with the model's "done"; or earned trust.
 - **Trust key: site or app · source kind · first verb**, not the page path, which would earn trust too slowly (the maintainer). Trust is 5 yes after the last no within 30 days, so a wrong tick (reopened) or a "not yet" suspends the key until 5 more yes.

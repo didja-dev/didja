@@ -23,6 +23,8 @@ export interface ChecklistItem {
   children: ChecklistItem[];
   /** A one-word item such as "Vercel": worth keeping only as a heading over sub-steps. */
   headingOnly?: boolean;
+  /** A named step whose instruction is the shell command under it ("1. Folder" + `mkdir -p …`), SCR-80. */
+  command?: boolean;
 }
 
 export interface Checklist {
@@ -67,6 +69,14 @@ export const EDITORS = new Set([
 ]);
 /** Text that only shows up in the Claude Code terminal UI. */
 const CLAUDE_CODE_SIGNATURES = /esc to interrupt|\? for shortcuts|shift\+tab to cycle|Claude Code|⏺/;
+/**
+ * Newer Claude Code (SCR-80): replies start with "●", the prompt is "❯", the tab title may be just
+ * the terminal's, and after each reply a status line says how long it worked: "✻ Baked for 4s ·
+ * done 13:13", "* Cogitated for 1m 2s". That status line is Claude Code's own; "●" and "❯" are
+ * each common elsewhere (prompt themes, status output), so they count only together.
+ */
+const CLAUDE_CODE_STATUS = /^\s*[*✻✳✶✢✽·]\s+\p{Lu}\p{Ll}+(?:ed|ing)\s+for\s+(?:\d+h\s*)?(?:\d+m\s*)?\d+s\b/mu;
+const CLAUDE_CODE_TURNS = (text: string) => /^\s*❯ \S/m.test(text) && /^\s*● \S/m.test(text);
 /** Claude Code's own interface (its prompt box's hints), never words a document could hold. */
 const CLAUDE_CODE_UI = /esc to interrupt|\? for shortcuts|shift\+tab to cycle|accept edits on|bypass permissions on|plan mode on/i;
 
@@ -79,7 +89,7 @@ export function classifySource(
   if (window.url && /^https?:\/\/([^/]+\.)?claude\.ai(\/|$)/i.test(window.url)) return 'claude-web';
   if (TERMINALS.has(window.bundleId)) {
     if (/claude/i.test(window.windowTitle) || /^\s*✳/.test(window.windowTitle)) return 'claude-code';
-    if (CLAUDE_CODE_SIGNATURES.test(text)) return 'claude-code';
+    if (CLAUDE_CODE_SIGNATURES.test(text) || CLAUDE_CODE_STATUS.test(text) || CLAUDE_CODE_TURNS(text)) return 'claude-code';
   }
   // An editor shows documents: a file named CLAUDE.md, or a doc about Claude Code, is not Claude
   // Code. Only the panel's own interface says it is there (SCR-65).
@@ -191,7 +201,10 @@ const ACTION_VERBS = new Set(
   point provide publish pull push put read rebuild redeploy register reload remove rename replace
   reply request rerun restart review revoke rotate run save schedule select send set share sign
   start stop submit switch tell test toggle try turn update upgrade upload use verify visit wait
-  whitelist write`.split(/\s+/),
+  whitelist write
+  get back bring grab charge insert eject format flash burn prepare gather collect fetch obtain contact
+  message text notify invite follow print scan unlock restore wipe erase boot take return pack label
+  empty sync backup`.split(/\s+/),
 );
 
 /** Lead-ins that can precede the verb: "Then run…", "In Vercel, set…", "Don't forget to…". */
@@ -338,14 +351,50 @@ type Author = 'user' | 'claude' | null;
  */
 function settle(item: ChecklistItem): boolean {
   completeTitle(item); // before sub-items are folded in: only the item's own lines can finish its title
+  commandStep(item);
   item.children = item.children.filter((child) => {
     const keep = settle(child);
     if (!keep) item.fragments.push(child.title, ...child.fragments);
     return keep;
   });
   item.children.forEach((child, i) => { child.position = i + 1; });
-  return (!item.headingOnly && looksLikeAction(item.title)) || item.children.length > 0;
+  return item.command === true || (!item.headingOnly && looksLikeAction(item.title)) || item.children.length > 0;
 }
+
+/**
+ * A shell command written as a step's only instruction: "mkdir -p components/widget",
+ * "$ touch Header.tsx", "`bun test`". Null for prose, or for a command too long to be one step.
+ */
+export function bareCommand(line: string): string | null {
+  const cmd = line.trim().replace(/^\$\s+/, '').replace(/^`([^`]+)`$/, '$1').trim();
+  if (cmd.length < 3 || cmd.length > 160 || /[.!?]$/.test(cmd) || !SHELL_START.test(cmd)) return null;
+  return cmd;
+}
+
+/**
+ * A step that is only a name, with the command to run under it ("1. Folder" then
+ * "mkdir -p components/widget", as newer Claude Code writes them, SCR-80): the command is the
+ * instruction. The title keeps the name and gains the command, which is also its marker, so
+ * running it in a terminal ticks it.
+ */
+function commandStep(item: ChecklistItem): void {
+  const cmd = item.fragments[0] ? bareCommand(item.fragments[0]) : null;
+  if (!cmd || item.title.includes('`')) return;
+  if (!item.headingOnly && looksLikeAction(item.title)) return;
+  item.title = cleanTitle(`${item.title.replace(/[\s:：]+$/, '')}: \`${cmd}\``);
+  item.headingOnly = false;
+  item.command = true;
+}
+
+/**
+ * A checklist line: "[ ] Get a USB drive" (capture writes a ticked or empty box so, SCR-68) or
+ * "- [ ] Get a USB drive" (Markdown, in a terminal). Not one followed by a number: that is a
+ * numbered step with a box in front, below.
+ */
+const CHECKBOX_LINE = /^(\s*)(?:[-*•]\s+)?\[( |x|X)\]\s+(?!\d{1,2}\s?[.)]\s)(\S.*)$/;
+
+/** "- [ ] 1. Folder": a checkbox before a numbered step (Claude Code writes checklists so). */
+const CHECKBOX_BEFORE_NUMBER = /^(\s*)[-*•]\s+\[[ xX]\]\s+(?=\d{1,2}\s?[.)]\s)/;
 
 function completeTitle(item: ChecklistItem): void {
   const code = item.fragments[0];
@@ -459,7 +508,20 @@ export function extractChecklists(text: string, opts: ExtractOptions = {}): Chec
     gap = 0;
   };
 
-  for (const [index, line] of lines.entries()) {
+  /** Checklist lines (Claude writes lists of things to do as boxes to tick) are read as a numbered list, SCR-80. */
+  let boxes = 0;
+  let boxIndent = -1;
+  for (const [index, raw] of lines.entries()) {
+    let line = raw.replace(CHECKBOX_BEFORE_NUMBER, '$1');
+    const box = line.match(CHECKBOX_LINE);
+    if (box) {
+      if (box[1]!.length !== boxIndent) { boxes = 0; boxIndent = box[1]!.length; }
+      // A ticked box is already done: not a task, but the list carries on past it.
+      line = box[2] === ' ' ? `${box[1]}${++boxes}. ${box[3]}` : '';
+    } else if (line.trim() !== '' && line.length - line.trimStart().length <= boxIndent) {
+      boxes = 0;
+      boxIndent = -1;
+    }
     if (SECTION_LINE.test(line)) {
       close();
       sectionOwner = yours.has(line) ? 'user' : 'claude';
@@ -518,6 +580,14 @@ export function extractChecklists(text: string, opts: ExtractOptions = {}): Chec
     }
     if (trimmed === '') continue;
     const indent = line.length - line.trimStart().length;
+    // The command right under a named step, at the list's own level (newer Claude Code): it belongs
+    // to that step, not prose that ends the list (SCR-80).
+    if (open && indent <= runIndent && open.fragments.length === 0 && open.children.length === 0 && bareCommand(trimmed)) {
+      open.fragments.push(trimmed);
+      runEnd = index;
+      gap = 0;
+      continue;
+    }
     // Lines nested under an item belong to it; only text back at the list's own level counts towards drifting away.
     if (indent <= runIndent && ++gap > MAX_GAP_LINES) {
       close();

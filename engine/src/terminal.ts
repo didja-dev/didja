@@ -17,7 +17,7 @@
 export interface TerminalLine { text: string; ts: string; observationId: number }
 
 /** What a shell prompt ends with, just before the typed command. */
-const PROMPT_CHARS = '%$❯➜>#';
+const PROMPT_CHARS = '%$❯➜>#›»';
 /** oh-my-zsh's default theme: arrow, folder, git branch, a ✗ when the tree is dirty (not a failure). */
 const OH_MY_ZSH = /^(➜\s+\S+(?:\s+git:\([^)]*\))?(?:\s+✗)?)(?:\s+(.*))?$/;
 /** A prompt: up to 80 characters of anything, then a prompt character, then a space or the end. */
