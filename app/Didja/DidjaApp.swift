@@ -131,6 +131,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var privacyWindow: NSWindow?
     private var diagnosticsWindow: NSWindow?
     private var missedWindow: NSWindow?
+    private var bugReportWindow: NSWindow?
     let canvasWindows = CanvasWindows()
     private var brainWindow: NSWindow?
     private var brainModel: BrainModel?
@@ -336,6 +337,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             .action("How Didja Works…", close { [weak self] in self?.showWelcome() }),
             .action("How It Decides…", close { [weak self] in self?.showBrain() }),
             .separator,
+            .action("Report a Bug…", close { [weak self] in self?.showBugReport() }),
             .action("Check for Updates…", enabled: Updates.shared.canCheck) { Updates.shared.checkNow() },
         ]
         return top + [
@@ -746,6 +748,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let mine = tasks.filter { $0.source == r.app || $0.source.hasPrefix(r.app + " — ") }.prefix(20)
         let explained = mine.map { DiagnosticsReport.Task(title: "[\($0.status.rawValue)] \($0.title)", why: EngineRunner.output(["why", String($0.id)]) ?? "") }
         return DiagnosticsReport.build(about: about, outline: r.outline, captured: r.lines, kept: r.kept, tasks: Array(explained))
+    }
+
+    /// Report a Bug… (SCR-51): a form that opens a new GitHub issue in your browser, filled in.
+    /// You submit it there; nothing is sent from here.
+    func showBugReport() {
+        let copy: (String) -> Void = { text in
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(text, forType: .string)
+        }
+        let view = BugReportView(
+            open: { [weak self] report in
+                guard let link = report.issueLink() else { NSSound.beep(); return }
+                if link.mustPaste { copy(report.body()) }
+                NSWorkspace.shared.open(link.url)
+                self?.bugReportWindow?.close()
+            },
+            copy: copy,
+            reportWindow: { [weak self] in
+                self?.bugReportWindow?.close()
+                self?.showDiagnostics()
+            })
+        bugReportWindow?.close()
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: BugReportView.width, height: 560),
+                              styleMask: [.titled, .closable], backing: .buffered, defer: false)
+        window.title = "Report a Bug"
+        window.isReleasedWhenClosed = false
+        window.contentViewController = NSHostingController(rootView: view)
+        window.center()
+        bugReportWindow = window
+        NSApplication.shared.activate(ignoringOtherApps: true)
+        window.makeKeyAndOrderFront(nil)
     }
 
     /// Didja Missed This… on a task: pick where you did it and the screen that shows it done.
