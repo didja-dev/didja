@@ -339,3 +339,9 @@ A live back-and-forth made a task per message. Waiting before an ask becomes a t
 - Left out on purpose: Rename (the canvas already has it, on Return), Send to Canvas (it is on one), "tick conversation" and the merge buttons (a canvas holds single tasks, not their conversation), and Fold (a canvas lays its steps out itself).
 - The canvas calls the same `TaskActions` the list uses, given to it by the app, so a control does exactly what it does in the list; there is no second copy of any rule.
 - The buttons sit beside the text rather than over it as in the list: a canvas row wraps, so covering its end would hide words.
+
+## Ticking a heading on a canvas (SCR-59, 2026-11-13)
+- "Under a heading" means the tasks after it up to the next heading, whatever their indent: a canvas heading has no level of its own, and that is how the page reads. Worked out in the engine (`canvasSection`), which owns every rule about tasks; the app only draws the circle from the counts it is given.
+- Ticking a heading is the same as ticking each task by hand (`changeByYou`): a user's tick, not Didja's, so it cannot tick anything wrongly on its own and How Didja Is Doing counts it as yours.
+- A filled heading circle opens its tasks again, like a ticked task's circle. Dismissed tasks are skipped both ways and left out of the count: you said they were not to-dos.
+- A heading with no tasks under it has no circle.

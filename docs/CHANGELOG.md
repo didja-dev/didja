@@ -6,6 +6,11 @@ Each entry says what changed, and what was **not verified** where that applies: 
 
 ## 2026-11-13
 
+### Tick a heading on a canvas to finish everything under it (SCR-59)
+- A heading with tasks under it now has a circle. Clicking it (or Space on the chosen heading, or **Mark All Under It Done** in its "…" menu) marks every open or snoozed task under it done, up to the next heading, as if you had ticked each. When all of them are done the circle is filled, and clicking it opens them again. Dismissed tasks are not touched and not counted.
+- Engine: `didja canvas tick <heading item> [--undo]`, `Store.tickCanvasSection` and `canvasSection`; `canvas show` gives each heading `section: { tasks, open }`. Each task is changed through `changeByYou`, so How Didja Is Doing counts them as ticked by you.
+- Tests: engine 2 new (only the tasks under that heading, snoozed included, dismissed and the next heading's left alone, undo, a note or task item ticks nothing; an empty heading), app 1 new (the circle's command, undo when all are done, Space on a heading; looked at `canvas.png`). Not verified: clicking the circle in the live app.
+
 ### A task on a canvas has the list's controls (SCR-58)
 - Point at a task on a canvas (or choose it with the keys) and it shows the list's buttons: Copy, Go to Source, How it looked where it was captured, Why it is open or done, Snooze for an hour and Dismiss. Its "…" menu, and now a right-click, add Didja Missed This…, Snooze for 3 hours or until tomorrow, Not an Action, and Mark Done or Reopen, above the canvas's own Move, Indent, Rename and Take Off.
 - How it looked and Why open under the task, as in the list. A snoozed or dismissed task says so.
