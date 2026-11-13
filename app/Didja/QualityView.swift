@@ -23,12 +23,64 @@ struct QualityReport: Decodable, Equatable {
         var byYou: Int { byHand + shownDone }
     }
 
+    /// Milliseconds: how many, the median and the 90th percentile (SCR-75).
+    struct Percentiles: Decodable, Equatable {
+        var n = 0
+        var p50: Double?
+        var p90: Double?
+    }
+
+    /// How fast one kind of event was, for one source or all of them (SCR-75).
+    struct SpeedRow: Decodable, Equatable {
+        /// "new-task", "sure-tick", "model" or "chat-wait".
+        var what: String
+        var source: String
+        var targetMs: Double?
+        /// From the screen showing it to Didja showing it.
+        var total = Percentiles()
+        var waiting = Percentiles()
+        var working = Percentiles()
+
+        var label: String {
+            switch what {
+            case "new-task": return "New task"
+            case "sure-tick": return "Sure tick"
+            case "model": return "Model-judged"
+            case "chat-wait": return "Chat ask (waits for your reply)"
+            default: return what
+            }
+        }
+
+        /// Over its target at the 90th percentile.
+        var isSlow: Bool {
+            guard let target = targetMs, let p90 = total.p90 else { return false }
+            return p90 > target
+        }
+    }
+
+    struct Speed: Decodable, Equatable {
+        var since: String
+        var rows: [SpeedRow]
+
+        /// Every source together, one row per kind of event.
+        var overall: [SpeedRow] { rows.filter { $0.source == "All sources" } }
+    }
+
     var days: Int
     var since: String
     var overall: Counts
     var sources: [Counts]
+    /// Absent from an engine older than SCR-75.
+    var speed: Speed?
 
     static let days = 7
+
+    /// "0.4 s", "12 s", "10 min", as the engine writes them.
+    static func seconds(_ ms: Double?) -> String {
+        guard let ms else { return "—" }
+        if ms >= 120_000 { return "\(Int((ms / 60_000).rounded())) min" }
+        return ms < 10_000 ? String(format: "%.1f s", ms / 1000) : "\(Int((ms / 1000).rounded())) s"
+    }
 
     /// The report from the bundled engine, or nil if it could not be read.
     static func load(days: Int = days) -> QualityReport? {
@@ -92,6 +144,9 @@ struct QualityTable: View {
                     Text("Wrong ticks are tasks Didja ticked that you reopened. Each one is a bug worth reporting.")
                         .font(.caption).foregroundStyle(.secondary)
                 }
+                if let speed = report.speed, !speed.overall.isEmpty {
+                    SpeedTable(rows: speed.overall).padding(.top, 6)
+                }
             } else {
                 Text("No numbers yet.").font(.callout).foregroundStyle(.secondary)
             }
@@ -106,6 +161,50 @@ struct QualityTable: View {
                     .fontWeight(bold ? .semibold : .regular)
                     .foregroundStyle(index == 7 && value > 0 ? Color.red : (value == 0 ? .secondary : .primary))
             }
+        }
+    }
+}
+
+
+/// How fast (SCR-75): from the screen showing it to Didja showing it, per kind of event.
+struct SpeedTable: View {
+    let rows: [QualityReport.SpeedRow]
+
+    static let columns: [(String, String)] = [
+        ("How many", "Events timed in these days"),
+        ("Median", "Half were shown at least this fast"),
+        ("90%", "Nine in ten were shown at least this fast"),
+        ("Target", "What the 90% should be within"),
+    ]
+
+    static func values(_ r: QualityReport.SpeedRow) -> [String] {
+        [String(r.working.n), QualityReport.seconds(r.total.p50), QualityReport.seconds(r.total.p90),
+         r.targetMs.map { "≤ " + QualityReport.seconds($0) } ?? "—"]
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("How fast").font(.callout.weight(.semibold))
+            Grid(alignment: .trailing, horizontalSpacing: 12, verticalSpacing: 6) {
+                GridRow {
+                    Text("").gridColumnAlignment(.leading)
+                    ForEach(Self.columns, id: \.0) { column in
+                        Text(column.0).font(.caption.weight(.medium)).foregroundStyle(.secondary).help(column.1)
+                    }
+                }
+                Divider().gridCellUnsizedAxes(.horizontal)
+                ForEach(rows, id: \.what) { r in
+                    GridRow {
+                        Text(r.label).gridColumnAlignment(.leading)
+                        ForEach(Array(Self.values(r).enumerated()), id: \.offset) { index, value in
+                            Text(value).foregroundStyle(index == 2 && r.isSlow ? Color.orange : (index == 3 ? .secondary : .primary))
+                        }
+                    }
+                }
+            }
+            .font(.callout.monospacedDigit())
+            Text("From the moment the screen showed it to Didja showing it. A chat ask waits for your own reply on purpose.")
+                .font(.caption).foregroundStyle(.secondary)
         }
     }
 }
