@@ -105,6 +105,8 @@ struct GeneralSettingsView: View {
     @State private var local = LocalModel.Status(on: false, model: nil)
     /// The models Ollama has, or nil when it is not running.
     @State private var ollamaModels: [String]?
+    /// "How Didja is doing" (SCR-73), read when the page opens.
+    @State private var quality: QualityReport?
 
     /// What the local model does, and how it stands on this Mac.
     private var localWords: String {
@@ -254,6 +256,16 @@ struct GeneralSettingsView: View {
                 }
             }
             .onDisappear { hotKey.cancel() }
+
+            section("How Didja Is Doing") {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("The last \(QualityReport.days) days\(quality?.countedSince.map { ", \($0)" } ?? ""). These numbers are counted on this Mac and never leave it. `didja quality` prints them, with more detail.")
+                        .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                    QualityTable(report: quality)
+                }
+                .padding(.vertical, 10)
+            }
+            .task { quality = await Task.detached { QualityReport.load() }.value }
 
             section("Help") {
                 row("How Didja works", "What it reads, what becomes a task, and how tasks tick themselves.") {
