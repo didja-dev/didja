@@ -4,6 +4,13 @@ Choices made while building ScrolledAway, with the reason, so they are not re-ar
 
 ## 2026-11-13
 
+- **"How Didja is doing" counts from a log of outcomes, recorded from now on** (SCR-73), rather than being worked out from tasks and their evidence. The store did not say whether a tick was Didja's or yours, and reopening erased `done_at`, so wrong ticks could not be found after the fact; reading it from evidence wording would also break whenever a sentence changed. The report says from when it counts, and steps made are counted from the same moment so the numbers compare.
+- **Counted per step, per event.** Ticking a checklist counts each step it changed; a task asked "looks done?" in two places counts two asks. "No answer" is asks minus yes and not yet, so it includes asks still waiting and ones settled another way.
+- **A tick on a task waiting on "looks done?" is a yes**, whichever button made it; any other tick in the list is "by you". A reopening is a wrong tick only when the step's last outcome was one of Didja's ticks.
+- **Groups follow the source kind**: Claude (desktop and web), Claude Code, Email, Chat, Added by you (added and My List), Connected tools. The issue's "terminal" is not a source of tasks; terminal runs show as the "command run" kind of tick.
+- **Engine dismissals are not "dismissed by you"**: Claude doing a step itself, a connected tool cancelling an item, and an archived email are left out of that count.
+- **The app shows eight columns** (made, ticked for you, asked, yes, not yet, by you, cleared, wrong ticks); the breakdown of ticks by kind is in `didja quality`.
+
 - **Capture's window key is the window's identity, written on each observation** (SCR-72), not recomputed by the engine from the title, so the two can never disagree about a live row. The engine keeps its own copy of the rule only for rows written without a key (tests, the benchmark); both test suites check the same cases. Both sides strip a URL at its first `?` or `#` as text, rather than parsing it, so they agree on odd addresses. Rows from before schema 024 are grouped by app and exact title, as before, and never mixed with keyed rows.
 - **The title rule strips only what comes and goes**: leading symbols (spinners, dots), an unread count in brackets at either end, and "— Edited". A title that changes in other ways (a terminal that retitles to the running command) is still a new window.
 - **The terminal check "same window, within 5 minutes" still compares app and exact title** (`match.ts`). Loosening it to the key could let output from a different window count as a run; a missed tick there is cheaper.

@@ -6,6 +6,12 @@ Each entry says what changed, and what was **not verified** where that applies: 
 
 ## 2026-11-13
 
+### How Didja is doing: a local report of tasks made, ticked, asked, confirmed and cleared (SCR-73)
+- `didja quality [--days N] [--json]`: per kind of source and overall, tasks made; ticked for you, by what showed it (command, link, setting, file, screen, reply, connected tool, accepted automatically); "looks done?" asked, yes, not yet, no answer; ticked by you; shown done in Didja Missed This; dismissed, Not an Action, Fresh Start; and reopened after Didja ticked it (wrong ticks). Counts only.
+- Settings › General › **How Didja Is Doing**: the same for the last 7 days, as a table, saying the numbers never leave the Mac.
+- Schema 025 `outcomes` records each of these per step from now on (a row holds the task's id, the time and the outcome). Earlier tasks are not counted: the store did not say how a task was ticked or that it was reopened.
+- Tests: each outcome counted once per step (a checklist ticked by hand counts its steps); a command tick and its reopening; yes / not yet / no answer; accepted, reply, shown done, dismissed, Not an Action, Fresh Start and its undo; the window and the recording start; no titles or screen text in the output; Swift: the engine's JSON is read, columns add up, the table drawn to `didja-ui/quality.png` (light and dark, looked at). Benchmark unchanged, wrong ticks 0. **Not verified:** the section in the live Settings page, and numbers from real use (they start at zero).
+
 ### One window identity across capture and the engine; streaming and scrolled-back lines kept once (SCR-72)
 - Capture writes each observation's window key (schema 024 `observations.window_key`), and the engine reads a window's last 30 minutes by it. The key is the app plus the page, or the title without a spinner or unread dot in front, an unread count or "— Edited". A Claude Code list that arrives while the title's spinner changes (✳, ✻) is one list from one source; two pages titled "Inbox" at different addresses stay apart. Rows from before keep the old grouping.
 - Capture remembers a window's lines for 10 minutes after they leave the screen: scrolling away and back, or a list re-rendering, reports nothing new. After that a line is new again.

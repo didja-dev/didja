@@ -83,6 +83,8 @@ bun run cli tasks                 # open tasks
 
 `bun run cli notyet <id>` answers a "looks done?" with no.
 
+`bun run cli quality` says how Didja is doing on this Mac over the last 7 days (`--days N` for another span, `--json` for the app): per kind of source (Claude, Claude Code, Email, Chat, Added by you, Connected tools), how many tasks were made; how many Didja ticked for you and by what (a command run, a link, a setting, a file, a screen, a reply, a connected tool, "looks done" accepted automatically); how many "looks done?" were asked and answered yes, not yet or not at all; how many you ticked yourself or showed done in Didja Missed This; how many were dismissed, marked Not an Action or cleared by Fresh Start; and how many you reopened after Didja ticked them (the wrong ticks). Counts only, no titles or text, and never sent anywhere. Settings › General › **How Didja Is Doing** shows the same numbers for the last 7 days. They are counted from the version that started recording them (SCR-73); earlier tasks are not in them.
+
 Other commands: `tasks --all`, `tasks --json`, `poll` (one pass), `run` (loop), `done <id>`, `done-all <id>` (everything open from the same conversation as that task), `dismiss <id>`, `reopen <id>`. The same CLI is inside the app bundle at `Didja.app/Contents/Helpers/didja`.
 
 ## Privacy
