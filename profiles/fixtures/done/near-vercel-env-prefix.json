@@ -1,0 +1,16 @@
+{
+  "about": "Only a longer name that starts with the key is listed.",
+  "step": "Set POSTHOG_KEY in Vercel",
+  "page": {
+    "url": "https://vercel.com/acme/acme-web/settings/environment-variables",
+    "lines": [
+      "Environment Variables",
+      "POSTHOG_KEY_LEGACY",
+      "Production",
+      "Updated 3d ago"
+    ]
+  },
+  "expect": {
+    "place": null
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "about": "The URI is under Authorized redirect URIs and the client was saved.",
+  "step": "In Google Cloud, add https://acme.example.com/api/auth/callback/google to Authorized redirect URIs",
+  "page": {
+    "url": "https://console.cloud.google.com/apis/credentials/oauthclient/000-acme",
+    "lines": [
+      "Client ID for Web application",
+      "Authorized JavaScript origins",
+      "https://acme.example.com",
+      "Authorized redirect URIs",
+      "URIs 1",
+      "https://acme.example.com/api/auth/callback/google",
+      "Save",
+      "⟦Notice: OAuth client saved⟧"
+    ]
+  },
+  "expect": {
+    "place": "google-oauth-redirect-uris"
+  }
+}

@@ -13,6 +13,7 @@ import { EDITORS, TERMINALS } from './extract.ts';
 import { sameCommand, splitSession, terminalLines } from './terminal.ts';
 import type { TerminalLine } from './terminal.ts';
 import { requiredMarkers, withoutLinkTargets } from './markers.ts';
+import { catalogued, listedOn } from './done.ts';
 import type { Marker } from './markers.ts';
 import type { Observation, Task } from './store.ts';
 
@@ -104,6 +105,13 @@ function seenIn(o: Observation, marker: Marker, task: Task, history: Observation
     if (!task.criteria?.service || !o.url || !onHost(hostOf(o.url), task.criteria.hosts)) return null;
     // A link pointing at the page is not the page: only text on screen counts (SCR-68).
     const text = withoutLinkTargets(o.text);
+    // Where the catalogue knows the pages of this site for this kind of target (SCR-86), only that
+    // page counts, with the name or URL as an item of its list: not a build log, a form not yet
+    // saved, or another environment's row.
+    if (catalogued(hostOf(o.url), marker.kind)) {
+      const listed = listedOn(task.title, [{ kind: marker.kind, value: marker.value }], { url: o.url, text });
+      return listed ? `Saw ${marker.value} on ${pageRef(o.url)} (${listed.place.name})` : null;
+    }
     const found =
       marker.kind === 'env'
         ? new RegExp(`(?<![A-Z0-9_])${marker.value}(?![A-Z0-9_])`).test(text)

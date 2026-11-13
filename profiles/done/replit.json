@@ -1,0 +1,24 @@
+{
+  "$schema": "../schema/done.schema.json",
+  "id": "replit",
+  "name": "Replit",
+  "hosts": [
+    "replit.com"
+  ],
+  "places": [
+    {
+      "id": "replit-secrets",
+      "name": "Replit › Secrets",
+      "kinds": [
+        "env"
+      ],
+      "page": [
+        "^Secrets$"
+      ],
+      "form": [
+        "^New Secret$",
+        "^Value$"
+      ]
+    }
+  ]
+}

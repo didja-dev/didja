@@ -1,0 +1,15 @@
+{
+  "about": "The step is to make it public; the settings say private.",
+  "step": "Make the acme/widgets repository public on GitHub",
+  "page": {
+    "url": "https://github.com/acme/widgets/settings",
+    "lines": [
+      "Danger Zone",
+      "Change repository visibility",
+      "This repository is currently private."
+    ]
+  },
+  "expect": {
+    "place": null
+  }
+}

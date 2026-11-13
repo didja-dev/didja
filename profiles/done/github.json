@@ -1,0 +1,31 @@
+{
+  "$schema": "../schema/done.schema.json",
+  "id": "github",
+  "name": "GitHub",
+  "hosts": [
+    "github.com"
+  ],
+  "places": [
+    {
+      "id": "github-visibility",
+      "name": "GitHub › Settings",
+      "kinds": [
+        "visibility"
+      ],
+      "path": "^/[^/]+/[^/]+/settings/?$"
+    },
+    {
+      "id": "github-actions-secrets",
+      "name": "GitHub › Actions secrets",
+      "kinds": [
+        "env"
+      ],
+      "path": "/settings/secrets/actions(?:/|$)",
+      "form": [
+        "^Name \\*?$",
+        "^Secret \\*?$",
+        "^Add secret$"
+      ]
+    }
+  ]
+}

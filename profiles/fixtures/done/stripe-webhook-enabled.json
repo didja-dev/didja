@@ -1,0 +1,17 @@
+{
+  "about": "The endpoint is listed and Enabled in Stripe.",
+  "step": "Add a webhook for https://acme.example.com/api/stripe in Stripe",
+  "page": {
+    "url": "https://dashboard.stripe.com/acct_000/workbench/webhooks/we_000",
+    "lines": [
+      "Webhooks",
+      "Destination details",
+      "https://acme.example.com/api/stripe",
+      "Status",
+      "Enabled"
+    ]
+  },
+  "expect": {
+    "place": "stripe-webhooks"
+  }
+}

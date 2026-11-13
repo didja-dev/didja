@@ -1,0 +1,20 @@
+{
+  "about": "The key is typed in the Add form but not saved yet.",
+  "step": "Set POSTHOG_KEY in Vercel",
+  "page": {
+    "url": "https://vercel.com/acme/acme-web/settings/environment-variables",
+    "lines": [
+      "Environment Variables",
+      "Add Environment Variable",
+      "Key",
+      "POSTHOG_KEY",
+      "Value",
+      "Save",
+      "DATABASE_URL",
+      "Production"
+    ]
+  },
+  "expect": {
+    "place": null
+  }
+}

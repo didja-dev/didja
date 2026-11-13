@@ -1,0 +1,15 @@
+{
+  "about": "The repository settings say it is now public.",
+  "step": "Make the acme/widgets repository public on GitHub",
+  "page": {
+    "url": "https://github.com/acme/widgets/settings",
+    "lines": [
+      "Danger Zone",
+      "Change repository visibility",
+      "This repository is currently public."
+    ]
+  },
+  "expect": {
+    "place": "github-visibility"
+  }
+}

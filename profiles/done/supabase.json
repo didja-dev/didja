@@ -1,0 +1,48 @@
+{
+  "$schema": "../schema/done.schema.json",
+  "id": "supabase",
+  "name": "Supabase",
+  "hosts": [
+    "supabase.com"
+  ],
+  "places": [
+    {
+      "id": "supabase-url-configuration",
+      "name": "Supabase › URL Configuration",
+      "kinds": [
+        "url"
+      ],
+      "path": "/auth/url-configuration(?:/|$)",
+      "after": [
+        "^Site URL$",
+        "^Redirect URLs$"
+      ],
+      "form": [
+        "^Add new redirect URLs?$"
+      ]
+    },
+    {
+      "id": "supabase-providers",
+      "name": "Supabase › Auth Providers",
+      "kinds": [
+        "provider"
+      ],
+      "path": "/auth/providers(?:/|$)",
+      "confirm": [
+        "^Enabled$"
+      ]
+    },
+    {
+      "id": "supabase-function-secrets",
+      "name": "Supabase › Edge Function secrets",
+      "kinds": [
+        "env"
+      ],
+      "path": "/functions/secrets|/settings/functions",
+      "form": [
+        "^Key$",
+        "^Value$"
+      ]
+    }
+  ]
+}

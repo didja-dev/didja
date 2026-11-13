@@ -1,0 +1,17 @@
+{
+  "about": "The env page is open but the key is not on it.",
+  "step": "Set POSTHOG_KEY in Vercel",
+  "page": {
+    "url": "https://vercel.com/acme/acme-web/settings/environment-variables",
+    "lines": [
+      "Environment Variables",
+      "DATABASE_URL",
+      "Production",
+      "Updated 3d ago",
+      "Add New"
+    ]
+  },
+  "expect": {
+    "place": null
+  }
+}

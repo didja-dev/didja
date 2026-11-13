@@ -82,6 +82,8 @@ export interface ScenarioResult {
   unwanted: string[];
   /** Tasks the engine made and then took back (dismissed, with why), which left the list (SCR-85). */
   takenBack: string[];
+  /** Steps Didja added itself after one was done (SCR-86: "Redeploy on Vercel…"); not captured, so not counted as made. */
+  followUps: string[];
   ticked: number;
   suggested: number;
   missed: number;
@@ -181,14 +183,18 @@ export function runScenario(s: Scenario, opts: PollOptions = {}, model: ModelCho
 
   // What is on the list at the end: a task the engine took back (an agent ran it, a list judged the
   // assistant's own) has left it, so it is neither found nor unwanted. Only the engine dismisses here.
-  const everything = store.listTasks({ all: true }).filter((t) => !t.isGroup);
+  // A follow-up Didja added itself (SCR-86) was not captured from the screen: listed apart.
+  const added = new Set(store.listTasks({ all: true }).filter((t) => store.listEvidence(t.id).some((e) => (e.detail ?? '').startsWith('Added by Didja:'))).map((t) => t.id));
+  const everything = store.listTasks({ all: true }).filter((t) => !t.isGroup && !added.has(t.id));
   const tasks = everything.filter((t) => t.status !== 'dismissed');
+  const followUps = store.listTasks({ all: true }).filter((t) => added.has(t.id)).map((t) => t.title);
   const speeds = store.timingsSince('').filter((t) => t.seenAt !== null)
     .map((t) => ({ what: speedKind(t), ms: Math.max(0, Date.parse(t.shownAt) - Date.parse(t.seenAt!)) }));
   store.close();
   const result: ScenarioResult = {
     id: s.id, family: s.family, recognised: recognisedIn(s), expected: s.expect.tasks.length, captured: tasks.length, matched: 0, unwanted: [],
     takenBack: everything.filter((t) => t.status === 'dismissed').map((t) => t.title),
+    followUps,
     ticked: 0, suggested: 0, missed: 0, wrongTicks: [], wrongSuggestions: [], latencies: [], titles: tasks.map((t) => t.title), speeds,
   };
   const taken = new Set<number>();
@@ -331,6 +337,7 @@ export function table(results: ScenarioResult[], t: Totals, verbose = false): st
       out.push('', `${r.id}: ${r.titles.length ? r.titles.map((x) => `“${x}”`).join(', ') : 'no tasks'}`);
       if (r.unwanted.length) out.push(`  unwanted: ${r.unwanted.join(' | ')}`);
       if (r.takenBack.length) out.push(`  taken back: ${r.takenBack.join(' | ')}`);
+      if (r.followUps.length) out.push(`  follow-ups added: ${r.followUps.join(' | ')}`);
       if (r.wrongTicks.length) out.push(`  WRONG TICK: ${r.wrongTicks.join(' | ')}`);
       if (r.wrongSuggestions.length) out.push(`  wrong ask: ${r.wrongSuggestions.join(' | ')}`);
     }

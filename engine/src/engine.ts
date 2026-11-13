@@ -5,6 +5,8 @@ import type { MailIdentity, MailReader } from './email.ts';
 import { chatApp, chatKey, asksForAcknowledgement, chatTaskTitle, isEmojiOnly, isPositiveEmoji, isReaction, lineHash, plainReactions, reactedTo, namesMe, chatSourceRef, chatTime, isMine as isMyMessage, mayAskOfMe, parseChatMessages, plainlyDefers, sentBefore } from './chat.ts';
 import type { ChatMessage, ChatReader, ReplyJudge } from './chat.ts';
 import { agentWork, assistantFor, hasTurns } from './assistants.ts';
+import { followUpOn, listedOn, targetsOf } from './done.ts';
+import type { Listed } from './done.ts';
 import { agentCommands, agentTodos, ranByAgent, todoKey, withoutAgentWork } from './agents.ts';
 import { normalizeSteps } from './steps.ts';
 import { assemble, doneByClaude, EDITORS, extractCommands, extractChecklists, replyAround, sourceRef, splitClaudeCode, stepCommands, stepLine, TERMINALS } from './extract.ts';
@@ -504,10 +506,13 @@ function pass(store: Store, now: Date, options: PollOptions): PollStats {
   const terminalHistory = firstFresh === null ? [] : store
     .observationsSince(new Date(Date.parse(firstFresh) - RUN_WINDOW_MS).toISOString())
     .filter((o) => (TERMINALS.has(o.bundleId) || EDITORS.has(o.bundleId)) && !claudeWindows.has(windowKey(o)));
+  const seenOn = new Map<number, Observation>();
   for (const s of findSightings(watchable, elsewhere, [...terminalHistory, ...elsewhere.filter((o) => !terminalHistory.some((h) => h.id === o.id))])) {
     if (store.addSighting(s.taskId, s.marker.value, s.observationId, s.ts, s.detail)) {
       stats.sightings++;
       touched.add(s.taskId);
+      const o = elsewhere.find((e) => e.id === s.observationId);
+      if (o) seenOn.set(s.taskId, o);
     }
   }
   for (const id of touched) {
@@ -515,6 +520,7 @@ function pass(store: Store, now: Date, options: PollOptions): PollStats {
     if (task && (task.status === 'open' || task.status === 'snoozed') && isComplete(task, store.seenMarkers(id))) {
       store.withOutcome(id, tickedBy(task), now, () => store.setStatus(id, 'done', now));
       stats.completed++;
+      stats.newTasks += addFollowUp(store, task, seenOn.get(id) ?? null, now);
     }
   }
 
@@ -533,6 +539,11 @@ function pass(store: Store, now: Date, options: PollOptions): PollStats {
   if (opts.judge) stats.judged = timedAs(store, 'model', () => judgePending(store, opts.judge!, now));
   // What done looks like, written while the task's source is still at hand (SCR-67).
   if (opts.criteria) writeCriteria(store, opts.criteria);
+  // Done by target (SCR-86): a step's target listed where such steps are done. Ticks alone only at a
+  // place you trust; with no model to ask, it asks you instead.
+  const byTarget = doneByTarget(store, elsewhere, now, { ask: !opts.looker });
+  stats.completed += byTarget.completed;
+  stats.suggested += byTarget.suggested;
   if (opts.looker) {
     // A list judged just now is looked at from the next pass, as before verdicts came first:
     // these screens were read before it was a task.
@@ -1098,7 +1109,7 @@ function lookForDone(store: Store, looker: Looker, observations: Observation[], 
   // then the newest screen, the one most likely to show the finished state.
   // A second sign besides the model (SCR-74): what done looks like matched there, or a box ticked
   // or a notice naming the task. With the model's "done" that is two signs: sure enough to tick.
-  const candidates: { task: Task; o: Observation; snippet: string; score: number; sign?: string }[] = [];
+  const candidates: { task: Task; o: Observation; snippet: string; score: number; sign?: string; listed?: Listed }[] = [];
   for (const task of tasks) {
     const kept = store.context(task.id);
     const source = {
@@ -1133,6 +1144,13 @@ function lookForDone(store: Store, looker: Looker, observations: Observation[], 
       // a strong candidate. The looks-done model still has to see it done.
       const match = done ? matchCriteria(done, o) : 'none';
       if (match === 'pending' || match === 'missing') continue;
+      // The step's target listed where such steps are done (SCR-86): the strongest candidate, and a
+      // second sign beside the model's "done".
+      const listed = listedOn(task.capturedTitle, targetsOf(task.capturedTitle, task.markers), o, undefined, task.createdAt, source.context);
+      if (listed) {
+        candidates.push({ task, o, snippet: listed.snippet, score: 11, sign: `${listed.detail}`, listed });
+        continue;
+      }
       // A box ticked, a switch turned on or a notice that names the task (SCR-68): a strong candidate,
       // still for the model to judge. A box that names it but is not ticked says it is not done yet.
       const state = doneState(task.capturedTitle, o.text);
@@ -1163,7 +1181,7 @@ function lookForDone(store: Store, looker: Looker, observations: Observation[], 
   // The local model answers in about two seconds, Apple's in several: it gets more looks.
   const budget = localModelOf(store) ? LOOKS_PER_POLL_LOCAL : LOOKS_PER_POLL;
   const mode = store.looksDoneMode();
-  for (const { task, o, snippet, sign } of candidates) {
+  for (const { task, o, snippet, sign, listed } of candidates) {
     if (task.suggestion || task.status !== 'open') continue;
     const place = placeOf(o);
     if (store.rejectedPlaces(task.id).has(place)) continue;
@@ -1172,7 +1190,16 @@ function lookForDone(store: Store, looker: Looker, observations: Observation[], 
     if (asked >= budget) return suggested;
     asked++;
     const verdict = looker({ task: task.capturedTitle, app: o.app, page: place, text: snippet, ...taught(store, 'looks-done') });
-    if (verdict === null) return suggested; // no model: nothing to do
+    if (verdict === null) {
+      // No model after all: a step whose target is listed there is still worth asking you about.
+      if (listed) {
+        store.suggestDone(task.id, place, o.id, now);
+        task.suggestion = place;
+        suggested++;
+        continue;
+      }
+      return suggested; // nothing to do
+    }
     store.recordLooksDoneCheck(key, task.id, verdict, now);
     if (verdict === 'done') {
       const why = mode === 'sure' ? sureBecause(store, task, place, sign, now) : null;
@@ -1187,6 +1214,64 @@ function lookForDone(store: Store, looker: Looker, observations: Observation[], 
     }
   }
   return suggested;
+}
+
+/**
+ * The step a change done on a catalogue page implies (SCR-86): an env var set on Vercel or Netlify
+ * needs a redeploy before it is used. Added once per conversation, beside the step, unless the
+ * conversation already has a redeploy step; dismiss it if it is not needed. Done when that service's
+ * deployments page shows one ready that is newer than it.
+ */
+function addFollowUp(store: Store, task: Task, o: Observation | null, now: Date): number {
+  if (!o || !task.markers.some((m) => m.kind === 'env')) return 0;
+  const next = followUpOn(o);
+  if (!next) return 0;
+  const siblings = store.listTasks({ all: true }).filter((t) => t.sourceKind === task.sourceKind && t.sourceRef === task.sourceRef);
+  if (siblings.some((t) => /\bredeploy\b/i.test(t.title))) return 0;
+  const made = store.upsertTask({
+    title: next.title, sourceKind: task.sourceKind, sourceRef: task.sourceRef, confidence: 1, position: null,
+    ts: now.toISOString(), observationId: o.id, markers: [], criteria: null, distinct: `follow-up ${next.place.id} ${task.sourceKind} ${task.sourceRef}`,
+  });
+  if (made.created) store.addNote(made.id, 'judged', now.toISOString(), `Added by Didja: ${task.title} was done on ${next.place.name}, which needs a redeploy before it is used`);
+  return made.created ? 1 : 0;
+}
+
+/**
+ * Done by target without the model (SCR-86): an open step whose target (`targetsOf`) a screen lists
+ * where such steps are done (`listedOn`). At a place you trust (SCR-74: five yeses there, no "not
+ * yet" since) it is ticked, labelled as ticked for you, unless you chose Ask Me; otherwise, when
+ * there is no model to judge it (`ask`), you are asked "looks done?". A step with something exact to
+ * look for (a marker) is left to its markers, which the catalogue already checks.
+ */
+export function doneByTarget(store: Store, observations: Observation[], now: Date, opts: { ask: boolean }): { completed: number; suggested: number } {
+  let completed = 0;
+  let suggested = 0;
+  const mode = store.looksDoneMode();
+  const tasks = store.listTasks().filter((t) => !t.auto && !t.suggestion && t.sourceKind !== KEPT_KIND);
+  for (const task of tasks) {
+    const targets = targetsOf(task.capturedTitle, task.markers);
+    if (targets.length === 0) continue;
+    const kept = store.context(task.id);
+    const source = kept ? [kept.window, ...kept.lines.map((l) => l.text)].join('\n') : '';
+    for (const o of observations) {
+      if (o.ts <= task.createdAt) continue;
+      const listed = listedOn(task.capturedTitle, targets, o, undefined, task.createdAt, source);
+      if (!listed) continue;
+      const place = placeOf(o);
+      if (store.rejectedPlaces(task.id).has(place)) continue;
+      if (mode !== 'ask' && store.isTrusted(trustKey(place, task.sourceKind, task.capturedTitle), now)) {
+        store.tickSure(task.id, place, o.id, `${listed.detail}, where you said steps like it were done ${TRUST_YES} times or more`, now);
+        completed++;
+      } else if (opts.ask) {
+        store.suggestDone(task.id, place, o.id, now);
+        suggested++;
+      } else {
+        continue;
+      }
+      break;
+    }
+  }
+  return { completed, suggested };
 }
 
 /**

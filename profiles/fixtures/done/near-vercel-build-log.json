@@ -1,0 +1,15 @@
+{
+  "about": "The key is named in a build log, not the env list.",
+  "step": "Set POSTHOG_KEY in Vercel",
+  "page": {
+    "url": "https://vercel.com/acme/acme-web/deployments/000",
+    "lines": [
+      "Build Logs",
+      "Error: POSTHOG_KEY is not set",
+      "Build failed"
+    ]
+  },
+  "expect": {
+    "place": null
+  }
+}

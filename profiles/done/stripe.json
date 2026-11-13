@@ -1,0 +1,21 @@
+{
+  "$schema": "../schema/done.schema.json",
+  "id": "stripe",
+  "name": "Stripe",
+  "hosts": [
+    "dashboard.stripe.com"
+  ],
+  "places": [
+    {
+      "id": "stripe-webhooks",
+      "name": "Stripe › Webhooks",
+      "kinds": [
+        "url"
+      ],
+      "path": "/webhooks",
+      "confirm": [
+        "^Enabled$"
+      ]
+    }
+  ]
+}

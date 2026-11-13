@@ -1,0 +1,18 @@
+{
+  "about": "The URL is only under Authorized JavaScript origins.",
+  "step": "In Google Cloud, add https://acme.example.com to Authorized redirect URIs",
+  "page": {
+    "url": "https://console.cloud.google.com/apis/credentials/oauthclient/000-acme",
+    "lines": [
+      "Client ID for Web application",
+      "Authorized JavaScript origins",
+      "https://acme.example.com",
+      "Authorized redirect URIs",
+      "https://acme.example.com/api/auth/callback/google",
+      "⟦Notice: OAuth client saved⟧"
+    ]
+  },
+  "expect": {
+    "place": null
+  }
+}

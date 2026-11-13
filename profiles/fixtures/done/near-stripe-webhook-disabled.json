@@ -1,0 +1,16 @@
+{
+  "about": "The endpoint is listed but Disabled.",
+  "step": "Add a webhook for https://acme.example.com/api/stripe in Stripe",
+  "page": {
+    "url": "https://dashboard.stripe.com/acct_000/workbench/webhooks/we_000",
+    "lines": [
+      "Webhooks",
+      "https://acme.example.com/api/stripe",
+      "Status",
+      "Disabled"
+    ]
+  },
+  "expect": {
+    "place": null
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "$schema": "../schema/done.schema.json",
+  "id": "lovable",
+  "name": "Lovable",
+  "hosts": [
+    "lovable.dev"
+  ],
+  "places": [
+    {
+      "id": "lovable-secrets",
+      "name": "Lovable › Secrets",
+      "kinds": [
+        "env"
+      ],
+      "page": [
+        "^Secrets$"
+      ],
+      "form": [
+        "^Add secret$",
+        "^Value$"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,53 @@
+{
+  "$schema": "../schema/done.schema.json",
+  "id": "vercel",
+  "name": "Vercel",
+  "hosts": [
+    "vercel.com"
+  ],
+  "places": [
+    {
+      "id": "vercel-env",
+      "name": "Vercel › Environment Variables",
+      "kinds": [
+        "env"
+      ],
+      "path": "/settings/environment-variables(?:/|$)",
+      "environments": [
+        "Production",
+        "Preview",
+        "Development"
+      ],
+      "form": [
+        "^Key$",
+        "^Value$",
+        "^Save$"
+      ],
+      "followUp": {
+        "title": "Redeploy on Vercel so the new value is used"
+      }
+    },
+    {
+      "id": "vercel-domains",
+      "name": "Vercel › Domains",
+      "kinds": [
+        "domain"
+      ],
+      "path": "/settings/domains(?:/|$)",
+      "confirm": [
+        "^Valid Configuration$"
+      ]
+    },
+    {
+      "id": "vercel-deployments",
+      "name": "Vercel › Deployments",
+      "kinds": [
+        "deployment"
+      ],
+      "path": "/deployments(?:/|$)",
+      "confirm": [
+        "^Ready$"
+      ]
+    }
+  ]
+}

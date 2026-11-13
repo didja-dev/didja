@@ -1,0 +1,18 @@
+{
+  "about": "The redirect URL is in Supabase's Redirect URLs.",
+  "step": "Add https://acme.example.com/auth/callback to Redirect URLs in Supabase",
+  "page": {
+    "url": "https://supabase.com/dashboard/project/acme/auth/url-configuration",
+    "lines": [
+      "URL Configuration",
+      "Site URL",
+      "https://acme.example.com",
+      "Redirect URLs",
+      "https://acme.example.com/auth/callback",
+      "Saved"
+    ]
+  },
+  "expect": {
+    "place": "supabase-url-configuration"
+  }
+}

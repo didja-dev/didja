@@ -1,0 +1,16 @@
+{
+  "about": "The key is listed for Preview only; the step is for Production.",
+  "step": "Set STRIPE_SECRET_KEY in Vercel for Production",
+  "page": {
+    "url": "https://vercel.com/acme/acme-web/settings/environment-variables",
+    "lines": [
+      "Environment Variables",
+      "STRIPE_SECRET_KEY",
+      "Preview",
+      "Added just now"
+    ]
+  },
+  "expect": {
+    "place": null
+  }
+}

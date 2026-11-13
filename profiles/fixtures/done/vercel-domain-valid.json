@@ -1,0 +1,16 @@
+{
+  "about": "The domain is listed with Valid Configuration.",
+  "step": "Add app.example.com to the project in Vercel",
+  "page": {
+    "url": "https://vercel.com/acme/acme-web/settings/domains",
+    "lines": [
+      "Domains",
+      "app.example.com",
+      "Valid Configuration",
+      "Assigned to main"
+    ]
+  },
+  "expect": {
+    "place": "vercel-domains"
+  }
+}

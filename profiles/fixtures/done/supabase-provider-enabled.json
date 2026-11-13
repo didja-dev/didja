@@ -1,0 +1,19 @@
+{
+  "about": "The Google provider shows Enabled in Supabase.",
+  "step": "Enable the Google provider in Supabase",
+  "page": {
+    "url": "https://supabase.com/dashboard/project/acme/auth/providers",
+    "lines": [
+      "Auth Providers",
+      "Email",
+      "Enabled",
+      "Google",
+      "Enabled",
+      "GitHub",
+      "Disabled"
+    ]
+  },
+  "expect": {
+    "place": "supabase-providers"
+  }
+}

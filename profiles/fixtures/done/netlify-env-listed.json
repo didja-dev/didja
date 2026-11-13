@@ -1,0 +1,16 @@
+{
+  "about": "The key is listed on Netlify's environment variables.",
+  "step": "Add SENTRY_DSN in Netlify",
+  "page": {
+    "url": "https://app.netlify.com/sites/acme/configuration/env",
+    "lines": [
+      "Environment variables",
+      "SENTRY_DSN",
+      "All scopes",
+      "Same value in all deploy contexts"
+    ]
+  },
+  "expect": {
+    "place": "netlify-env"
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "$schema": "../schema/done.schema.json",
+  "id": "netlify",
+  "name": "Netlify",
+  "hosts": [
+    "app.netlify.com"
+  ],
+  "places": [
+    {
+      "id": "netlify-env",
+      "name": "Netlify › Environment variables",
+      "kinds": [
+        "env"
+      ],
+      "path": "/(?:site-)?configuration/env|/settings/env",
+      "form": [
+        "^Key$",
+        "^Values?$",
+        "^Create variable$"
+      ],
+      "followUp": {
+        "title": "Redeploy on Netlify so the new value is used"
+      }
+    },
+    {
+      "id": "netlify-deploys",
+      "name": "Netlify › Deploys",
+      "kinds": [
+        "deployment"
+      ],
+      "path": "/deploys(?:/|$)",
+      "confirm": [
+        "^Published$"
+      ]
+    }
+  ]
+}

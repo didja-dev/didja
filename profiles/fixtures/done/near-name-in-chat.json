@@ -1,0 +1,14 @@
+{
+  "about": "The key is only named in a chat on another site.",
+  "step": "Set POSTHOG_KEY in Vercel",
+  "page": {
+    "url": "https://chat.example.com/c/000",
+    "lines": [
+      "POSTHOG_KEY",
+      "Did you set POSTHOG_KEY in Vercel yet?"
+    ]
+  },
+  "expect": {
+    "place": null
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "$schema": "../schema/done.schema.json",
+  "id": "cloudflare",
+  "name": "Cloudflare",
+  "hosts": [
+    "dash.cloudflare.com"
+  ],
+  "places": [
+    {
+      "id": "cloudflare-dns",
+      "name": "Cloudflare › DNS records",
+      "kinds": [
+        "dns"
+      ],
+      "path": "/dns(?:/|$)",
+      "form": [
+        "^Save$",
+        "^Cancel$"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "about": "The key is a row of Vercel's env list, with Production.",
+  "step": "Set RESEND_API_KEY in Vercel for Production",
+  "page": {
+    "url": "https://vercel.com/acme/acme-web/settings/environment-variables",
+    "lines": [
+      "Environment Variables",
+      "RESEND_API_KEY",
+      "Production, Preview",
+      "Added just now",
+      "Add New"
+    ]
+  },
+  "expect": {
+    "place": "vercel-env"
+  }
+}

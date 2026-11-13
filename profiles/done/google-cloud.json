@@ -1,0 +1,36 @@
+{
+  "$schema": "../schema/done.schema.json",
+  "id": "google-cloud",
+  "name": "Google Cloud",
+  "hosts": [
+    "console.cloud.google.com"
+  ],
+  "places": [
+    {
+      "id": "google-oauth-redirect-uris",
+      "name": "Google Cloud › Authorized redirect URIs",
+      "kinds": [
+        "url"
+      ],
+      "path": "/apis/credentials/oauthclient",
+      "after": [
+        "^Authorized redirect URIs$"
+      ],
+      "before": [
+        "^Authorized JavaScript origins$"
+      ],
+      "saved": [
+        "OAuth client saved",
+        "OAuth client created"
+      ]
+    }
+  ],
+  "names": [
+    "Google Cloud",
+    "Google Console",
+    "Cloud Console",
+    "Google OAuth",
+    "Google sign-in",
+    "Google login"
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "about": "The CNAME record for www is in Cloudflare's DNS records.",
+  "step": "Add a CNAME record for www in Cloudflare",
+  "page": {
+    "url": "https://dash.cloudflare.com/000/example.com/dns/records",
+    "lines": [
+      "DNS records",
+      "Type",
+      "Name",
+      "Content",
+      "CNAME",
+      "www",
+      "acme.example.net",
+      "Proxied"
+    ]
+  },
+  "expect": {
+    "place": "cloudflare-dns"
+  }
+}
