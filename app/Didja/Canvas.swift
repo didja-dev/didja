@@ -66,6 +66,12 @@ struct CanvasPage: Codable, Equatable {
         var level: Int?
         var task: Task?
         var indent: Int { level ?? 0 }
+
+        /// The task as the list's actions take it (SCR-58): they act on its id.
+        var taskItem: TaskItem? {
+            task.map { TaskItem(id: $0.id, title: text, status: TaskItem.Status(rawValue: $0.status) ?? .open,
+                                source: $0.source, isGroup: false) }
+        }
     }
     var id: Int
     var title: String
@@ -106,6 +112,14 @@ final class CanvasModel: ObservableObject {
     @Published var line = ""
     /// Bumped to put the keyboard back in the line you type into.
     @Published private(set) var focusComposer = 0
+    /// How a task looked where it was captured, and why it is open or done, shown under it (by item).
+    @Published private(set) var previews: [Int: TaskContext] = [:]
+    @Published private(set) var noPreview: Set<Int> = []
+    @Published private(set) var explanations: [Int: String] = [:]
+    /// The item just copied, for a moment, so its button shows a tick.
+    @Published private(set) var copied: Int?
+    /// What the list does to a task (SCR-58): go to its source, snooze, dismiss, why… Set by the app.
+    var actions = TaskActions()
     private let run: ([String]) -> String?
 
     init(id: Int, run: @escaping ([String]) -> String? = { EngineRunner.output($0) }) {
@@ -171,6 +185,43 @@ final class CanvasModel: ObservableObject {
     }
 
     func export(_ format: String) -> String { run(["canvas", "export", String(id), format]) ?? "" }
+
+    // MARK: The list's controls on a task (SCR-58)
+
+    /// Do one of the list's actions to the task on this item. Changes go through the engine in the
+    /// background, so the canvas reads itself again a moment later.
+    func act(_ item: CanvasPage.Item, _ action: TaskControl) {
+        guard let task = item.taskItem else { return }
+        switch action {
+        case .copy:
+            actions.copy(task.title)
+            copied = item.id
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+                if self?.copied == item.id { self?.copied = nil }
+            }
+        case .goToSource: actions.goToSource(task)
+        case .preview:
+            if previews[item.id] != nil || noPreview.contains(item.id) {
+                previews[item.id] = nil
+                noPreview.remove(item.id)
+            } else if let context = actions.context(task) {
+                previews[item.id] = context
+            } else {
+                noPreview.insert(item.id)
+            }
+        case .why:
+            explanations[item.id] = explanations[item.id] == nil ? actions.why(task) : nil
+        case .missed: actions.missed(task)
+        case .snooze(let duration): actions.snooze(task, duration); reloadSoon()
+        case .dismiss: actions.dismiss(task); reloadSoon()
+        case .notAnAction: actions.notAnAction(task); reloadSoon()
+        case .reopen: actions.reopen(task); reloadSoon()
+        }
+    }
+
+    private func reloadSoon() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in self?.reload() }
+    }
 
     // MARK: Keyboard
 
@@ -238,6 +289,9 @@ final class CanvasModel: ObservableObject {
         case .notYet:
             guard let item = current, item.task?.suggestion != nil else { return current != nil }
             notYet(item)
+        case .control(let control):
+            guard let item = current, item.task != nil else { return current != nil }
+            act(item, control)
         case .remove:
             guard let at else { return false }
             let next = at + 1 < list.count ? list[at + 1].id : (at > 0 ? list[at - 1].id : nil)
@@ -252,10 +306,18 @@ final class CanvasModel: ObservableObject {
 /// What a key does on a canvas. In the list: ↑↓ move, Space ticks, Tab and ⇧Tab indent and outdent,
 /// ⌥↑ ⌥↓ move the item, Return or E edits it in place, Y and N answer "looks done?", ⌘⌫ takes it off
 /// the canvas, Esc goes back to typing. From the line you type into, ↑ (when it is empty) goes into the list.
+/// What can be done to a task on a canvas, as in the list (SCR-58).
+enum TaskControl: Equatable {
+    case copy, goToSource, preview, why, missed, dismiss, notAnAction, reopen
+    case snooze(String)
+}
+
 enum CanvasKey: Equatable {
     case enterList, up, down, backToTyping, toggle, indent, outdent, moveUp, moveDown, edit, yesDone, notYet, remove
+    /// The list's keys for a task (SCR-58): ⌘C copy, V how it looked, W why, S snooze, D dismiss, X missed.
+    case control(TaskControl)
 
-    static let hint = "↑↓ move · Space tick · Tab / ⇧Tab indent · ⌥↑↓ reorder · Return edit · Y / N looks done · ⌘⌫ take off · Esc type"
+    static let hint = "↑↓ move · Space tick · Tab / ⇧Tab indent · ⌥↑↓ reorder · Return edit · Y / N looks done · ⌘⌫ take off · ⌘C copy · S snooze · D dismiss · W why · V how it looked · X missed · Esc type"
 
     static func action(keyCode: UInt16, modifiers: NSEvent.ModifierFlags, inList: Bool, lineEmpty: Bool) -> CanvasKey? {
         let held = modifiers.intersection([.command, .control, .option, .shift])
@@ -275,6 +337,12 @@ enum CanvasKey: Equatable {
         case (16, []): return .yesDone                            // Y
         case (45, []): return .notYet                             // N
         case (51, [.command]): return .remove                     // ⌘⌫
+        case (8, [.command]): return .control(.copy)              // ⌘C
+        case (9, []): return .control(.preview)                   // V
+        case (13, []): return .control(.why)                      // W
+        case (1, []): return .control(.snooze("1h"))              // S
+        case (2, []): return .control(.dismiss)                   // D
+        case (7, []): return .control(.missed)                    // X
         default: return nil
         }
     }
@@ -290,6 +358,8 @@ struct CanvasView: View {
     @FocusState private var typing: Bool
     /// Tasks are being dragged over the canvas.
     @State private var dropping = false
+    /// The row under the pointer: its task shows the list's buttons.
+    @State private var hovering: Int?
 
     static let hint = "Type a task, then Enter. # heading · - bullet · > note · Tab indents"
     var close: () -> Void = {}
@@ -416,6 +486,20 @@ struct CanvasView: View {
                             Button("Not Yet (N)") { model.notYet(item) }.buttonStyle(.link).font(.caption)
                         }
                     }
+                    if let status = item.task?.status, status == "snoozed" || status == "dismissed" {
+                        Text(status == "snoozed" ? "Snoozed" : "Dismissed").font(.caption).foregroundStyle(.secondary)
+                    }
+                    if let context = model.previews[item.id] {
+                        SourcePreview(context: context).padding(.vertical, 3)
+                    } else if model.noPreview.contains(item.id) {
+                        Text(item.task?.status == "done" || item.task?.status == "dismissed"
+                             ? "Not kept: the lines go when a task is finished."
+                             : "Not kept for this one: its lines were not found where it was captured.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    if let explanation = model.explanations[item.id] {
+                        Text(explanation).font(.caption.monospaced()).foregroundStyle(.secondary).textSelection(.enabled)
+                    }
                 }
             default:
                 if model.editing == item.id {
@@ -430,7 +514,14 @@ struct CanvasView: View {
                 }
             }
             Spacer(minLength: 4)
+            if item.task != nil, hovering == item.id || model.selected == item.id, model.editing != item.id {
+                taskButtons(item)
+            }
             Menu {
+                if item.task != nil {
+                    taskMenu(item)
+                    Divider()
+                }
                 if let items = model.page?.items, let at = items.firstIndex(of: item) {
                     if at > 0 { Button("Move Up") { model.move(item, before: items[at - 1]) } }
                     if at + 1 < items.count { Button("Move Down") { model.move(item, before: at + 2 < items.count ? items[at + 2] : nil) } }
@@ -448,7 +539,61 @@ struct CanvasView: View {
         .padding(.leading, CGFloat(item.indent) * 18)
         .padding(.horizontal, 4)
         .background(RoundedRectangle(cornerRadius: 5).fill(model.selected == item.id ? Palette.selection : Color.clear))
+        .contentShape(Rectangle())
+        .onHover { inside in
+            if inside { hovering = item.id } else if hovering == item.id { hovering = nil }
+        }
+        .contextMenu { if item.task != nil { taskMenu(item) } }
         .id(item.id)
+    }
+
+    /// The list's buttons on a task row (SCR-58), shown while the pointer is on it or it is chosen.
+    private func taskButtons(_ item: CanvasPage.Item) -> some View {
+        let open = item.task?.status == "open"
+        return HStack(spacing: 4) {
+            iconButton(model.copied == item.id ? "checkmark" : "doc.on.doc", "Copy (⌘C)") { model.act(item, .copy) }
+            iconButton("arrow.up.forward.app", "Go to Source") { model.act(item, .goToSource) }
+            iconButton("text.viewfinder", "How it looked where it was captured (V)") { model.act(item, .preview) }
+            iconButton("questionmark.circle", "Why is this open or done? (W)") { model.act(item, .why) }
+            if open {
+                iconButton("moon", "Snooze for an hour (S)") { model.act(item, .snooze("1h")) }
+                iconButton("xmark", "Dismiss: not a real to-do (D)") { model.act(item, .dismiss) }
+            }
+        }
+    }
+
+    private func iconButton(_ symbol: String, _ help: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol).font(.system(size: 12)).foregroundStyle(.secondary)
+                .frame(width: 18, height: 18).contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(help)
+    }
+
+    /// The list's menu for a task, on the row's "…" and on right-click.
+    @ViewBuilder private func taskMenu(_ item: CanvasPage.Item) -> some View {
+        let status = item.task?.status ?? "open"
+        Button("Go to Source") { model.act(item, .goToSource) }
+        Button("How It Looked (V)") { model.act(item, .preview) }
+        Button("Why Is This \(status == "done" ? "Done" : "Open")? (W)") { model.act(item, .why) }
+        Button("Copy (⌘C)") { model.act(item, .copy) }
+        Button("Didja Missed This… (X)") { model.act(item, .missed) }
+            .help("You did it and Didja did not notice: see why, report it, and say where you did it")
+        Divider()
+        if status == "open" {
+            Button("Mark Done") { model.toggle(item) }
+            Menu("Snooze") {
+                Button("For 1 Hour (S)") { model.act(item, .snooze("1h")) }
+                Button("For 3 Hours") { model.act(item, .snooze("3h")) }
+                Button("Until Tomorrow") { model.act(item, .snooze("tomorrow")) }
+            }
+            Button("Dismiss (D)") { model.act(item, .dismiss) }
+            Button("Not an Action") { model.act(item, .notAnAction) }
+                .help("Dismiss it and teach Didja this was never something for you to do")
+        } else {
+            Button("Reopen") { status == "done" ? model.toggle(item) : model.act(item, .reopen) }
+        }
     }
 
     /// Editing an item in place: Return saves, Esc leaves it as it was.
@@ -480,6 +625,8 @@ final class CanvasWindows: NSObject, NSWindowDelegate {
     private var open: [Int: (panel: NSPanel, model: CanvasModel)] = [:]
     private var timer: Timer?
     private var keys: Any?
+    /// What the list does to a task, for the canvases' task rows (SCR-58). Set by the app.
+    var actions: () -> TaskActions = { TaskActions() }
 
     /// Keys pressed in a canvas window (see CanvasKey). Typing in a field is left alone, except ↑ from
     /// the empty line, and ⌘W closes the window.
@@ -510,6 +657,7 @@ final class CanvasWindows: NSObject, NSWindowDelegate {
             return
         }
         let model = CanvasModel(id: id)
+        model.actions = actions()
         let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: CanvasView.width, height: 480),
                             styleMask: [.titled, .closable, .resizable, .utilityWindow], backing: .buffered, defer: false)
         panel.title = model.page?.title ?? "Canvas"

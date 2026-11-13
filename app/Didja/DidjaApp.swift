@@ -150,6 +150,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         AppIcon.apply()
         CanvasDirectory.refresh()
+        canvasWindows.actions = { [weak self] in self?.actions ?? TaskActions() }
         CommandHeld.shared.start()
         DockPresence.start()
         OwnClaude.addWhenDesktopQuitsIfAsked()

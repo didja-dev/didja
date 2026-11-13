@@ -107,6 +107,74 @@ final class CanvasTests: XCTestCase {
         XCTAssertEqual(key(51, .command), .remove)
         XCTAssertNil(key(51), "⌫ alone takes nothing off")
         XCTAssertEqual(key(53), .backToTyping)
+        // SCR-58: the list's keys for a task, only once the keyboard is in the canvas's list.
+        XCTAssertEqual(key(8, .command), .control(.copy))
+        XCTAssertEqual(key(9), .control(.preview))
+        XCTAssertEqual(key(13), .control(.why))
+        XCTAssertEqual(key(1), .control(.snooze("1h")))
+        XCTAssertEqual(key(2), .control(.dismiss))
+        XCTAssertEqual(key(7), .control(.missed))
+        for letter: UInt16 in [8, 9, 13, 1, 2, 7] { XCTAssertNil(key(letter, list: false), "typing \(letter) in the line types it") }
+    }
+
+    /// SCR-58: a task on a canvas has the list's controls, and they act on that task.
+    func testATaskOnACanvasHasTheListsControls() throws {
+        var did: [String] = []
+        var actions = TaskActions()
+        actions.copy = { did.append("copy \($0)") }
+        actions.goToSource = { did.append("source \($0.id)") }
+        actions.context = { item in
+            did.append("context \(item.id)")
+            return item.id == 12 ? TaskContext(app: "Claude", window: "Deploy", url: nil,
+                                               lines: [.init(text: "Run the migration", task: true)], capturedAt: "") : nil
+        }
+        actions.why = { item in did.append("why \(item.id)"); return "Open: nothing seen yet." }
+        actions.missed = { did.append("missed \($0.id) \($0.title)") }
+        actions.snooze = { did.append("snooze \($0.id) \($1)") }
+        actions.dismiss = { did.append("dismiss \($0.id)") }
+        actions.notAnAction = { did.append("notanaction \($0.id)") }
+        actions.reopen = { did.append("reopen \($0.id)") }
+        let m = model()
+        m.actions = actions
+        let items = try XCTUnwrap(m.page?.items)
+        let done = items[1], open = items[2], heading = items[0], note = items[3]
+        XCTAssertEqual(open.taskItem?.id, 12)
+        XCTAssertEqual(open.taskItem?.status, .open)
+        XCTAssertEqual(done.taskItem?.status, .done)
+        XCTAssertNil(note.taskItem)
+
+        m.act(open, .copy)
+        XCTAssertEqual(m.copied, open.id)
+        m.act(open, .goToSource)
+        m.act(open, .preview)
+        XCTAssertEqual(m.previews[open.id]?.lines.first?.text, "Run the migration")
+        m.act(open, .preview)                    // again: folded away, nothing asked
+        XCTAssertNil(m.previews[open.id])
+        m.act(done, .preview)                    // nothing kept: says so
+        XCTAssertTrue(m.noPreview.contains(done.id))
+        m.act(open, .why)
+        XCTAssertEqual(m.explanations[open.id], "Open: nothing seen yet.")
+        m.act(open, .why)
+        XCTAssertNil(m.explanations[open.id])
+        m.act(open, .missed)
+        m.act(open, .snooze("3h"))
+        m.act(open, .dismiss)
+        m.act(open, .notAnAction)
+        m.act(done, .reopen)
+        m.act(heading, .dismiss)                 // not a task: nothing happens
+        m.act(note, .goToSource)
+        XCTAssertEqual(did, [
+            "copy Run the migration", "source 12", "context 12", "context 11", "why 12",
+            "missed 12 Run the migration", "snooze 12 3h", "dismiss 12", "notanaction 12", "reopen 11",
+        ])
+
+        // From the keyboard, on the highlighted item; a note takes none of them.
+        did = []
+        m.selected = open.id
+        XCTAssertTrue(m.perform(.control(.dismiss)))
+        m.selected = note.id
+        XCTAssertTrue(m.perform(.control(.dismiss)))
+        XCTAssertEqual(did, ["dismiss 12"])
     }
 
     func testTheKeysMoveTickIndentReorderEditAndRemove() throws {
@@ -148,7 +216,14 @@ final class CanvasTests: XCTestCase {
     /// Draws the window to $TMPDIR/didja-ui/canvas.png.
     @MainActor
     func testRenderCanvas() throws {
-        let renderer = ImageRenderer(content: CanvasView(model: model(), scrolls: false).frame(width: CanvasView.width, height: 360))
+        let m = model()
+        var actions = TaskActions()
+        actions.context = { _ in TaskContext(app: "Claude", window: "Deploy", url: nil,
+                                             lines: [.init(text: "Next: run the migration", task: true)], capturedAt: "") }
+        actions.why = { _ in "Open: nothing seen yet." }
+        m.actions = actions
+        if let open = m.page?.items[2] { m.act(open, .preview); m.act(open, .why); m.selected = open.id }
+        let renderer = ImageRenderer(content: CanvasView(model: m, scrolls: false).frame(width: CanvasView.width, height: 460))
         renderer.scale = 2
         let image = try XCTUnwrap(renderer.nsImage)
         let png = try XCTUnwrap(image.tiffRepresentation.flatMap(NSBitmapImageRep.init(data:))?.representation(using: .png, properties: [:]))
