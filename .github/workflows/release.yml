@@ -79,8 +79,16 @@ jobs:
           # main is protected; the ruleset lets deploy keys through, so the commit goes with that key.
           KEY="$RUNNER_TEMP/appcast_key"
           printf '%s\n' "$APPCAST_DEPLOY_KEY" > "$KEY" && chmod 600 "$KEY"
-          GIT_SSH_COMMAND="ssh -i $KEY -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new" \
-            git push "git@github.com:${GITHUB_REPOSITORY}.git" HEAD:main
+          # main moves while the release builds (the autopilot commits too): put the appcast commit on
+          # the latest main before pushing, and try again if it moved once more.
+          for attempt in 1 2 3; do
+            git fetch --quiet "https://github.com/${GITHUB_REPOSITORY}.git" main
+            git rebase --quiet FETCH_HEAD
+            if GIT_SSH_COMMAND="ssh -i $KEY -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new" \
+                git push "git@github.com:${GITHUB_REPOSITORY}.git" HEAD:main; then break; fi
+            [ "$attempt" = 3 ] && { rm -f "$KEY"; exit 1; }
+            sleep 5
+          done
           rm -f "$KEY"
           # --branch main: the checkout is the tag, so wrangler would otherwise make a preview, not didja.dev.
           cd site && bun install --frozen-lockfile && bun run build && npx wrangler pages deploy dist --project-name didja --branch main
