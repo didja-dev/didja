@@ -1,0 +1,38 @@
+[
+  {
+    "id": "github-visibility",
+    "question": { "task": "Set the repo to Public", "leadIn": "Last steps on GitHub, on your side", "neighbours": ["Turn on Discussions"], "source": "Claude — Open source", "context": ["Last steps on GitHub, on your side:", "1. Set the repo to Public", "2. Turn on Discussions"], "links": [] },
+    "done": { "app": "Google Chrome", "url": "https://github.com/acme/widgets/settings", "windowTitle": "General · acme/widgets", "text": "acme / widgets\nPublic\nDanger Zone\nThis repository is currently public." },
+    "notDone": { "app": "Google Chrome", "url": "https://github.com/acme/widgets/settings", "windowTitle": "General · acme/widgets", "text": "acme / widgets\nPrivate\nDanger Zone\nChange repository visibility\nThis repository is currently private." }
+  },
+  {
+    "id": "po-approval-portal",
+    "question": { "task": "Approve purchase order 4410", "leadIn": "", "neighbours": [], "source": "Microsoft Outlook", "context": ["Hi Mike,", "Please approve purchase order 4410 for the offsite catering in the portal.", "Thanks, Dana"], "links": [] },
+    "done": { "app": "Google Chrome", "url": "https://portal.example.org/po/view", "windowTitle": "Purchase orders", "text": "Purchase order 4410\nOffsite catering\nStatus: Approved" },
+    "notDone": { "app": "Google Chrome", "url": "https://portal.example.org/po/view", "windowTitle": "Purchase orders", "text": "Purchase order 4410\nOffsite catering\nStatus: Awaiting your approval\nApprove  Reject" }
+  },
+  {
+    "id": "vercel-env",
+    "question": { "task": "Add RESEND_API_KEY to the Vercel production environment", "leadIn": "Before this works in prod", "neighbours": ["Redeploy the site"], "source": "Claude — Email setup", "context": ["Before this works in prod:", "1. Add RESEND_API_KEY to the Vercel production environment", "2. Redeploy the site"], "links": [] },
+    "done": { "app": "Google Chrome", "url": "https://vercel.com/acme/web/settings/environment-variables", "windowTitle": "Environment Variables", "text": "Environment Variables\nRESEND_API_KEY\nProduction\nAdded just now" },
+    "notDone": { "app": "Google Chrome", "url": "https://vercel.com/acme/web/settings/environment-variables", "windowTitle": "Environment Variables", "text": "Environment Variables\nNo environment variables yet\nAdd New" }
+  },
+  {
+    "id": "linear-close-issue",
+    "question": { "task": "Close ENG-412 in Linear once the fix is out", "leadIn": "After the deploy", "neighbours": [], "source": "Claude — Hotfix", "context": ["After the deploy:", "1. Close ENG-412 in Linear once the fix is out", "2. Tell Sam it is fixed"], "links": [] },
+    "done": { "app": "Linear", "url": null, "windowTitle": "ENG-412 Login loop on Safari", "text": "ENG-412\nLogin loop on Safari\nStatus: Done\nYou closed this issue just now" },
+    "notDone": { "app": "Linear", "url": null, "windowTitle": "ENG-412 Login loop on Safari", "text": "ENG-412\nLogin loop on Safari\nStatus: In Progress" }
+  },
+  {
+    "id": "stripe-webhook",
+    "question": { "task": "Add the webhook endpoint https://acme.example.com/api/stripe in Stripe", "leadIn": "On your side", "neighbours": ["Copy the signing secret"], "source": "Claude — Payments", "context": ["On your side:", "1. Add the webhook endpoint https://acme.example.com/api/stripe in Stripe", "2. Copy the signing secret"], "links": [] },
+    "done": { "app": "Google Chrome", "url": "https://dashboard.stripe.com/webhooks/we_000", "windowTitle": "Webhooks – Stripe", "text": "Webhooks\nhttps://acme.example.com/api/stripe\nEnabled\nListening for 3 events" },
+    "notDone": { "app": "Google Chrome", "url": "https://dashboard.stripe.com/webhooks", "windowTitle": "Webhooks – Stripe", "text": "Webhooks\nNo endpoints yet\nAdd endpoint" }
+  },
+  {
+    "id": "docusign-sign",
+    "question": { "task": "Sign the contractor agreement in DocuSign", "leadIn": "", "neighbours": [], "source": "Microsoft Outlook", "context": ["Hi Mike,", "Please sign the contractor agreement in DocuSign by Friday.", "Thanks, Noa"], "links": [] },
+    "done": { "app": "Google Chrome", "url": "https://app.docusign.com/documents/details/0000", "windowTitle": "DocuSign", "text": "Contractor agreement\nCompleted\nAll signers have signed" },
+    "notDone": { "app": "Google Chrome", "url": "https://app.docusign.com/documents/details/0000", "windowTitle": "DocuSign", "text": "Contractor agreement\nWaiting for you\nReview and sign" }
+  }
+]

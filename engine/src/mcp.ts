@@ -252,7 +252,7 @@ export function callTool(name: string, args: Record<string, unknown>, deps: McpD
     }
     case 'why': {
       const task = deps.store.getTask(Number(args.task));
-      return task ? ok(mask(formatWhy(task, deps.store.listEvidence(task.id)))) : fail('No such task.');
+      return task ? ok(mask(formatWhy(task, deps.store.listEvidence(task.id), deps.store.modelCriteria(task.id)))) : fail('No such task.');
     }
     case 'missed_report': {
       const r = missedReport(deps.store, Number(args.task), now);

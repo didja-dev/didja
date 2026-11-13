@@ -6,6 +6,12 @@ Each entry says what changed, and what was **not verified** where that applies: 
 
 ## 2026-11-13
 
+### "What done looks like" is written for each new task (SCR-67)
+- A new on-device model job, `Didja --criteria`: for each new step with nothing exact to look for (two a pass), Apple's model is asked once what a screen showing it done would have: where, phrases once it is done, phrases while it is not, ids from the step. The engine keeps only what came from what the model was shown (no copied example repos, no ids from elsewhere) and stores it in `tasks.criteria_model` (schema 022), cleared when the task is finished. Why shows it: "Didja is looking for: …".
+- On one of its places: a screen with its ids and a done phrase is looked at first by "looks done?"; a missing id or a "not yet" phrase rules the screen out. Elsewhere nothing changes. The looks-done model still decides; nothing is ticked from criteria.
+- `bun eval/criteria.ts` measures the job on 6 made-up samples (a done and a not-done screen each): Apple's model 2/6 done screens found, 0/6 not-done screens matched. The local model is not used for it.
+- Tests (fake criteria): place, id and done phrase → suggestion, not a tick; a "not yet" phrase → nothing asked; the id missing → nothing asked; asked once per task, with its list and kept lines; nothing written with no model; cleaned, grounded, cleared when done; why. Swift: the prompt carries the step, its list and source. **Benchmark:** unchanged with Apple's model (3 asked, 6 missed, 0 wrong); the issue's "recall of done up clearly" is **not** reached: the model's phrases rarely match real screens yet. **Not verified:** live screens; editing or clearing criteria by hand (not built).
+
 ### "Looks done?" looks at the screens where a task was likely done (SCR-66)
 - A task with nothing exact to look for was shown to the model only on a site whose name held one of its words, with two of its words on screen, two looks a pass, newest screen first. Now its source counts too: a site the conversation or email names ("Last steps on GitHub:"), and, within 15 minutes after you last looked at the source, a page showing an id from the task (`4410`, `#42`, `acme/widgets`). One such id on a screen is enough instead of two words. Links and taught places count as before; a page that only shares words still never does.
 - Candidate screens for all tasks are scored and the best asked first (an id on screen above shared words; the task you looked at most recently first). With the local model on, six looks a pass instead of two.

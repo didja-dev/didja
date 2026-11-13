@@ -253,7 +253,7 @@ final class ObservationStoreTests: XCTestCase {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: dir) }
         let migrations = ObservationStore.bundledMigrations()
-        XCTAssertEqual(migrations.map(\.version).sorted(), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21], "every schema step must be bundled with the app")
+        XCTAssertEqual(migrations.map(\.version).sorted(), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22], "every schema step must be bundled with the app")
         let store = try ObservationStore(directory: dir, migrations: migrations)
 
         let now = Date()
@@ -1722,6 +1722,22 @@ final class MenuBarPanelTests: XCTestCase {
 
 final class JudgeTests: XCTestCase {
     /// SCR-45: statements are not asks, questions are worded "Answer <name>: …", never vaguely; Hebrew gets Hebrew examples.
+    /// SCR-67: what the model is shown to write "what done looks like".
+    func testCriteriaPromptCarriesTheStepItsListAndWhatIsKept() {
+        let request = Judge.CriteriaRequest(task: "Set the repo to Public", leadIn: "Last steps on GitHub:",
+                                            neighbours: ["Turn on Discussions"], source: "Claude — Open source",
+                                            context: ["Last steps on GitHub:", "1. Set the repo to Public"], links: nil)
+        let prompt = Judge.criteriaPrompt(for: request)
+        XCTAssertTrue(prompt.hasPrefix("To-do item: Set the repo to Public"))
+        XCTAssertTrue(prompt.contains("Introduced by: Last steps on GitHub:"))
+        XCTAssertTrue(prompt.contains("- Turn on Discussions"))
+        XCTAssertTrue(prompt.contains("From: Claude — Open source"))
+        XCTAssertFalse(prompt.contains("Links:"), "no links, no line for them")
+        let long = Judge.criteriaPrompt(for: .init(task: String(repeating: "x", count: 900), leadIn: nil, neighbours: nil, source: nil, context: nil, links: nil))
+        XCTAssertLessThan(long.count, 400, "the step is cut to 300 characters")
+        XCTAssertTrue(Judge.criteriaInstructions.contains("Never write ids, names or phrases that have nothing to do with this item"))
+    }
+
     func testChatInstructionsTellStatementsFromAsksAndWordQuestions() {
         XCTAssertTrue(Judge.chatInstructions.contains("statements about the sender"))
         XCTAssertTrue(Judge.chatInstructions.contains("already answered it in the earlier messages"))

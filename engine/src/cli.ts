@@ -15,6 +15,8 @@ import type { Judge, Titler } from './engine.ts';
 import type { MailReader } from './email.ts';
 import type { ChatReader, ReplyJudge } from './chat.ts';
 import type { Looker } from './looksdone.ts';
+import { cleanCriteria, describeCriteria } from './donecriteria.ts';
+import type { CriteriaWriter, DoneCriteria } from './donecriteria.ts';
 import { JOBS, Store } from './store.ts';
 import { requiredMarkers } from './markers.ts';
 import type { Evidence, Job, Observation, Task, TaskNode, TaskStatus } from './store.ts';
@@ -230,6 +232,22 @@ export function findReplyJudge(): ReplyJudge | undefined {
   };
 }
 
+/** The on-device model asked what a screen showing a task done would have (`Didja --criteria`, SCR-67). */
+export function findCriteriaWriter(): CriteriaWriter | undefined {
+  const binary = process.env.DIDJA_JUDGE ?? join(dirname(process.execPath), '../MacOS/Didja');
+  if (!existsSync(binary)) return undefined;
+  return (question) => {
+    try {
+      const run = Bun.spawnSync([binary, '--criteria'], { stdin: Buffer.from(JSON.stringify(question)), timeout: 30_000 });
+      const reply = JSON.parse(run.stdout.toString()) as { available?: boolean; where?: unknown; success?: unknown; pending?: unknown; tokens?: unknown };
+      if (!reply.available) return null;
+      return cleanCriteria(reply);
+    } catch {
+      return null;
+    }
+  };
+}
+
 /** The on-device model asked whether an email needs a reply (`Didja --needs-reply`); the local model first, if one is on. */
 export function findMailReader(local: () => string | null = () => null): MailReader | undefined {
   const binary = process.env.DIDJA_JUDGE ?? join(dirname(process.execPath), '../MacOS/Didja');
@@ -247,7 +265,7 @@ export function findMailReader(local: () => string | null = () => null): MailRea
   };
 }
 
-export function formatWhy(task: Task, evidence: Evidence[]): string {
+export function formatWhy(task: Task, evidence: Evidence[], done: DoneCriteria | null = null): string {
   const lines = [`#${task.id} ${MARK[task.status]} ${task.title}`, `  from ${task.sourceRef}`];
   for (const note of evidence.filter((e) => e.kind === 'origin')) lines.push(`  ${note.detail}`);
   if (task.isGroup) {
@@ -274,6 +292,7 @@ export function formatWhy(task: Task, evidence: Evidence[]): string {
       lines.push(`    ${hit ? '[x]' : '[ ]'} ${m.value}  (${where})${hit ? `  — ${hit.detail}, ${new Date(hit.ts).toLocaleString('en-GB')}` : ''}`);
     }
   }
+  if (done && required.length === 0 && !task.criteria?.reply && (task.status === 'open' || task.status === 'snoozed')) lines.push(`  ${describeCriteria(done)}`);
   if (task.status === 'done' && required.some((m) => !seen.has(m.value))) lines.push('  Marked done by hand.');
   for (const note of evidence.filter((e) => e.kind === 'judged')) lines.push(`  ${note.detail}.`);
   if (task.status === 'done' && task.acceptedFrom) lines.push(`  Ticked for you: it looked done in ${task.acceptedFrom}. Reopen it if it is not done.`);
@@ -403,12 +422,12 @@ async function main(argv: string[]): Promise<number> {
         const controller = new AbortController();
         for (const sig of ['SIGINT', 'SIGTERM'] as const) process.on(sig, () => controller.abort());
         console.log('Extracting tasks from new observations every 15s. Ctrl-C to stop.');
-        await runLoop(store, console.log, { signal: controller.signal, judge: findJudge(), titler: findTitler(), looker: findLooker(() => localModelOf(store)), mailReader: findMailReader(() => localModelOf(store)), chatReader: findChatReader(), replyJudge: findReplyJudge(),
+        await runLoop(store, console.log, { signal: controller.signal, judge: findJudge(), titler: findTitler(), looker: findLooker(() => localModelOf(store)), mailReader: findMailReader(() => localModelOf(store)), chatReader: findChatReader(), replyJudge: findReplyJudge(), criteria: findCriteriaWriter(),
           sync: () => syncConnections(store, mcpRemote(store)), syncDue: () => writebackWaiting(store) });
         return 0;
       }
       case 'poll': {
-        const s = pollOnce(store, new Date(), { judge: findJudge(), titler: findTitler(), looker: findLooker(() => localModelOf(store)), mailReader: findMailReader(() => localModelOf(store)), chatReader: findChatReader(), replyJudge: findReplyJudge() });
+        const s = pollOnce(store, new Date(), { judge: findJudge(), titler: findTitler(), looker: findLooker(() => localModelOf(store)), mailReader: findMailReader(() => localModelOf(store)), chatReader: findChatReader(), replyJudge: findReplyJudge(), criteria: findCriteriaWriter() });
         console.log(
           `observations=${s.observations} windows=${s.windows} claude=${s.claudeWindows} checklists=${s.checklists} new=${s.newTasks} sightings=${s.sightings} completed=${s.completed} judged=${s.judged} retracted=${s.retracted} titled=${s.titled} suggested=${s.suggested} emails=${s.emails} archived=${s.archived} expired=${s.expired}`,
         );
@@ -420,7 +439,7 @@ async function main(argv: string[]): Promise<number> {
           console.error('usage: didja why <id>');
           return 1;
         }
-        console.log(formatWhy(task, store.listEvidence(task.id)));
+        console.log(formatWhy(task, store.listEvidence(task.id), store.modelCriteria(task.id)));
         return 0;
       }
       case 'place': {

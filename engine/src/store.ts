@@ -23,7 +23,10 @@ import schema18 from '../../schema/018_chat_pending.sql' with { type: 'text' };
 import schema19 from '../../schema/019_canvas.sql' with { type: 'text' };
 import schema20 from '../../schema/020_canvas_levels.sql' with { type: 'text' };
 import schema21 from '../../schema/021_done_places.sql' with { type: 'text' };
+import schema22 from '../../schema/022_criteria_model.sql' with { type: 'text' };
 import { contextLines } from './context.ts';
+import { parseCriteria } from './donecriteria.ts';
+import type { DoneCriteria } from './donecriteria.ts';
 import type { ContextLine } from './context.ts';
 import { renamedSource } from './extract.ts';
 import { baseSubject, sameMatter } from './email.ts';
@@ -386,7 +389,7 @@ export class Store {
     // The app migrates the same file. Take the write lock first so only one side runs each step.
     this.db.transaction(() => {
       const { user_version } = this.db.query('PRAGMA user_version').get() as { user_version: number };
-      [schema1, schema2, schema3, schema4, schema5, schema6, schema7, schema8, schema9, schema10, schema11, schema12, schema13, schema14, schema15, schema16, schema17, schema18, schema19, schema20, schema21].forEach((sql, i) => {
+      [schema1, schema2, schema3, schema4, schema5, schema6, schema7, schema8, schema9, schema10, schema11, schema12, schema13, schema14, schema15, schema16, schema17, schema18, schema19, schema20, schema21, schema22].forEach((sql, i) => {
         if (user_version < i + 1) this.db.exec(sql);
       });
     }).immediate();
@@ -547,9 +550,30 @@ export class Store {
 
   /** Forget the lines kept for finished tasks: they are kept only while a task is open. */
   pruneContext(): number {
+    // What done looks like (SCR-67) goes with the kept lines: it was written from them.
+    this.db.query(`UPDATE tasks SET criteria_model = NULL WHERE criteria_model IS NOT NULL AND status IN ('done', 'dismissed')`).run();
     return this.db
       .query(`DELETE FROM task_context WHERE task_id IN (SELECT id FROM tasks WHERE status IN ('done', 'dismissed'))`)
       .run().changes;
+  }
+
+  /** What done looks like for a task, as the model wrote it (SCR-67); null if not asked or nothing to look for. */
+  modelCriteria(id: number): DoneCriteria | null {
+    const row = this.db.query('SELECT criteria_model AS c FROM tasks WHERE id = ?').get(id) as { c: string | null } | null;
+    return row?.c ? parseCriteria(row.c) : null;
+  }
+
+  /** Keep what done looks like for a task; null keeps that it was asked and had nothing. */
+  setModelCriteria(id: number, criteria: DoneCriteria | null): void {
+    this.db.query('UPDATE tasks SET criteria_model = ? WHERE id = ?').run(JSON.stringify(criteria ?? {}), id);
+  }
+
+  /** Open steps with nothing exact to look for that the model has not yet been asked about, newest first. */
+  tasksAwaitingCriteria(limit: number): Task[] {
+    const rows = this.db
+      .query(`${SELECT_TASK} WHERE t.is_group = 0 AND t.status = 'open' AND t.auto = 0 AND t.criteria_model IS NULL ORDER BY t.id DESC LIMIT ?`)
+      .all(limit * 4) as TaskRow[];
+    return rows.map(toTask).filter((t) => !t.criteria?.reply && !t.criteria?.chat && t.sourceKind !== KEPT_KIND).slice(0, limit);
   }
 
   /** Where a task was captured, for "Go to Source". A checklist without one uses its first step's. */

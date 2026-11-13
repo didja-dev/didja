@@ -13,7 +13,7 @@
  */
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { findChatReader, findJudge, findLooker, findMailReader, findReplyJudge, findTitler } from '../src/cli.ts';
+import { findChatReader, findCriteriaWriter, findJudge, findLooker, findMailReader, findReplyJudge, findTitler } from '../src/cli.ts';
 import { pollOnce } from '../src/engine.ts';
 import type { PollOptions } from '../src/engine.ts';
 import { Store } from '../src/store.ts';
@@ -76,7 +76,7 @@ export function modelOptions(model: ModelChoice): PollOptions {
   const local = model.startsWith('ollama:') ? model.slice('ollama:'.length) : null;
   return {
     judge: findJudge(), titler: findTitler(), looker: findLooker(() => local), mailReader: findMailReader(() => local),
-    chatReader: findChatReader(), replyJudge: findReplyJudge(),
+    chatReader: findChatReader(), replyJudge: findReplyJudge(), criteria: findCriteriaWriter(),
   };
 }
 

@@ -7,6 +7,8 @@ import type { ChatMessage, ChatReader, ReplyJudge } from './chat.ts';
 import { assemble, classifySource, doneByClaude, extractCommands, extractChecklists, sourceRef, splitClaudeCode, stepLine, TERMINALS } from './extract.ts';
 import { rewordPlacesOnce } from './missed.ts';
 import { localModelOf } from './localmodel.ts';
+import { cleanCriteria, groundCriteria, matchCriteria, matchedWords } from './donecriteria.ts';
+import type { CriteriaWriter } from './donecriteria.ts';
 import { learnedWhere, lookCandidate, placeOf, relevantSnippet, siteOf } from './looksdone.ts';
 import type { Looker } from './looksdone.ts';
 import { deriveCriteria, extractMarkers } from './markers.ts';
@@ -67,9 +69,13 @@ export interface PollOptions {
   mailReader?: MailReader;
   chatReader?: ChatReader;
   replyJudge?: ReplyJudge;
+  /** Writes what done looks like for a new task (SCR-67). */
+  criteria?: CriteriaWriter;
 }
 
 const EMAILS_PER_POLL = 2;
+/** New tasks given "what done looks like" per pass. */
+const CRITERIA_PER_POLL = 2;
 
 const LOOKS_PER_POLL = 2;
 /** With the local model on (it answers in about two seconds). */
@@ -348,6 +354,8 @@ export function pollOnce(store: Store, now: Date = new Date(), opts: PollOptions
 
   // An e-signature request from an email, signed through its link: ticked without asking the model.
   stats.completed += signedFromEmail(store, fresh, now);
+  // What done looks like, written while the task's source is still at hand (SCR-67).
+  if (opts.criteria) writeCriteria(store, opts.criteria);
   if (opts.looker) {
     const followed = followLinks(store, opts.looker, elsewhere, now);
     stats.completed += followed.completed;
@@ -881,8 +889,21 @@ function lookForDone(store: Store, looker: Looker, observations: Observation[], 
       links: task.criteria?.links ?? [],
       lastSeenAt: task.lastSeenAt,
     };
+    const done = store.modelCriteria(task.id);
     for (const o of observations) {
       if (o.ts <= task.createdAt) continue;
+      // What done looks like (SCR-67): a "not yet" phrase on the screen, or one of its places
+      // without the ids it needs, rules the screen out; its place, ids and a done phrase make it
+      // a strong candidate. The looks-done model still has to see it done.
+      const match = done ? matchCriteria(done, o) : 'none';
+      if (match === 'pending' || match === 'missing') continue;
+      if (match === 'match') {
+        const snippet = relevantSnippet(task.capturedTitle, o, matchedWords(done!, o));
+        if (snippet) {
+          candidates.push({ task, o, snippet, score: 10 });
+          continue;
+        }
+      }
       // A task is done somewhere in particular: a site or app it or its source names, a site its email
       // linked to, or a place you said such a step is done ("Didja Missed This…"); never a page that
       // only happens to share its words (the maintainer: all tasks).
@@ -912,6 +933,30 @@ function lookForDone(store: Store, looker: Looker, observations: Observation[], 
     }
   }
   return suggested;
+}
+
+/** Ask the model what done looks like for the newest tasks that have nothing exact to look for. */
+function writeCriteria(store: Store, writer: CriteriaWriter): number {
+  let written = 0;
+  for (const task of store.tasksAwaitingCriteria(CRITERIA_PER_POLL)) {
+    const parent = task.parentId === null ? null : store.getTask(task.parentId);
+    const kept = store.context(task.id);
+    const question = {
+      task: task.capturedTitle,
+      leadIn: parent?.capturedTitle ?? '',
+      neighbours: parent ? store.stepsUnder(parent.id).filter((t) => t.id !== task.id && !t.isGroup).map((t) => t.capturedTitle).slice(0, 6) : [],
+      source: task.sourceRef,
+      context: kept ? kept.lines.map((l) => l.text) : [],
+      links: task.criteria?.links ?? [],
+    };
+    const answer = writer(question);
+    if (answer === null) break; // no model: ask again when there is one
+    const clean = groundCriteria(cleanCriteria(answer), question);
+    const any = clean.where.length + clean.success.length + clean.pending.length + clean.tokens.length > 0;
+    store.setModelCriteria(task.id, any ? clean : null);
+    written++;
+  }
+  return written;
 }
 
 /**
@@ -991,7 +1036,7 @@ export async function runLoop(
   store: Store,
   log: (line: string) => void,
   opts: {
-    intervalSeconds?: number; signal?: AbortSignal; judge?: Judge; titler?: Titler; looker?: Looker; mailReader?: MailReader; chatReader?: ChatReader; replyJudge?: ReplyJudge;
+    intervalSeconds?: number; signal?: AbortSignal; judge?: Judge; titler?: Titler; looker?: Looker; mailReader?: MailReader; chatReader?: ChatReader; replyJudge?: ReplyJudge; criteria?: CriteriaWriter;
     /** Connected tools: synced every five minutes, and soon after a task of theirs is ticked. */
     sync?: () => Promise<{ created: number; closed: number; written: number; errors: string[] }>;
     syncDue?: () => boolean;
@@ -1015,7 +1060,7 @@ export async function runLoop(
       }
     }
     try {
-      const s = pollOnce(store, new Date(), { judge: opts.judge, titler: opts.titler, looker: opts.looker, mailReader: opts.mailReader, chatReader: opts.chatReader, replyJudge: opts.replyJudge });
+      const s = pollOnce(store, new Date(), { judge: opts.judge, titler: opts.titler, looker: opts.looker, mailReader: opts.mailReader, chatReader: opts.chatReader, replyJudge: opts.replyJudge, criteria: opts.criteria });
       lastError = '';
       if (s.newTasks > 0 || s.completed > 0 || s.suggested > 0 || s.emails > 0 || s.chats > 0) {
         log(`${new Date().toISOString()}  observations=${s.observations} new=${s.newTasks} emails=${s.emails} chats=${s.chats} completed=${s.completed}`);

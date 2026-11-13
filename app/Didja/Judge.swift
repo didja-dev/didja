@@ -296,6 +296,82 @@ enum Judge {
         return LookReply(available: false, reason: "needs macOS 26 or later")
     }
 
+    // MARK: What would a screen showing a task done have? (SCR-67)
+
+    struct CriteriaRequest: Decodable {
+        var task: String
+        var leadIn: String?
+        var neighbours: [String]?
+        /// Where the task came from: "Claude — Open source", "Microsoft Outlook".
+        var source: String?
+        /// The lines kept around the task where it was captured.
+        var context: [String]?
+        var links: [String]?
+    }
+
+    struct CriteriaReply: Encodable, Equatable {
+        var available: Bool
+        var `where`: [String]?
+        var success: [String]?
+        var pending: [String]?
+        var tokens: [String]?
+        var model: String?
+        var reason: String?
+    }
+
+    static let criteriaInstructions = """
+        You help a to-do app notice when a to-do item has been done, by describing what the person's screen would show at that moment. \
+        You are given the item, the list it came from and the text around it. Think about this item only. \
+        where: the app or website where this item would be done. Use a website's host, such as the service the item or its text names, or an app's name. \
+        success: up to 3 short phrases, 1 to 4 words, that this app or website shows once this item is done, for example the status a record changes to. \
+        pending: up to 3 short phrases that the same page shows while this item is still not done. \
+        tokens: ids or names copied from the item or its text that must be on that page, such as an order number or a ticket key. \
+        Leave a list empty when you cannot tell. Never write ids, names or phrases that have nothing to do with this item.
+        """
+
+    static func criteriaPrompt(for request: CriteriaRequest) -> String {
+        var parts = ["To-do item: \(request.task.prefix(300))"]
+        if let lead = request.leadIn?.trimmingCharacters(in: .whitespacesAndNewlines), !lead.isEmpty {
+            parts.append("Introduced by: \(lead.prefix(200))")
+        }
+        let others = (request.neighbours ?? []).prefix(6).map { "- \($0.prefix(160))" }
+        if !others.isEmpty { parts.append("Other steps in the same list:\n\(others.joined(separator: "\n"))") }
+        if let source = request.source, !source.isEmpty { parts.append("From: \(source.prefix(120))") }
+        let context = (request.context ?? []).prefix(7).map { String($0.prefix(200)) }
+        if !context.isEmpty { parts.append("Text around it:\n\(context.joined(separator: "\n"))") }
+        let links = (request.links ?? []).prefix(4).map { String($0.prefix(200)) }
+        if !links.isEmpty { parts.append("Links: \(links.joined(separator: " "))") }
+        parts.append("What would the screen show once this item is done?")
+        return parts.joined(separator: "\n")
+    }
+
+    /// Entry point for `Didja --criteria`. Never returns.
+    static func criteriaFromCommandLine() -> Never {
+        let input = FileHandle.standardInput.readDataToEndOfFile()
+        Task {
+            var reply = CriteriaReply(available: false, reason: "bad request")
+            if let request = try? JSONDecoder().decode(CriteriaRequest.self, from: input), !request.task.isEmpty {
+                reply = await doneCriteria(request)
+            }
+            if let data = try? JSONEncoder().encode(reply) {
+                FileHandle.standardOutput.write(data)
+            }
+            exit(0)
+        }
+        dispatchMain()
+    }
+
+    /// Apple's on-device model only: the local model is not used for this job until it has been
+    /// measured on it (CLAUDE.md; engine/eval/criteria.ts).
+    static func doneCriteria(_ request: CriteriaRequest) async -> CriteriaReply {
+        #if canImport(FoundationModels)
+        if #available(macOS 26.0, *) {
+            return await OnDevice.doneCriteria(request)
+        }
+        #endif
+        return CriteriaReply(available: false, reason: "needs macOS 26 or later")
+    }
+
     static let modelName = "apple-on-device"
 
     static let instructions = """
@@ -439,6 +515,35 @@ private enum OnDevice {
             return Judge.LookReply(available: true, seen: response.content.seen.rawValue, model: Judge.modelName)
         } catch {
             return Judge.LookReply(available: false, reason: "model error: \(error.localizedDescription)")
+        }
+    }
+
+    @Generable
+    struct DoneLooks {
+        @Guide(description: "Apps or websites where it would be done: a host and path when the text names them, or an app name. Empty if unknown.")
+        var places: [String]
+        @Guide(description: "Up to 4 short phrases, 1 to 5 words, that appear on that screen once it is done.")
+        var success: [String]
+        @Guide(description: "Up to 4 short phrases that show on that screen it is not done yet.")
+        var pending: [String]
+        @Guide(description: "Ids or names from the given text that must be on that screen. Never invented.")
+        var tokens: [String]
+    }
+
+    static func doneCriteria(_ request: Judge.CriteriaRequest) async -> Judge.CriteriaReply {
+        let model = SystemLanguageModel.default
+        guard case .available = model.availability else {
+            return Judge.CriteriaReply(available: false, reason: "on-device model unavailable: \(model.availability)")
+        }
+        do {
+            let session = LanguageModelSession(model: model, instructions: Judge.criteriaInstructions)
+            let response = try await session.respond(
+                to: Judge.criteriaPrompt(for: request), generating: DoneLooks.self,
+                options: GenerationOptions(temperature: 0))
+            let c = response.content
+            return Judge.CriteriaReply(available: true, where: c.places, success: c.success, pending: c.pending, tokens: c.tokens, model: Judge.modelName)
+        } catch {
+            return Judge.CriteriaReply(available: false, reason: "model error: \(error.localizedDescription)")
         }
     }
 

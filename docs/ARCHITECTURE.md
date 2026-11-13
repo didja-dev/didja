@@ -108,6 +108,13 @@ Looks done — confirm? (tier 3, for tasks with nothing exact to match):
 - What is stored is where it looked done ("Google Chrome — supabase.com/dashboard/…", no query string), never the screen text.
 - Measured on 14 made-up but realistic cases: 12 right, one wrong "done" (a Publish button still waiting to be pressed). A wrong suggestion costs one click on "Not yet".
 
+What done looks like (SCR-67):
+
+- When a step with nothing exact to look for is new, the engine asks Apple's on-device model once (`Didja --criteria`, two steps a pass, newest first) what a screen showing it done would have: `where` (an app, a site's host or a service's name), `success` (phrases once it is done), `pending` (phrases while it is not), `tokens` (ids from the step). The model is shown the step, its list's lead-in, the other steps, where it came from, the lines kept around it (SCR-31) and its email's links. The local model is not used for this job: it has not been measured on it.
+- The engine keeps only what the model could have taken from what it was shown (`groundCriteria`): a site keeps only path parts that were in the question, and a token must be copied from the step or the lines around it and look like an id (a digit, `/`, `_`, `a-b`, or capitals). Stored in `tasks.criteria_model` (schema 022) as JSON, `{}` when there was nothing; cleared when the task is done or dismissed, with its kept lines. Shown in why: "Didja is looking for: a screen in …, showing “…”, with …".
+- Matching (`matchCriteria`, only on a screen that is one of its places): an id it needs missing, or a `pending` phrase on the screen, rules that screen out; its ids and a `success` phrase make it the strongest candidate for "looks done?" (score 10). Anywhere else the rules above decide, untouched. The looks-done model still has to see it done; nothing is ticked from criteria.
+- Measured by `bun eval/criteria.ts` on 6 made-up samples (`eval/criteria-samples.json`), each with a done and a not-done screen: Apple's model, 2 done screens matched, 0 not-done screens (2026-11-13). Its first wording copied its examples into every answer ("main -> main", "Approve"), so the instructions now give none.
+
 Teaching the model (SCR-24):
 
 - The on-device model has four jobs: who a list is for (`--judge`), checklist titles (`--title`), emails (`--needs-reply`) and looks done (`--looks-done`). Each has built-in instructions in `Judge.swift`.
@@ -248,6 +255,8 @@ After SCR-65 (Claude Code's tool output and docs in editors are not yours; steps
 The one task that must not exist is the step Claude then ran itself: it is taken back two minutes later, and the benchmark still counts it as made.
 
 After SCR-66 (which screens are shown for "looks done?"), with two scenarios added for it (32 scenarios, 28 labelled tasks, 18 really done), Apple on-device, before → after: asked 2 → 3 (a GitHub visibility change, now shown because the conversation names GitHub), missed 7 → 6, ticked 9 → 9, wrong asks 0 → 0, wrong ticks 0 → 0. No model: unchanged (12 missed, 0 wrong), since nothing is looked at without one. The approval done in a portal the email did not link is still missed: Apple's model reads "Please approve purchase order 4410" as needing a reply, and a reply task is settled by your reply, not by screens.
+
+After SCR-67 (what done looks like), same 32 scenarios, Apple on-device: unchanged (9 ticked, 3 asked, 6 missed, 0 wrong asks, 0 wrong ticks). The criteria the model writes are still too loose to find more (see What done looks like); they rule out nothing that was found before.
 
 ## Updates (SCR-33)
 

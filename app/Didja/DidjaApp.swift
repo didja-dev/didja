@@ -25,6 +25,9 @@ enum Main {
         if CommandLine.arguments.contains("--looks-done") {
             Judge.lookFromCommandLine()
         }
+        if CommandLine.arguments.contains("--criteria") {
+            Judge.criteriaFromCommandLine()
+        }
         if let i = CommandLine.arguments.firstIndex(of: "--ax-outline"), i + 1 < CommandLine.arguments.count {
             // For building capture adapters: an app's window shape, masked (see AXOutline).
             let text = CommandLine.arguments.contains("--lines")
