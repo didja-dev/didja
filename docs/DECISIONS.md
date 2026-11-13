@@ -4,6 +4,9 @@ Choices made while building ScrolledAway, with the reason, so they are not re-ar
 
 ## 2026-11-13
 
+- **While the menu bar is hidden, the Quick View opens as the pinned panel's window, not a popover** (LOCAL-1): a popover needs an anchor on screen, and the icon is not. The window is placed fresh each time (not saved as pinned), so with the menu bar back the icon opens the popover as before. The same happens when the icon is off every screen with the menu bar showing (hidden behind the notch, say), where the hot key used to do nothing.
+- **Outside activity is ignored for 0.5 s after opening** (was 0.4 s), as the issue asks, so the menu bar sliding in or out as the panel opens does not close it.
+
 - **A listed target is evidence, not a tick** (SCR-86, as the issue says): it joins the model's "done" as the second sign, asks when there is no model, and ticks alone only at an earned-trust place. Being listed is strong but not proof the step was done after it was asked (a row may have existed already).
 - **Env and URL markers on a catalogued site now need the item in the right list.** Before, the name anywhere on vercel.com ticked (a build log saying it is missing would have). Sites the catalogue does not know keep the old rule. Measured: no benchmark tick was lost.
 - **The place must be named by the step or its source** (the maintainer's rule from SCR-66), with other names per service ("Google Console"). A GitHub settings page is not where "Set the repo to Public" is done unless the conversation says GitHub.

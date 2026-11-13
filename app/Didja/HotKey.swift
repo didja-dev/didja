@@ -420,8 +420,9 @@ final class MenuBarPanel: NSObject, NSPopoverDelegate, NSWindowDelegate {
     @objc private func unpinFromMenu() { unpin() }
     @objc private func toggleStaysOpen() { PanelStaysOpen.isOn.toggle() }
 
-    /// Opens the panel and gives it the keyboard: where you pinned it, or under the icon.
-    /// False if it could not be shown (the icon is not on screen and it is not pinned).
+    /// Opens the panel and gives it the keyboard: where you pinned it, under the icon, or, while
+    /// the icon cannot be seen (the menu bar hidden), as a floating window at the top of the screen.
+    /// False if it could not be shown.
     @discardableResult
     func show() -> Bool {
         shownAt = Date()
@@ -433,6 +434,22 @@ final class MenuBarPanel: NSObject, NSPopoverDelegate, NSWindowDelegate {
             let window = makePinnedWindow()
             applyAppearance()
             window.setFrame(PanelPlacement.fitted(saved, screens: NSScreen.screens.map(\.visibleFrame)), display: true)
+            window.makeKeyAndOrderFront(nil)
+            watchOutsideClicks()
+            return true
+        }
+        // With "Automatically hide and show the menu bar" on, the icon is off screen while the
+        // menu bar is hidden: a popover hung off it closes at once. Open the panel as a floating
+        // window at the top of the screen instead, under where the icon is (LOCAL-1).
+        let iconFrame = statusItem.button?.window?.frame
+        if PanelAnchor.decide(pinned: false, menuBarVisible: NSMenu.menuBarVisible(),
+                              iconOnScreen: Self.onScreen(iconFrame, screens: NSScreen.screens.map(\.frame))) == .floating {
+            previousApp = previous
+            NSApplication.shared.activate(ignoringOtherApps: true)
+            let window = makePinnedWindow()
+            applyAppearance()
+            let screen = NSScreen.main ?? NSScreen.screens.first
+            window.setFrame(PanelPlacement.floating(iconMidX: iconFrame?.midX, screen: screen?.visibleFrame ?? .zero), display: true)
             window.makeKeyAndOrderFront(nil)
             watchOutsideClicks()
             return true
@@ -486,6 +503,12 @@ final class MenuBarPanel: NSObject, NSPopoverDelegate, NSWindowDelegate {
         return pid != own
     }
 
+    /// Whether the icon's window is on a screen at all: off screen while the menu bar is hidden.
+    static func onScreen(_ frame: NSRect?, screens: [NSRect]) -> Bool {
+        guard let frame, frame.width > 0, frame.height > 0 else { return false }
+        return screens.contains { $0.intersects(frame) }
+    }
+
     /// You clicked in another app, switched to one, or Didja stopped being the front app.
     private func closeForOutsideActivity() {
         guard Self.closesOnOutsideActivity(popoverShown: popover.isShown,
@@ -501,11 +524,15 @@ final class MenuBarPanel: NSObject, NSPopoverDelegate, NSWindowDelegate {
     /// Whether going to another app closes the panel (SCR-39): it does, under the icon and
     /// pinned alike, unless you chose "Keep Panel Open When You Click Elsewhere". Not in the
     /// moment it opens: pinning closes the panel under the icon and reopens it as a window,
-    /// and the app you came from may come to the front in between, a little late.
+    /// and the app you came from may come to the front in between, a little late; and with the
+    /// menu bar hidden, its sliding away as the panel opens is not you going elsewhere (LOCAL-1).
     static func closesOnOutsideActivity(popoverShown: Bool, pinnedShown: Bool, staysOpen: Bool,
                                         sinceShown: TimeInterval = .infinity) -> Bool {
-        !staysOpen && (popoverShown || pinnedShown) && sinceShown > 0.4
+        !staysOpen && (popoverShown || pinnedShown) && sinceShown > outsideGrace
     }
+
+    /// How long after opening outside activity is ignored.
+    static let outsideGrace: TimeInterval = 0.5
 
     @objc private func staysOpenChanged() {
         popover.behavior = PanelStaysOpen.popoverBehavior(PanelStaysOpen.isOn)
@@ -641,6 +668,18 @@ enum PanelStaysOpen {
     }
 }
 
+/// How the panel opens (LOCAL-1): where you pinned it; under the icon; or, when the icon cannot be
+/// seen because the menu bar is hidden ("Automatically hide and show the menu bar"), as a floating
+/// window at the top of the screen. Kept apart from AppKit so it can be tested.
+enum PanelAnchor: Equatable {
+    case pinned, popover, floating
+
+    static func decide(pinned: Bool, menuBarVisible: Bool, iconOnScreen: Bool) -> PanelAnchor {
+        if pinned { return .pinned }
+        return menuBarVisible && iconOnScreen ? .popover : .floating
+    }
+}
+
 /// Where the pinned panel goes (SCR-25). Kept apart from AppKit so it can be tested.
 enum PanelPlacement {
     /// The panel is always this wide; only its height can be changed.
@@ -677,6 +716,16 @@ enum PanelPlacement {
         result.origin.x = min(max(result.origin.x, home.minX), home.maxX - result.width)
         result.origin.y = min(max(result.origin.y, home.minY), home.maxY - result.height)
         return result
+    }
+
+    /// Where the panel opens while the menu bar is hidden (LOCAL-1): at the top of the screen's
+    /// visible frame (which then reaches the top edge), centred under the icon's x and kept on the
+    /// screen; at the top right when the icon's place is unknown. Not remembered: it is not pinned.
+    static func floating(iconMidX: CGFloat?, screen: NSRect) -> NSRect {
+        let height = min(520, screen.height)
+        let w = min(width, screen.width)
+        let x = iconMidX.map { min(max($0 - w / 2, screen.minX), screen.maxX - w) } ?? (screen.maxX - w)
+        return NSRect(x: x, y: screen.maxY - height, width: w, height: height)
     }
 
     /// Where the panel starts when pinned while closed: just under the menu bar icon.

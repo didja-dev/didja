@@ -450,6 +450,72 @@ final class ArchiveWatcherTests: XCTestCase {
         XCTAssertEqual(PanelStaysOpen.popoverBehavior(true), .applicationDefined)
     }
 
+    /// LOCAL-1: with "Automatically hide and show the menu bar" on, the hot key opened the panel
+    /// under an icon that was off screen, and it closed at once. It now opens as a floating window
+    /// while the menu bar or the icon cannot be seen; with the menu bar showing, the popover as before.
+    func testPanelOpensAsAWindowWhileTheMenuBarIsHidden() {
+        XCTAssertEqual(PanelAnchor.decide(pinned: false, menuBarVisible: true, iconOnScreen: true), .popover)
+        XCTAssertEqual(PanelAnchor.decide(pinned: false, menuBarVisible: false, iconOnScreen: true), .floating)
+        XCTAssertEqual(PanelAnchor.decide(pinned: false, menuBarVisible: false, iconOnScreen: false), .floating)
+        XCTAssertEqual(PanelAnchor.decide(pinned: false, menuBarVisible: true, iconOnScreen: false), .floating)
+        XCTAssertEqual(PanelAnchor.decide(pinned: true, menuBarVisible: false, iconOnScreen: false), .pinned)
+        // The icon's window above the top of the screen (the menu bar slid away) is not on screen.
+        let screen = NSRect(x: 0, y: 0, width: 1512, height: 982)
+        XCTAssertTrue(MenuBarPanel.onScreen(NSRect(x: 1200, y: 958, width: 30, height: 24), screens: [screen]))
+        XCTAssertFalse(MenuBarPanel.onScreen(NSRect(x: 1200, y: 990, width: 30, height: 24), screens: [screen]))
+        XCTAssertFalse(MenuBarPanel.onScreen(nil, screens: [screen]))
+        XCTAssertFalse(MenuBarPanel.onScreen(.zero, screens: [screen]))
+        // The menu bar sliding away as the panel opens is not you going elsewhere.
+        XCTAssertFalse(MenuBarPanel.closesOnOutsideActivity(popoverShown: false, pinnedShown: true, staysOpen: false, sinceShown: 0.45))
+        XCTAssertTrue(MenuBarPanel.closesOnOutsideActivity(popoverShown: false, pinnedShown: true, staysOpen: false, sinceShown: 0.6))
+    }
+
+    /// LOCAL-1: the floating panel sits at the top of the visible frame, under the icon's x, kept
+    /// on the screen; at the top right when the icon's place is unknown. Drawn to
+    /// $TMPDIR/didja-ui/floating-panel.png.
+    func testFloatingPanelPlacement() throws {
+        let screen = NSRect(x: 0, y: 0, width: 1512, height: 982) // menu bar hidden: the visible frame reaches the top
+        let under = PanelPlacement.floating(iconMidX: 1200, screen: screen)
+        XCTAssertEqual(under, NSRect(x: 980, y: 462, width: PanelPlacement.width, height: 520))
+        let nearEdge = PanelPlacement.floating(iconMidX: 1500, screen: screen)
+        XCTAssertEqual(nearEdge.maxX, screen.maxX)
+        let nearLeft = PanelPlacement.floating(iconMidX: 10, screen: screen)
+        XCTAssertEqual(nearLeft.minX, screen.minX)
+        let unknown = PanelPlacement.floating(iconMidX: nil, screen: screen)
+        XCTAssertEqual(unknown.maxX, screen.maxX)
+        XCTAssertEqual(unknown.maxY, screen.maxY)
+        let second = NSRect(x: -1440, y: 100, width: 1440, height: 900)
+        let other = PanelPlacement.floating(iconMidX: -700, screen: second)
+        XCTAssertTrue(second.contains(other))
+        let small = PanelPlacement.floating(iconMidX: 100, screen: NSRect(x: 0, y: 0, width: 400, height: 300))
+        XCTAssertEqual(small.size, NSSize(width: 400, height: 300))
+
+        // A picture of it: the screen, where the hidden menu bar and the icon are, and the panel.
+        let scale: CGFloat = 0.5
+        let image = NSImage(size: NSSize(width: screen.width * scale, height: screen.height * scale))
+        image.lockFocus()
+        NSColor(white: 0.92, alpha: 1).setFill()
+        NSRect(origin: .zero, size: image.size).fill()
+        NSColor(white: 0.75, alpha: 1).setStroke()
+        NSBezierPath(rect: NSRect(x: 0, y: (screen.height - 24) * scale, width: screen.width * scale, height: 24 * scale)).stroke()
+        NSColor.systemBlue.setFill()
+        NSRect(x: (1200 - 9) * scale, y: (screen.height - 20) * scale, width: 18 * scale, height: 16 * scale).fill()
+        NSColor.white.setFill()
+        let panel = NSRect(x: under.minX * scale, y: under.minY * scale, width: under.width * scale, height: under.height * scale)
+        NSBezierPath(roundedRect: panel, xRadius: 6, yRadius: 6).fill()
+        NSColor.systemGray.setStroke()
+        NSBezierPath(roundedRect: panel, xRadius: 6, yRadius: 6).stroke()
+        ("Didja — Quick View (menu bar hidden)" as NSString).draw(
+            at: NSPoint(x: panel.minX + 10, y: panel.maxY - 22),
+            withAttributes: [.font: NSFont.systemFont(ofSize: 11), .foregroundColor: NSColor.black])
+        image.unlockFocus()
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("didja-ui")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let tiff = try XCTUnwrap(image.tiffRepresentation)
+        let png = try XCTUnwrap(NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:]))
+        try png.write(to: dir.appendingPathComponent("floating-panel.png"))
+    }
+
     /// SCR-39: the setting is off unless you turn it on, and is kept.
     func testKeepPanelOpenIsOffByDefaultAndKept() {
         let defaults = UserDefaults.standard

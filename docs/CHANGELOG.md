@@ -6,6 +6,11 @@ Each entry says what changed, and what was **not verified** where that applies: 
 
 ## 2026-11-13
 
+### The hot key opens the Quick View even when the menu bar is hidden (LOCAL-1)
+- With "Automatically hide and show the menu bar" on, ⇧⌘J opened the Quick View under the menu bar icon, which was off screen, and it closed at once. Now, while the menu bar is hidden or the icon is not on any screen, it opens as a small floating window at the top of the screen, centred under where the icon is (top right if that is unknown), the same window the pinned Quick View uses but not remembered as pinned. Esc, ⇧⌘J or a click in another app closes it; outside activity is ignored for 0.5 s after it opens (was 0.4 s), so the menu bar sliding away is not "elsewhere". With the menu bar showing, the popover under the icon is unchanged.
+- Tests: the decision (pinned, popover, floating) and whether the icon is on screen; the floating placement on one and two screens, near either edge and on a small screen, drawn to `$TMPDIR/didja-ui/floating-panel.png` (looked at); the 0.5 s grace.
+- **Not verified:** with the menu bar really set to hide (the issue's case), and in a full-screen app; this is a change of how the panel is shown, which the tests cannot press a key for. Linear was unreachable: this was worked from the local queue as LOCAL-1, to be filed when Linear is back.
+
 ### Done by target: where common steps are done, and what done looks like there (SCR-86)
 - A catalogue, as data in `profiles/done/` (`engine/src/done.ts`): Vercel (Environment Variables, Domains, Deployments), Netlify (environment variables, deploys), Supabase (URL Configuration, Auth Providers, Edge Function secrets), Google Cloud (Authorized redirect URIs), Stripe (webhooks), GitHub (visibility, Actions secrets), Cloudflare (DNS records), Lovable and Replit (Secrets). Each place says how to know the page, which targets it lists, and what an item there looks like.
 - A step's target (an env name, a redirect or webhook URL, a domain, public/private, a DNS record, a provider) listed as an item in the right place, on a screen after the step was made, at a place the step or its conversation names, is strong evidence: with the model it is the second sign for a sure tick (SCR-74); with no model it asks "looks done?"; at a place where you said yes five times it ticks on its own (not with Ask Me).
