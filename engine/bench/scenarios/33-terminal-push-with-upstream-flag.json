@@ -1,0 +1,38 @@
+{
+  "id": "terminal-push-with-upstream-flag",
+  "about": "Claude says to push; you push with -u, in an oh-my-zsh prompt with a dirty tree mark.",
+  "start": "2026-11-11T09:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "Claude",
+      "bundle": "com.anthropic.claudefordesktop",
+      "title": "First release",
+      "text": [
+        "⟦Message 6⟧",
+        "Claude responded: The branch is ready. Now push it:",
+        "Now push it:",
+        "`git push origin main`"
+      ]
+    },
+    {
+      "at": 2,
+      "app": "iTerm2",
+      "bundle": "com.googlecode.iterm2",
+      "title": "acme-web",
+      "text": [
+        "➜  acme-web git:(main) ✗ git push -u origin main   # first push",
+        "To example.com:acme/web.git",
+        " * [new branch]      main -> main",
+        "branch 'main' set up to track 'origin/main'.",
+        "➜  acme-web git:(main) ✗ "
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [
+      { "words": ["git push origin main"], "done": { "at": 2, "where": "iTerm2" } }
+    ],
+    "none": []
+  }
+}

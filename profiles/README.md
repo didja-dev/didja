@@ -4,6 +4,8 @@ How Didja reads each chat and email app: which parts of its window are a message
 
 A profile can only **label** text in the window Didja is already reading. It cannot read another app, a password field or the message you are typing, turn off the exclude list, run code, or reach the network. Those checks run before any rule does, so even a wrong or hostile profile cannot get past them.
 
+**Terminals are not profiles.** How a terminal's text is read (prompts, commands, their output and how each ended) is code, in one place: `engine/src/terminal.ts` (SCR-69). It knows zsh, oh-my-zsh, starship-like, bash and fish prompts. A prompt it does not know means a command there is not ticked; open an issue with a made-up example of the prompt. An editor's built-in terminal (VS Code, Cursor, Windsurf) is marked `⟦Terminal⟧` by capture while it has focus.
+
 ## How to add an app
 
 1. **See what Didja sees.** Open the app on a conversation, then choose **Report a Problem with This Window…** in Didja's "…" menu. The preview shows the window's outline with every letter and digit masked. Save it.

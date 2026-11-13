@@ -6,6 +6,13 @@ Each entry says what changed, and what was **not verified** where that applies: 
 
 ## 2026-11-13
 
+### Terminals: commands read with their outcome, close variants tick, editor terminals count (SCR-69)
+- One place reads a terminal (`engine/src/terminal.ts`): each command with its prompt, its output and whether it went well, failed, or was only typed. It knows zsh, oh-my-zsh (its ✗ for a dirty tree is no longer read as a failure), starship-like, bash and fish prompts, and leaves out a right-side prompt and a `# comment`.
+- A run ticks a step when it is the same command up to flag order and extra flags that still do it: `git push -u origin main` ticks `git push origin main`. Other arguments, a missing flag, `--dry-run`, `-n`, `--help` and the like do not.
+- VS Code, Cursor and Windsurf: their own terminal is captured under `⟦Terminal⟧` while it has focus, and runs there tick; the rest of an editor window never does.
+- A command step still open two hours after it was made is shown to "looks done?" on a terminal where a run of the same program and subcommand went well (its earlier screens once, then new ones). Only ever a suggestion, also with Accept Automatically on.
+- Tests: made-up zsh, oh-my-zsh, starship-like, bash and fish sessions split with the right outcomes; right-side prompts and comments; `sameCommand` cases both ways; `-u` ticks, failed, typed and dry runs do not; editor terminal ticks, the same text outside its section does not; the fallback waits two hours, asks once, never ticks; failed or typed runs never shown. Swift: a focused VS Code terminal is its own section; unfocused, or in another app, it is not. Benchmark, no model, three new scenarios (35): ticked 6 → 8, wrong ticks 0. **Not verified:** a live VS Code or Cursor terminal (whether its rows are in the accessibility tree depends on the editor's screen reader support), Zed, and real prompts beyond the made-up ones.
+
 ### Capture reads ticked boxes, switches and notices, and where page links point (SCR-68)
 - Checkboxes and radio buttons are written as `[x] label` / `[ ] label` (`[-]` mixed), switches as `[on]` / `[off]`, in the order they are on screen. A task list's box with no label goes before the text after it: `[x] Approve 4410`.
 - Notices an app announces, or shows in a live region ("Message sent", "Saved", "Merged"), are written into the window's text as `⟦Notice: …⟧`: one or two short lines, each once a minute per window, after the same exclude-list checks as capture; from an excluded app they are not even held in memory.

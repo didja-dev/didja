@@ -1,0 +1,41 @@
+{
+  "id": "editor-terminal-run",
+  "about": "Claude says to run the migration; you run it in VS Code's own terminal.",
+  "start": "2026-11-11T09:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "Claude",
+      "bundle": "com.anthropic.claudefordesktop",
+      "title": "Schema change",
+      "text": [
+        "⟦Message 3⟧",
+        "Claude responded: The migration file is written. Apply it:",
+        "Apply it:",
+        "`bun run migrate`"
+      ]
+    },
+    {
+      "at": 4,
+      "app": "Code",
+      "bundle": "com.microsoft.VSCode",
+      "title": "schema.sql — acme-web",
+      "text": [
+        "schema.sql",
+        "⟦Terminal⟧",
+        "noa@mac acme-web % bun run migrate",
+        "Applying migration 0007_add_orders…",
+        "Done in 0.4s",
+        "noa@mac acme-web % ",
+        "⟦Page⟧",
+        "Ln 12, Col 1"
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [
+      { "words": ["bun run migrate"], "done": { "at": 4, "where": "Code" } }
+    ],
+    "none": []
+  }
+}
