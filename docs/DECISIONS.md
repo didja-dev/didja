@@ -4,6 +4,11 @@ Choices made while building ScrolledAway, with the reason, so they are not re-ar
 
 ## 2026-11-13
 
+- **The first-run nudge waits for ten minutes and five readings, and ends for good** (SCR-89): one glance at a chat is not a try, and a note that keeps coming back after the first steps, or after you closed it, is noise. It counts readings of AI tool windows only (other apps never make it show), and it ends with the first task from any AI tool, even one you dismissed.
+- **The status the app shows is the engine's** (`meta.first_run`), like every rule about tasks: the app only draws it and writes that you closed the note.
+- **An unknown AI tool candidate keeps a site's host name** (SCR-89), only when a part of it is "chat" or "ai": it is what you would tell us, and the report already names apps. Never the window's text or title. The troubleshooting report is still yours to send or not.
+- **"Try it" suggests a numbered checklist** because a numbered list is what every AI tool writes when asked for one and what Didja reads best; the Copy button puts it on the clipboard, Didja does not type it anywhere.
+
 - **Agent hooks for Claude Code, Cursor and Windsurf only** (SCR-88). Copilot in VS Code's hooks are `.github/hooks/*.json` in a repository, and the issue says never a repository's file. Left out until it has a user-level place.
 - **Our entries are known by their command** (` hook <tool> ` and `didja` in it): hooks files are JSON, which has no comments to mark a block with, as the issue asked. A file that is not JSON is never touched.
 - **A hook only takes steps back, from its own tool's source.** The same command asked of you in the Claude app stays yours even if Claude Code ran it: the hook says the agent ran it, not that your step was done or not yours. Nothing from a hook ticks a task.

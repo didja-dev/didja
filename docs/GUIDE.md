@@ -101,13 +101,16 @@ Other commands: `tasks --all`, `tasks --json`, `poll` (one pass), `run` (loop), 
 
 If no tasks appear, open **Help › Troubleshooting Report…** in the Quick View's "…" menu (the Quick View offers it as "Didja isn't reading anything yet: Troubleshoot…" when Accessibility is off, capture failed, or nothing was read for two minutes after it started; the Welcome window has the same link). `didja doctor` prints the same report.
 
+On a first run, the Welcome window's **Try it** step gives a prompt to copy into your AI tool, shows which apps Didja is reading ("Watching ChatGPT and Terminal…"), and says "Got it: 3 steps from Claude." when the first steps arrive. If AI tool windows have been read for ten minutes and not one step came of them, the Quick View shows a quiet note ("Didja has read Claude 40 times but found no steps for you yet. Troubleshoot…"); × closes it for good.
+
 It starts with what Didja found, in plain words, for example:
 
 - Accessibility is off for Didja (and, if Didja moved since you allowed it, that you need to remove and add it again).
 - Capture is paused, or stopped with an error; the engine has not run for a minute.
 - An app has given no text in many tries (its accessibility tree is empty), refused to answer, or is on your exclude list.
 - Apple Intelligence can't be used here: emails and chat messages are not turned into tasks, and unclear lists show only as "maybe".
-- Didja read Claude's screens but saw no numbered list of steps for you: ask Claude for a numbered checklist.
+- Didja read an AI tool's screens (Claude, ChatGPT, Codex…) but saw no numbered list of steps for you: ask it for a numbered checklist.
+- A window looks like an AI tool Didja doesn't know yet (it asked to run a command, shows how much context is left, or its site's address says chat or ai): tell us with Report a Problem with This Window… while it is in front.
 - Lists or messages were seen but none became a task, and the most common reason (Claude's own plan, no model, older than New Messages Only, asks nothing of you, waiting for your reply).
 
 Then counts and codes: Didja's and macOS's versions and the app's path; Accessibility and Screen Recording; capture's status and, per app, readings in the last hour and day and what happened on its last tries; the engine's last pass and errors; Apple's model and the local model; per kind of source what was read, seen and made, and why the rest was not; tasks made, ticked and dismissed; and your settings. Never screen text, window titles or task words.
