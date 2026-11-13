@@ -195,7 +195,7 @@ How checklists are grouped:
 
 Additions to the schema above, all additive:
 
-- `tasks` also has `dedupe_key`, `position`, `created_at`, `last_seen_at`. The same list is seen many times, and streamed or truncated lines differ slightly, so tasks are deduplicated by normalised title with a near-match check.
+- `tasks` also has `dedupe_key`, `position`, `created_at`, `last_seen_at`. The same list is seen many times, and streamed or truncated lines differ slightly, so tasks are deduplicated by normalised title with a near-match check. The normalised title (`dedupeKey`) keeps the letters and digits of every script, lowercased, with accents and points dropped (SCR-62); a title with none of them is keyed by its exact wording and never near-matches anything, and no lesson ("not an action", "not done") is stored or looked up under an empty key.
 - A `meta(key, value)` table holds the engine's cursor.
 - `tasks.confidence` currently means "how sure are we this is a real to-do" (share of items in the list that read as actions).
 - `tasks` also has `parent_id`, `is_group` and `done_at` ([`schema/003_groups.sql`](../schema/003_groups.sql)).

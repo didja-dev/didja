@@ -241,8 +241,13 @@ export interface Lesson {
 const MAX_INSTRUCTIONS = 4000;
 const MAX_EXAMPLES = 12;
 
+/**
+ * A task's wording, for telling the same task seen again: the letters and digits of any script,
+ * lowercased, accents and points dropped (SCR-62). A title with none of them gives "", which never
+ * matches anything: not another task, not a lesson.
+ */
 export function dedupeKey(title: string): string {
-  return title.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  return title.normalize('NFKD').replace(/\p{M}+/gu, '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
 }
 
 function bigrams(s: string): Map<string, number> {
@@ -267,6 +272,7 @@ export function similarity(a: string, b: string): number {
 
 /** Same task seen again: OCR noise, or a line caught mid-stream or cut off. */
 function isSameTask(a: string, b: string): boolean {
+  if (a.replace(/\u0000.*$/s, '') === '' || b.replace(/\u0000.*$/s, '') === '') return false;
   const [short, long] = a.length <= b.length ? [a, b] : [b, a];
   if (short.length >= 12 && long.startsWith(short)) return true;
   return similarity(a, b) >= 0.9;
@@ -576,7 +582,9 @@ export class Store {
    * dismissed or completed task does not come back while it is still on screen.
    */
   upsertTask(input: NewTask): { id: number; created: boolean; parentId: number | null } {
-    const key = input.distinct ? `${dedupeKey(input.title)}\u0000${input.distinct}` : dedupeKey(input.title);
+    const base = dedupeKey(input.title);
+    // A title with no letters or digits is known only by its exact wording (SCR-62), never by "".
+    const key = input.distinct ? `${base}\u0000${input.distinct}` : base === '' ? `\u0000${input.title.trim()}` : base;
     const markers = JSON.stringify(input.markers ?? []);
     const criteria = input.criteria ? JSON.stringify(input.criteria) : null;
     const auto = requiredMarkers(input.markers ?? [], input.criteria ?? null).length > 0 ? 1 : 0;
@@ -1529,6 +1537,8 @@ export class Store {
   }
 
   private addLesson(job: Job, kind: Lesson['kind'], key: string, example: string, now: Date): void {
+    // A lesson keyed by nothing would match every task with no Latin letters (SCR-62).
+    if (key === '' || key.startsWith('\u0000')) return;
     const known = this.db.query('SELECT 1 FROM lessons WHERE job = ? AND kind = ? AND key = ?').get(job, kind, key);
     if (known) return;
     this.db
@@ -1538,7 +1548,20 @@ export class Store {
 
   /** True when you said a task worded like this is not something for you to do. */
   isNotAnAction(title: string): boolean {
-    return this.db.query("SELECT 1 FROM lessons WHERE kind = 'not-an-action' AND job = 'lists' AND key = ?").get(dedupeKey(title)) !== null;
+    const key = dedupeKey(title);
+    if (key === '') return false;
+    return this.db.query("SELECT 1 FROM lessons WHERE kind = 'not-an-action' AND job = 'lists' AND key = ?").get(key) !== null;
+  }
+
+  /**
+   * Lessons stored under an empty key before titles kept letters of every script (SCR-62): each
+   * one matched every Hebrew (or other non-Latin) task. Dropped once; returns how many.
+   */
+  dropEmptyLessonsOnce(): number {
+    if (this.getMeta('empty_lessons_dropped') === 'yes') return 0;
+    const n = this.db.query("DELETE FROM lessons WHERE key = '' OR key LIKE char(0) || '%'").run().changes;
+    this.setMeta('empty_lessons_dropped', 'yes');
+    return n;
   }
 
   /** True when you said an email with this subject (once "Re:" is removed) asks nothing of you. */
@@ -1727,6 +1750,7 @@ export class Store {
   /** The task we hold for a title, matched the same way duplicates are. */
   findTaskByTitle(title: string): Task | null {
     const key = dedupeKey(title);
+    if (key === '') return null;
     const candidates = this.db
       .query("SELECT id, dedupe_key FROM tasks WHERE dedupe_key NOT LIKE 'group %'")
       .all() as { id: number; dedupe_key: string }[];

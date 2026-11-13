@@ -359,6 +359,7 @@ export function pollOnce(store: Store, now: Date = new Date(), opts: PollOptions
   // Chat asks that waited long enough without a reply of yours become tasks (SCR-45).
   foldChatConversationsOnce(store, now);
   rewordPlacesOnce(store, now);
+  store.dropEmptyLessonsOnce();
   stats.chats += promotePendingChatAsks(store, now);
   stats.expired = store.pruneObservations(now);
   store.pruneContext();

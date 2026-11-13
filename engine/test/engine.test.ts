@@ -3,7 +3,7 @@ import { expect, test } from 'bun:test';
 import { formatObservation, formatTasks, formatWhy, parseSnooze } from '../src/cli.ts';
 import { MANUAL_SOURCE, addManualTask, cleanModelTitle, needsShortTitle, pollOnce } from '../src/engine.ts';
 import type { Judge } from '../src/engine.ts';
-import { Store, similarity } from '../src/store.ts';
+import { dedupeKey, Store, similarity } from '../src/store.ts';
 import type { Observation } from '../src/store.ts';
 
 const NOW = new Date('2026-11-10T10:05:00Z');
@@ -900,5 +900,58 @@ test('SCR-61: output in another terminal window does not make a typed command ru
   observe(store, { ...TERMINAL, windowTitle: 'other tab', ts: '2026-11-10T10:02:30.000Z', text: 'Applying migration 0007…\nme@mac shop %' });
   pollOnce(store, NOW);
   expect(statusOf(store, 2)).toBe('open');
+  store.close();
+});
+
+// SCR-62: titles in any script have a key of their own; an empty key never matches.
+test('the dedupe key keeps letters of every script, and English is keyed as before', () => {
+  expect(dedupeKey('תשלח לי את המסמך')).toBe('תשלח לי את המסמך');
+  expect(dedupeKey('תשלח לי את המסמך')).not.toBe(dedupeKey('תעדכן את הטבלה'));
+  expect(dedupeKey('Run the Migration (supabase db push)!')).toBe('run the migration supabase db push');
+  expect(dedupeKey('Café résumé')).toBe('cafe resume');
+  expect(dedupeKey('—!?')).toBe('');
+});
+
+test('"not an action" on one Hebrew ask does not block a different Hebrew ask; the same wording stays blocked', () => {
+  const store = new Store(':memory:');
+  const add = (title: string) => store.upsertTask({ title, sourceKind: 'chat', sourceRef: 'WhatsApp — נועה', confidence: 1, position: null,
+    ts: '2026-11-10T10:00:00.000Z', observationId: null, markers: [], criteria: null });
+  const first = add('תשלח לנועה את הקובץ');
+  expect(store.notAnAction(first.id, new Date('2026-11-10T10:01:00Z'))).toBe(true);
+  expect(store.isNotAnAction('תשלח לנועה את הקובץ')).toBe(true);
+  expect(store.isNotAnAction('תאשר את הפגישה ביום שני')).toBe(false);
+  expect(store.isNotAnAction('Send Dana the file')).toBe(false);
+  const second = add('תאשר את הפגישה ביום שני');
+  expect(second.created).toBe(true);
+  store.close();
+});
+
+test('two different Hebrew steps of a list stay two tasks; the same step seen again is one, in Hebrew and English', () => {
+  const store = new Store(':memory:');
+  const step = (title: string, position: number) => store.upsertTask({ title, sourceKind: 'claude-desktop', sourceRef: 'Claude — Deploy', confidence: 1, position,
+    ts: '2026-11-10T10:00:00.000Z', observationId: null, markers: [], criteria: null });
+  expect(step('תשלח לנועה את הקובץ המעודכן', 1).created).toBe(true);
+  expect(step('תעדכן את הטבלה בתיקייה המשותפת', 2).created).toBe(true);
+  expect(step('תשלח לנועה את הקובץ המעודכן', 1).created).toBe(false);
+  expect(step('Review the diff in the PR', 3).created).toBe(true);
+  expect(step('Review the diff in the PR!', 3).created).toBe(false);
+  expect(store.listTasks().map((t) => t.title)).toEqual(['תשלח לנועה את הקובץ המעודכן', 'תעדכן את הטבלה בתיקייה המשותפת', 'Review the diff in the PR']);
+  store.close();
+});
+
+test('a title with no letters or digits matches nothing, and lessons kept under an empty key are dropped once', () => {
+  const store = new Store(':memory:');
+  const add = (title: string) => store.upsertTask({ title, sourceKind: 'chat', sourceRef: 'WhatsApp — Sam', confidence: 1, position: null,
+    ts: '2026-11-10T10:00:00.000Z', observationId: null, markers: [], criteria: null });
+  expect(add('👍').created).toBe(true);
+  expect(add('🙏').created).toBe(true);
+  expect(add('👍').created).toBe(false); // the same wording exactly
+  expect(store.findTaskByTitle('🙏')).toBeNull();
+  // A lesson stored with an empty key by an earlier version matched every Hebrew task.
+  (store as unknown as { db: { run(sql: string): void } }).db.run("INSERT INTO lessons (job, kind, key, example, created_at) VALUES ('lists', 'not-an-action', '', 'x', '2026-11-10T10:00:00Z')");
+  expect(store.isNotAnAction('תאשר את הפגישה')).toBe(false);
+  expect(store.dropEmptyLessonsOnce()).toBe(1);
+  expect(store.dropEmptyLessonsOnce()).toBe(0);
+  expect(store.lessons()).toEqual([]);
   store.close();
 });
