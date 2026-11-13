@@ -206,6 +206,21 @@ export function baseSubject(subject: string): string {
   return s.toLowerCase().replace(/\s+/g, ' ').trim();
 }
 
+/**
+ * An approval workflow's response email (Oracle EBS and the like): its Approve, Reject or Forward link
+ * opens a new email to the workflow, with the request's own subject (no "RE:") and a line of its
+ * body saying what you chose, `Response Action: 'Approve'`. Returns that choice, or null. Only a
+ * line that is exactly this, the choice in quotes, so a sentence that mentions a response action
+ * is not one.
+ */
+export function responseAction(email: Pick<Email, 'body'>): string | null {
+  for (const line of email.body) {
+    const m = line.trim().match(/^Response Action\s*:\s*['"‘“]([A-Za-z][A-Za-z ]{1,29})['"’”]\s*$/i);
+    if (m) return m[1]!.trim();
+  }
+  return null;
+}
+
 export function isReply(subject: string): boolean {
   return /^(re|aw|sv|תשובה|השב)\s*(\[\d+\])?\s*[:：]/i.test(subject.trim());
 }

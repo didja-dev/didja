@@ -26,7 +26,7 @@ import schema21 from '../../schema/021_done_places.sql' with { type: 'text' };
 import { contextLines } from './context.ts';
 import type { ContextLine } from './context.ts';
 import { renamedSource } from './extract.ts';
-import { sameMatter } from './email.ts';
+import { baseSubject, sameMatter } from './email.ts';
 import { requiredMarkers } from './markers.ts';
 import type { Criteria, Marker } from './markers.ts';
 
@@ -1414,6 +1414,43 @@ export class Store {
       this.addNote(id, 'judged', now.toISOString(), 'Dismissed: you archived the email');
     }
     return hit.length;
+  }
+
+  /**
+   * Open or snoozed email tasks in this mailbox whose request had exactly this subject (reply and
+   * forward prefixes aside; an origin note keeps at most 80 characters), with who it was from as
+   * the note says.
+   */
+  mailTasksWithSubject(mailbox: string, subject: string): { id: number; from: string }[] {
+    const rows = this.db
+      .query(
+        `SELECT t.id,
+                (SELECT detail FROM evidence e WHERE e.task_id = t.id AND e.kind = 'origin' ORDER BY e.id DESC LIMIT 1) AS origin
+         FROM tasks t JOIN sources s ON s.id = t.source
+         WHERE s.kind = 'email' AND s.ref = ? AND t.status IN ('open', 'snoozed')`,
+      )
+      .all(mailbox) as { id: number; origin: string | null }[];
+    const want = baseSubject(subject);
+    const found: { id: number; from: string }[] = [];
+    for (const r of rows) {
+      const m = r.origin?.match(/^From an email: (.*) — “(.*)”$/);
+      if (!m) continue;
+      const kept = baseSubject(m[2]!);
+      if (kept === want || (m[2]!.length >= 80 && want.startsWith(kept))) found.push({ id: r.id, from: m[1]! });
+    }
+    return found;
+  }
+
+  /**
+   * Tick an email task because you sent the workflow your response to it. It keeps where, so that
+   * reopening it stops that response ticking it again.
+   */
+  tickByResponse(id: number, place: string, now: Date): void {
+    this.setStatus(id, 'done', now);
+    this.db.query('UPDATE tasks SET accepted_from = ? WHERE id = ?').run(place, id);
+    this.db
+      .query("INSERT INTO evidence (task_id, observation_id, ts, kind, detail) VALUES (?, NULL, ?, 'judged', ?)")
+      .run(id, now.toISOString(), `Ticked for you: you sent your response in ${place}`);
   }
 
   /** The one note that says where a task came from: the newest reading replaces the last. */

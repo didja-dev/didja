@@ -6,6 +6,11 @@ Each entry says what changed, and what was **not verified** where that applies: 
 
 ## 2026-11-13
 
+### Your response to a workflow approval ticks its task (SCR-55)
+- An approval from an approval workflow (Oracle EBS and the like) stayed open after you approved it: its Approve link sends a new email to the workflow, not a reply, so nothing linked it to the task. Now an email of yours with the request's exact subject and a `Response Action: '…'` line ticks the task, in the same mail app. Approve, Reject or Forward all count. The why says which response ticked it; reopening it stops that response ticking it again.
+- Tests (made up): Approve and Reject tick. None of these tick: the workflow's own mail with the line, a colleague's response, your note with the same subject but no response line, your response to another order, your response seen in another mail app, or the same response after you reopened the task.
+- Not changed: "looks done" still checks only screens on an app or site the task names, so the Sent screen of an "Approve purchase order" task is not shown to the model; this rule covers that case instead. **Not verified** on real workflow mail: the line's exact wording in your Sent view is taken from the issue.
+
 ### Didja Missed This always offers the app the task came from (SCR-54)
 - A screen with no web address (Outlook for Mac, Finder, Notes) was already a place of its own, named by its app; what hid Outlook was the 8-place limit, lifted the day before. One gap was left: with more than 16 apps used since the task, the task's own app could still be cut. It now always keeps a place, still in order of when you were last there (a Claude step's own app still goes last). Picking a place only lets its screens be shown to the model; nothing ticks more loosely.
 - Tests: an email from Outlook (no address), then 20 other native apps, still offers Outlook with its Sent screen, and only one other app makes way for it. **Not verified** in the live window.

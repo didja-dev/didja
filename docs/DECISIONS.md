@@ -4,6 +4,7 @@ Choices made while building ScrolledAway, with the reason, so they are not re-ar
 
 ## 2026-11-13
 
+- **A workflow response ticks its task, not just asks** (SCR-55). An email sent as you, with the request's exact subject and a whole `Response Action: '…'` line, is a deliberate answer made through the workflow itself, as strong as a chat reply that settles an ask; email replies still only ask, because a reply's words may not settle anything. Any choice (Approve, Reject, Forward) settles it, as the maintainer asked. The task's own app is still not a "looks done" place: widening that to the source app would show the model every Outlook screen for every email task.
 - **The task's own app always keeps a place in Didja Missed This** (SCR-54). An email or chat is most often done where it came from, so that app is never one of the places cut at 16; it costs at most one other app's place. A native app's place stays its app name (no address to group by), which the issue asked for and `siteOf` already did.
 - **`main` is protected by a ruleset that admins and deploy keys may bypass** (going public). The autopilot commits to `main` as the maintainer, and the release workflow commits the appcast; GitHub does not let a repository ruleset exempt GitHub Actions, so the workflow pushes with a deploy key that can write to this repository only.
 

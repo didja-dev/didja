@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
 import { formatWhy } from '../src/cli.ts';
-import { accountOf, isMine, followsLink, mailLinks, unwrapLink, forwardOf, mailKey, signedName, mailOrigin, mailSnippet, baseSubject, isAutomatic, isRecent, isReply, mailSource, mailTaskTitle, parseEmails, sameMatter } from '../src/email.ts';
+import { accountOf, isMine, followsLink, mailLinks, unwrapLink, forwardOf, mailKey, signedName, mailOrigin, mailSnippet, baseSubject, isAutomatic, isRecent, isReply, mailSource, mailTaskTitle, parseEmails, responseAction, sameMatter } from '../src/email.ts';
 import type { MailReader, MailVerdict } from '../src/email.ts';
 import { pollOnce } from '../src/engine.ts';
 import { Store } from '../src/store.ts';
@@ -692,5 +692,75 @@ test('archiving the "Closed:" email about an order takes the "Action Required:" 
   expect(gone.title).toBe('Approve purchase order 4410');
   expect(gone.status).toBe('dismissed');
   expect(formatWhy(gone, store.listEvidence(gone.id))).toContain('you archived the email');
+  store.close();
+});
+
+// SCR-55: an approval workflow's Approve / Reject link sends a new email to the workflow, not a reply.
+const PO = 'Action Required: Purchase order 5520 for USD 1,200.00 needs your approval';
+const WORKFLOW = 'Acme Approvals Flow, wf.prod@acme.com';
+const response = (action: string, subject = PO, from = 'Mike Rosen, me@example.com') =>
+  `Sent Items\n⟦Email⟧\nSubject: ${subject}\nFrom: ${from}\nDate: Today at 11:59\nTo: wf.response@acme.com\nResponse Action: '${action}'\nForward To: ''\nNote: ''\nNID[0000000-0000]`;
+const APPROVE: MailReader = () => ({ need: 'action', task: 'Approve purchase order 5520' });
+/** Outlook for Mac's main window showing Sent Items: a window of its own. */
+const sent = (store: Store, text: string, ts: string, windowTitle = 'Sent Items • me@example.com') => store.insertObservation({
+  ts, bundleId: 'com.microsoft.Outlook', app: 'Microsoft Outlook', windowTitle, url: null, source: 'ax', text,
+});
+function workflowTask(store: Store): number {
+  outlook(store, mail(PO, WORKFLOW, 'Purchase order 5520 needs your approval.\nApprove\nReject'));
+  pollOnce(store, NOW, { mailReader: APPROVE });
+  const [task] = store.listTasks();
+  expect(task!.title).toBe('Approve purchase order 5520');
+  return task!.id;
+}
+
+test('a response action is read only from its own line, with the choice in quotes', () => {
+  const body = (line: string) => ({ body: ['Hello', line, 'Note: \'\''] });
+  expect(responseAction(body("Response Action: 'Approve'"))).toBe('Approve');
+  expect(responseAction(body('Response Action: “Reject”'))).toBe('Reject');
+  expect(responseAction(body("response action:'Request Information'"))).toBe('Request Information');
+  expect(responseAction(body('Response Action: approve it please'))).toBeNull();
+  expect(responseAction(body("Please choose a Response Action: 'Approve' or 'Reject'"))).toBeNull();
+  expect(responseAction(body('No action here'))).toBeNull();
+});
+
+test('your Approve or Reject response to a workflow request ticks its task, and says why', () => {
+  for (const action of ['Approve', 'Reject']) {
+    const store = new Store(':memory:');
+    const id = workflowTask(store);
+    sent(store, response(action), '2026-11-10T10:02:00.000Z');
+    expect(pollOnce(store, NOW, { mailReader: reader(NONE).mailReader }).completed).toBe(1);
+    const task = store.getTask(id)!;
+    expect(task.status).toBe('done');
+    expect(formatWhy(task, store.listEvidence(id))).toContain(`your “${action}” response`);
+    store.close();
+  }
+});
+
+test('a workflow response does not tick wrongly: not yours, no response line, another order, another mailbox, or reopened', () => {
+  const store = new Store(':memory:');
+  const id = workflowTask(store);
+  const NOBODY = reader(NONE).mailReader;
+  // The workflow's own mail with the line in it, and a colleague's response: not yours.
+  // Each in a window of its own, so none is read as part of another.
+  sent(store, response('Approve', PO, WORKFLOW), '2026-11-10T10:02:00.000Z', 'Message 1');
+  sent(store, response('Approve', PO, 'Sam Carter, sam@acme.com'), '2026-11-10T10:02:10.000Z', 'Message 2');
+  // Yours, same subject, but no response line (a note to someone about it).
+  sent(store, mail(PO, 'Mike Rosen, me@example.com', 'Sam, can you look at this one first?'), '2026-11-10T10:02:20.000Z', 'Message 3');
+  // Yours, a response, but to another order.
+  sent(store, response('Approve', PO.replace('5520', '5521')), '2026-11-10T10:02:30.000Z', 'Message 4');
+  // Yours, a response, but seen in Gmail, not the mailbox the task came from.
+  store.insertObservation({ ts: '2026-11-10T10:02:40.000Z', bundleId: 'com.google.Chrome', app: 'Google Chrome', windowTitle: 'Gmail',
+    url: 'https://mail.google.com/mail/u/0/#sent', source: 'ax', text: response('Approve') });
+  expect(pollOnce(store, NOW, { mailReader: NOBODY }).completed).toBe(0);
+  expect(store.getTask(id)!.status).toBe('open');
+  expect(store.getTask(id)!.suggestion).toBeNull();
+
+  // Ticked by your response, then reopened: that response never ticks it again.
+  sent(store, response('Approve'), '2026-11-10T10:03:00.000Z', 'Message 5');
+  expect(pollOnce(store, NOW, { mailReader: NOBODY }).completed).toBe(1);
+  store.setStatus(id, 'open', NOW);
+  sent(store, `${response('Approve')}\n`, '2026-11-10T10:04:00.000Z', 'Message 5');
+  expect(pollOnce(store, NOW, { mailReader: NOBODY }).completed).toBe(0);
+  expect(store.getTask(id)!.status).toBe('open');
   store.close();
 });

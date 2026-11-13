@@ -1,6 +1,6 @@
 import { suggestMerges } from './related.ts';
 import { signedFromEmail } from './esign.ts';
-import { accountOf, baseSubject, isAutomatic, isMine, isRecent, followsLink, mailKey, mailTime, mailLinks, mailOrigin, mailSnippet, mailSource, mailTaskTitle, parseEmails, replyTitle, settleNeed, signedName } from './email.ts';
+import { accountOf, baseSubject, responseAction, isAutomatic, isMine, isRecent, followsLink, mailKey, mailTime, mailLinks, mailOrigin, mailSnippet, mailSource, mailTaskTitle, parseEmails, replyTitle, settleNeed, signedName } from './email.ts';
 import type { MailIdentity, MailReader } from './email.ts';
 import { chatApp, chatKey, asksForAcknowledgement, chatTaskTitle, isEmojiOnly, isPositiveEmoji, isReaction, lineHash, plainReactions, reactedTo, namesMe, chatSourceRef, chatTime, isMine as isMyMessage, mayAskOfMe, parseChatMessages, plainlyDefers, sentBefore } from './chat.ts';
 import type { ChatMessage, ChatReader, ReplyJudge } from './chat.ts';
@@ -223,6 +223,7 @@ export function pollOnce(store: Store, now: Date = new Date(), opts: PollOptions
     if (mailbox) {
       const mail = readMail(store, text, latest, mailbox, opts.mailReader, now);
       stats.emails += mail.created;
+      stats.completed += mail.completed;
       stats.suggested += mail.suggested;
       continue;
     }
@@ -367,10 +368,11 @@ const EMAIL_CHECKS_VERSION = '3';
  */
 function readMail(
   store: Store, text: string, latest: Observation, mailbox: string, reader: MailReader | undefined, now: Date,
-): { created: number; suggested: number } {
+): { created: number; completed: number; suggested: number } {
   const emails = parseEmails(text);
   const me = learnIdentity(store, latest, mailbox, emails);
   let created = 0;
+  let completed = 0;
   let suggested = 0;
   let asked = 0;
 
@@ -406,7 +408,22 @@ function readMail(
     }
   }
 
-  if (!reader) return { created, suggested };
+  // Your response to an approval workflow's request (SCR-55): its Approve, Reject or Forward link
+  // sends a new email, not a reply, with the request's own subject and a "Response Action:" line.
+  // Only an email sent as you, in the same mailbox, with exactly that subject and that line.
+  for (const email of emails) {
+    const action = responseAction(email);
+    if (action === null || !isMine(email, me)) continue;
+    answers.add(email);
+    for (const task of store.mailTasksWithSubject(mailbox, email.subject)) {
+      const place = `${mailbox} — your “${action}” response to “${email.subject.trim().slice(0, 80)}”`;
+      if (store.rejectedPlaces(task.id).has(place)) continue;
+      store.tickByResponse(task.id, place, now);
+      completed++;
+    }
+  }
+
+  if (!reader) return { created, completed, suggested };
   store.forgetEmailChecksBefore(EMAIL_CHECKS_VERSION);
   // Only new messages: leave out mail plainly sent before capture started.
   const start = store.onlyNewMessages() ? store.captureStartedAt() : null;
@@ -476,7 +493,7 @@ function readMail(
       store.setOrigin(result.id, latest.ts, origin);
     }
   }
-  return { created, suggested };
+  return { created, completed, suggested };
 }
 
 const CHATS_PER_POLL = 3;
