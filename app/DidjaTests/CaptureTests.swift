@@ -3231,3 +3231,33 @@ final class AppVersionTests: XCTestCase {
         XCTAssertNotEqual(AppVersion.current, "Didja")
     }
 }
+
+/// SCR-76: capture wakes the engine with one line on its standard input.
+final class EngineWakerTests: XCTestCase {
+    func testAWakeIsOneLineOnThePipe() throws {
+        let pipe = Pipe()
+        let waker = EngineWaker(fileDescriptor: pipe.fileHandleForWriting.fileDescriptor, handle: pipe.fileHandleForWriting)
+        waker.wake()
+        let line = expectation(description: "a line arrives")
+        DispatchQueue.global().async {
+            if pipe.fileHandleForReading.readData(ofLength: 1) == Data([10]) { line.fulfill() }
+        }
+        wait(for: [line], timeout: 2)
+    }
+
+    func testAWakeAfterTheEngineHasGoneIsHarmless() throws {
+        let pipe = Pipe()
+        let waker = EngineWaker(fileDescriptor: pipe.fileHandleForWriting.fileDescriptor, handle: pipe.fileHandleForWriting)
+        try pipe.fileHandleForReading.close()
+        // Would raise SIGPIPE and end the test run if the waker did not guard against it.
+        for _ in 0..<3 { waker.wake() }
+        let settled = expectation(description: "wakes written")
+        DispatchQueue.global().asyncAfter(deadline: .now() + 0.2) { settled.fulfill() }
+        wait(for: [settled], timeout: 2)
+    }
+
+    func testAnEngineThatIsNotRunningIsNotWoken() {
+        // No engine started (tests never start one): waking does nothing and does not crash.
+        EngineRunner().wake()
+    }
+}

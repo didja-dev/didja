@@ -157,8 +157,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Unit tests are hosted in the app; they must not start capturing the screen.
         guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else { return }
         AppearanceSetting.saved.apply()
-        capture.start()
         engine.start()
+        capture.onObservation = { [engine] in engine.wake() }
+        capture.start()
         let panel = makePanel()
         self.panel = panel
         // The mark is always the icon; a word beside it says when something needs you.

@@ -68,6 +68,8 @@ final class CaptureCoordinator: ObservableObject {
         }
     }
 
+    /// Called after each observation is written (on the capture queue): the app wakes the engine (SCR-76).
+    var onObservation: (() -> Void)?
     @Published private(set) var status: Status = .starting
     @Published private(set) var observationCount = 0
     /// Tasks the engine has found, for the menu. Read-only here.
@@ -552,6 +554,8 @@ final class CaptureCoordinator: ObservableObject {
                     bundleID: bundleID, app: target.name, windowTitle: text.windowTitle, url: text.url,
                     source: source, text: String(fresh.joined(separator: "\n").prefix(Self.maxObservationChars)),
                     windowKey: key)
+                // The engine reads it at once rather than at its next pass (SCR-76).
+                onObservation?()
             }
             if Date().timeIntervalSince(lastPrune) > 600 {
                 lastPrune = Date()
