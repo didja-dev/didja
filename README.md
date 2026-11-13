@@ -17,7 +17,7 @@ Didja is a Mac menu bar app that notices those steps for you:
 - **Watch.** As you work, it looks for proof each step is done: the right variable on the right settings page, the command run in a terminal, the reply actually sent.
 - **Tick, or ask.** When it is sure, it ticks the step. When it isn't, it asks. A step left hanging gets one gentle reminder.
 
-It works in the apps you already use: Claude, Claude Code in a terminal, Gmail, Outlook, WhatsApp, Teams, Slack and any browser tab. You can also connect Linear, Jira, Asana, Todoist or Notion.
+It works in the apps you already use: Claude, Claude Code in a terminal, ChatGPT, Gemini, Copilot, Codex and other AI tools, Gmail, Outlook, WhatsApp, Teams, Slack and any browser tab. You can also connect Linear, Jira, Asana, Todoist or Notion.
 
 ![The Quick View, with sample data](docs/images/popover-sample.png)
 

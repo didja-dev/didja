@@ -6,6 +6,14 @@ Each entry says what changed, and what was **not verified** where that applies: 
 
 ## 2026-11-13
 
+### Assistant profiles: ChatGPT, Gemini, Copilot, Codex and other AI tools are recognised (SCR-83)
+- Which window is which AI tool is now data, one file per tool in `profiles/assistants/` (`engine/src/assistants.ts`): Claude, claude.ai and Claude Code (their rules moved there unchanged), ChatGPT, Gemini, Copilot, Devin, Codex, Gemini CLI, Copilot CLI, Aider, OpenCode, Goose, Copilot in VS Code, Cursor and Windsurf. Each says how to recognise the tool (its app, its site, or in a terminal or editor its title and the text only it shows), how to tell your turn from its turn, and which lines are the agent's own work.
+- Their lists for you become tasks named after the tool, by the same rules as Claude's. A list under the agent's own plan heading is the agent's. A window showing one of them is not read for ticks, like a Claude window.
+- `didja profiles` lists the AI tools; `--json` now returns `{ apps, assistants }`. The app bundles `profiles/assistants`. The privacy check also reads `profiles/fixtures/assistants`.
+- Benchmark, no model: recall 38% → 70%, precision 96% → 96%, ticked 18 → 26, wrong ticks 0. Apple's model: recall 44% → 76%, wrong ticks 0, wrong asks 3 → 4 (questions only). Every tool family recognised in all its scenarios.
+- Capture: nothing changed. It already asks every app it reads, Electron ones included, to build its accessibility tree (`AXCapture.prepare`).
+- Not verified: these tools' real windows on a Mac (the profiles and fixtures follow each tool's documented text; ChatGPT's newer app and Copilot's Mac app bundle ids are not checked); the structural fallback for chats with no labels (a short turn with no list is yours) is not built, such a chat is read whole.
+
 ### Benchmark: every AI tool's shape, a first-day session, and a report per tool (SCR-82)
 - 60 made-up scenarios added to `engine/bench/` (99 in all): ChatGPT, Gemini and Copilot replies; the Claude app's numbered steps, boxes and bullets; the editor agents (Copilot in VS Code, Cursor, Windsurf, Devin) with their run cards, "Ran …" lines, own todo lists and closing "Next steps"; the terminal agents (Claude Code old and new, Codex, Gemini CLI, Copilot CLI, Aider, OpenCode, Goose) with their approval prompts and plans; a new user's first session across Claude Code and the Claude app; and the pages where common steps are done, with near-misses that must not tick.
 - Each scenario names its tool family, and `bun bench/run.ts` prints a table per family. The baseline is in ARCHITECTURE › How well it works, by tool: no model, recall 38%, precision 96%, 0 wrong ticks; Apple's model, recall 44%, 0 wrong ticks, 3 wrong asks. ChatGPT, Gemini, Copilot and every agent but Claude Code make no task yet.

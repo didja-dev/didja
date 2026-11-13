@@ -318,6 +318,19 @@ With Apple's model the Claude families tick or ask a few more and email and mess
 
 CI runs the no-model benchmark on every push and fails on any wrong tick; `test/bench.test.ts` also checks that every AI tool above has a scenario that must make a task and one that must not, and that the first-day session expects at least six tasks.
 
+### After SCR-83: assistant profiles
+
+Which window is which AI tool now comes from `profiles/assistants/*.json` (`engine/src/assistants.ts`), read by the engine; Claude's rules moved there unchanged (Claude's profiles come first, `order: 0`, and keep the source kinds `claude-desktop`, `claude-web`, `claude-code`). A window is matched by its app's bundle id, then its site (a host or its subdomains), then, in a terminal, the tool's title, then a signature only that tool prints, then weak signs together (a "●" reply and a "❯" prompt); in an editor only by the agent panel's own text. A recognised window is read for lists like a Claude window (chat tools by their turn labels, "ChatGPT said:"; a chat with no labels or sections is read whole unless its profile says `whenUnlabelled: ignore`, as Claude's do) and is left out of tick-watching, as Claude windows are. A list under a heading the profile marks as the agent's own todo or plan is the agent's.
+
+Same 99 scenarios, before → after:
+
+| Model | Recall | Precision | Must not exist | Ticked | Asked | Missed | Wrong ticks | Wrong asks |
+|---|---|---|---|---|---|---|---|---|
+| none (CI) | 53 → 98 of 140 (38% → 70%) | 96% → 96% (98/102) | 2 → 3 | 18 → 26 | 0 → 0 | 42 → 34 | 0 | 0 |
+| Apple on-device | 61 → 106 (44% → 76%) | 97% → 96% (106/110) | 2 → 3 | 23 → 31 | 5 → 6 | 32 → 23 | 0 | 3 → 4 |
+
+Every tool family's windows are recognised in all of its scenarios (the benchmark's new `recognised` column; `test/bench.test.ts` requires it). What is still missed is the shape of the steps, not the tool: ChatGPT's "Step 1 —" headings and code-block steps, Gemini's table, Copilot's bullets, a command handed over outside a list (Aider), the Claude app's "☐" boxes and bullets (SCR-84, SCR-85). The new task that must not exist is a nested bullet under a ChatGPT step read as a step of its own. The new wrong ask (with Apple's model) is a Gemini step asked on a page that does not show it; it is a question, never a tick.
+
 ## How fast it is (SCR-75)
 
 Targets, at the 90th percentile on the maintainer's Mac, from the moment the screen showed it:

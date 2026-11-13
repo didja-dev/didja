@@ -4,6 +4,32 @@ How Didja reads each chat and email app: which parts of its window are a message
 
 A profile can only **label** text in the window Didja is already reading. It cannot read another app, a password field or the message you are typing, turn off the exclude list, run code, or reach the network. Those checks run before any rule does, so even a wrong or hostile profile cannot get past them.
 
+## AI tools (`profiles/assistants/`)
+
+Which windows are an AI tool, and how to read them, are profiles too (SCR-83): one file per tool in `profiles/assistants/`, read by the engine, with made-up fixtures in `profiles/fixtures/assistants/` (checked by `engine/test/assistants.test.ts`). `didja profiles` lists them. A tool's profile cannot read anything new: it only says that a window Didja already reads is that tool.
+
+```json
+{
+  "$schema": "../schema/assistant.schema.json",
+  "id": "codex",
+  "name": "Codex",
+  "kind": "terminal",
+  "about": "OpenAI's Codex CLI…",
+  "match": { "terminal": { "titles": ["(?i)^codex\\b"], "signatures": [">_ OpenAI Codex"], "together": [["^\\s*• Ran ", "^\\s*└ "]] } },
+  "turns": { "userPrompt": ["^\\s*› "], "reply": ["^\\s*• "] },
+  "agentWork": { "approval": ["Would you like to run the following command\\?"], "ran": ["^\\s*• Ran "], "todo": ["^\\s*(?:└\\s+)?[✔□]\\s"] }
+}
+```
+
+- `kind`: `chat` (an app or site you talk to), `terminal` (an agent in a terminal) or `editor` (an agent's panel in an editor).
+- `match`: `bundleIds` (its own app), `hosts` (its site and subdomains), `terminal` and `editor`. Inside a terminal: `titles` (the tab title), `signatures` (any one is enough) and `together` (weak signs that count only all at once, such as a "●" reply with a "❯" prompt). Inside an editor only `signatures` and `together` of the agent's own panel count, never a title or a document's words. A title beats a signature, which beats weak signs together; then lower `order` (default 100), then file name.
+- `turns`: `user` and `assistant` labels ("You said:", "ChatGPT said:"), and for terminals `userPrompt` and `reply` prefixes. `whenUnlabelled`: what to do with a chat window showing no labels or message sections: `assistant` (default, read it as the assistant's) or `ignore`.
+- `agentWork`: lines that are the agent's own work: `approval` prompts, `ran` lines, and its `todo` list or plan heading. A list under a `todo` heading is never yours.
+- `steps`: step shapes only this tool writes (`nameThenCommand`: Claude Code's "1. Folder" with the command under it).
+- `sourceKind`: what its tasks' source is called; the id when left out.
+
+Patterns are JavaScript regular expressions (multi-line, Unicode), with the same limits as above: at most 300 characters, no back-references or look-behind, no repeated group that repeats inside; `(?i)` at the start ignores case. A fixture (`profiles/fixtures/assistants/<name>.json`) is a window (`app`, `bundle`, `title`, optional `url`), its made-up `lines`, and `expect.assistant`, the profile id it must be recognised as, or `null` for a window that is no AI tool.
+
 **Terminals are not profiles.** How a terminal's text is read (prompts, commands, their output and how each ended) is code, in one place: `engine/src/terminal.ts` (SCR-69). It knows zsh, oh-my-zsh, starship-like, bash and fish prompts. A prompt it does not know means a command there is not ticked; open an issue with a made-up example of the prompt. An editor's built-in terminal (VS Code, Cursor, Windsurf) is marked `⟦Terminal⟧` by capture while it has focus.
 
 ## How to add an app

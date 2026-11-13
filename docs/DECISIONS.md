@@ -4,6 +4,14 @@ Choices made while building ScrolledAway, with the reason, so they are not re-ar
 
 ## 2026-11-13
 
+- **Assistant profiles are read by the engine only** (SCR-83). Capture needs nothing from them: it already sets AXManualAccessibility on every app it reads (`AXCapture.prepare`), Electron editors and ChatGPT included, so the issue's capture step was already true.
+- **Claude's profiles keep their source kinds** (`claude-desktop`, `claude-web`, `claude-code`) and are tried first (`order: 0`), so tasks made before group with new ones and Claude is recognised as before. Other tools' source kind is their id.
+- **In a terminal a title beats a signature, which beats weak signs together.** Copilot CLI prints "❯ 1. Yes" and "● … (shell)", Claude Code's weak pair; its own title or "tell Copilot what to do differently" must win. The cost: a terminal titled after another tool ("gemini") that runs Claude Code is now that tool. Rare, and the tab title is set by the tool.
+- **A chat with no labels and no message sections is read whole** for tools whose profile says so (the default, for Gemini and Devin, which show no labels), and ignored for Claude (`whenUnlabelled: ignore`), as before. The issue's structural fallback (a short turn with no list is yours) is left for SCR-84, which owns how steps are read.
+- **`agentWork` is used for one thing now**: a list under a `todo` heading of the profile (Windsurf's "Planned for 3 steps") is the agent's. Approvals and "ran" lines are data for SCR-85.
+- **Bundle ids not checked on a Mac are kept to two**: ChatGPT's app (`com.openai.chat`) and Copilot's (`com.microsoft.copilot`, unverified). The newer ChatGPT app and Devin Desktop are left out until their ids are checked; their sites are matched.
+- **`didja profiles --json` returns `{ apps, assistants }`**: nothing in the app or the MCP server reads the old array.
+
 - **The corpus labels what really happened, so the baseline is low on purpose** (SCR-82): ChatGPT, Gemini, Copilot and every agent but Claude Code make no task today, and each scenario stays a miss until SCR-83–SCR-89 fix it. The gate for those issues is recall up, precision not down, and no wrong tick.
 - **60 new scenarios, 99 in all**: the issue's "at least 60" read as 60 added on top of SCR-64's 39, so every tool family has several and the earlier cases stay.
 - **A tool family per scenario, written in the file** (`family`), not guessed from the app: a Chrome window may be Gemini, Copilot, Devin, claude.ai or a done target. The existing 39 got theirs from their first window (Claude → `claude-app`, a terminal → `claude-code`, Outlook → `email`, WhatsApp and Teams → `messaging`).
