@@ -17,6 +17,8 @@ function fakeJudge(): string {
   writeFileSync(bin, `#!/bin/sh\ncat > "${dir}/sent-$1.json"\necho '{"available":true,"seen":"done","need":"reply","task":"Send Sam the deck","audience":"user"}'\n`);
   chmodSync(bin, 0o755);
   process.env.DIDJA_JUDGE = bin;
+  // A one-shot fake with no judge server (SCR-77): what each flag is sent is checked here.
+  process.env.DIDJA_JUDGE_SERVER = '0';
   return dir;
 }
 const sent = (dir: string, flag: string) => JSON.parse(readFileSync(join(dir, `sent-${flag}.json`), 'utf8'));

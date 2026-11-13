@@ -13,6 +13,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { askModel } from '../src/cli.ts';
 import { followUpActor, listActor, planActor } from '../src/extract.ts';
 
 const model = process.argv[2] ?? 'qwen3.8:latest';
@@ -56,7 +57,7 @@ const schema = { type: 'object', required: ['audience'], properties: {
 
 async function ollama(r: Request): Promise<string | null> {
   try {
-    const res = await fetch(OLLAMA, { method: 'POST', body: JSON.stringify({ model, stream: false, think: false, format: schema, options: { temperature: 0 },
+    const res = await fetch(OLLAMA, { method: 'POST', body: JSON.stringify({ model, stream: false, think: false, format: schema, options: { temperature: 0 }, keep_alive: '30m',
       messages: [{ role: 'system', content: instructions }, { role: 'user', content: prompt(r) }] }) });
     const body = (await res.json()) as { message?: { content?: string } };
     return (JSON.parse(body.message?.content ?? '{}') as { audience?: string }).audience ?? null;
@@ -65,9 +66,9 @@ async function ollama(r: Request): Promise<string | null> {
   }
 }
 function apple(r: Request): string | null {
-  const run = Bun.spawnSync([binary, '--judge'], { stdin: Buffer.from(JSON.stringify(r)), timeout: 60_000 });
   try {
-    return (JSON.parse(run.stdout.toString() || '{}') as { audience?: string }).audience ?? null;
+    // As the engine asks (SCR-77): the judge server, or one-shot with DIDJA_JUDGE_SERVER=0.
+    return ((askModel(binary, 'judge', r, 60_000) ?? {}) as { audience?: string }).audience ?? null;
   } catch {
     return null;
   }

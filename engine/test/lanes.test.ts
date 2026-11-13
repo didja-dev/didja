@@ -180,16 +180,19 @@ test('a sure tick happens in the fast lane while the model lane is still waiting
   pollOnce(store, old, { lane: 'fast', judging: true });
   const controller = new AbortController();
   // The lane reads its database and its model from the environment it is started with.
-  const saved = { db: process.env.DIDJA_DB, judge: process.env.DIDJA_JUDGE };
+  const saved = { db: process.env.DIDJA_DB, judge: process.env.DIDJA_JUDGE, server: process.env.DIDJA_JUDGE_SERVER };
   process.env.DIDJA_DB = db;
   process.env.DIDJA_JUDGE = fake;
+  // The made-up model answers one question per process, like the one-shot flags.
+  process.env.DIDJA_JUDGE_SERVER = '0';
   const lane = startModelLane(controller.signal, () => {}, [process.execPath, join(import.meta.dir, '../src/cli.ts'), 'lane']);
-  const restore = (key: 'DIDJA_DB' | 'DIDJA_JUDGE', value: string | undefined) => {
+  const restore = (key: 'DIDJA_DB' | 'DIDJA_JUDGE' | 'DIDJA_JUDGE_SERVER', value: string | undefined) => {
     if (value === undefined) delete process.env[key];
     else process.env[key] = value;
   };
   restore('DIDJA_DB', saved.db);
   restore('DIDJA_JUDGE', saved.judge);
+  restore('DIDJA_JUDGE_SERVER', saved.server);
   try {
     expect(lane.running()).toBe(true);
     const deadline = Date.now() + 8000;

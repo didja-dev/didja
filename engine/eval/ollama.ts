@@ -12,6 +12,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { askModel } from '../src/cli.ts';
 import { signedName } from '../src/email.ts';
 
 const model = process.argv[2] ?? 'qwen3.8:latest';
@@ -33,7 +34,7 @@ const isHebrew = (t: string) => (t.match(/[א-ת]/g)?.length ?? 0) > (t.match(/[
 async function ollama(system: string, prompt: string, schema: object): Promise<Record<string, unknown>> {
   const res = await fetch(OLLAMA, {
     method: 'POST',
-    body: JSON.stringify({ model, stream: false, think: false, format: schema, options: { temperature: 0 },
+    body: JSON.stringify({ model, stream: false, think: false, format: schema, options: { temperature: 0 }, keep_alive: '30m',
       messages: [{ role: 'system', content: system }, { role: 'user', content: prompt }] }),
   });
   const body = (await res.json()) as { message?: { content?: string }; error?: string };
@@ -41,8 +42,12 @@ async function ollama(system: string, prompt: string, schema: object): Promise<R
   return JSON.parse(body.message.content);
 }
 function apple(flag: string, request: object): Record<string, unknown> {
-  const run = Bun.spawnSync([binary, flag], { stdin: Buffer.from(JSON.stringify(request)), timeout: 60_000 });
-  return JSON.parse(run.stdout.toString() || '{}');
+  // As the engine asks (SCR-77): the judge server, or one-shot with DIDJA_JUDGE_SERVER=0.
+  try {
+    return (askModel(binary, flag.replace(/^--/, ''), request, 60_000) ?? {}) as Record<string, unknown>;
+  } catch {
+    return {};
+  }
 }
 async function timed<T>(f: () => T | Promise<T>): Promise<[T, number]> {
   const t = performance.now();

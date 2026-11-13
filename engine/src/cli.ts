@@ -8,6 +8,7 @@ import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { addManualTask, keepTask, lookAgainAt, myNames, namesOf, pollOnce, runLoop, Waker } from './engine.ts';
 import { startModelLane, wakeOnInput } from './lanes.ts';
+import { judgeServerFor } from './judgeserver.ts';
 import { ADAPTERS } from './adapters.ts';
 import { bringOf, forgetSecrets, KINDS, listConnections, openSession, saveConnections, signIn, updateConnection } from './connections.ts';
 import type { Bring, Connection } from './connections.ts';
@@ -153,6 +154,23 @@ export function parseSnooze(spec: string, now: Date = new Date()): Date | null {
 }
 
 /**
+ * Ask the app's model one question (SCR-77): through the long-lived judge server, or, when that
+ * cannot be asked, a one-shot `Didja --<job>` as before. The reply as that flag prints it, parsed;
+ * an unreadable one throws, and each caller takes that as no answer. `local` is the local model in
+ * use, if one is on: the server loads it when it changes.
+ */
+export function askModel(binary: string, job: string, request: unknown, timeoutMs: number, local: string | null = null): unknown {
+  const server = judgeServerFor(binary);
+  if (server) {
+    server.warm(local);
+    const reply = server.ask(job, request, timeoutMs);
+    if (reply !== undefined) return reply;
+  }
+  const run = Bun.spawnSync([binary, `--${job}`], { stdin: Buffer.from(JSON.stringify(request)), timeout: timeoutMs });
+  return JSON.parse(run.stdout.toString());
+}
+
+/**
  * The on-device model, reached through the app's own binary (`Didja --judge`),
  * which sits next to this one inside the app bundle. Undefined when the engine
  * is run outside the bundle, in which case lists are judged by wording alone.
@@ -163,8 +181,7 @@ export function findJudge(local: () => string | null = () => null): Judge | unde
   return (list) => {
     try {
       // The local model, if one is on, is asked first (SCR-70: it measured better on engine/eval/lists.ts).
-      const run = Bun.spawnSync([binary, '--judge'], { stdin: Buffer.from(JSON.stringify({ ...list, ...localField(local()) })), timeout: 45_000 });
-      const reply = JSON.parse(run.stdout.toString()) as { available?: boolean; audience?: string; model?: string };
+      const reply = askModel(binary, 'judge', { ...list, ...localField(local()) }, 45_000, local()) as { available?: boolean; audience?: string; model?: string };
       if (!reply.available || (reply.audience !== 'user' && reply.audience !== 'assistant')) return null;
       return { audience: reply.audience, model: reply.model ?? 'on-device' };
     } catch {
@@ -179,8 +196,7 @@ export function findTitler(): Titler | undefined {
   if (!existsSync(binary)) return undefined;
   return (list) => {
     try {
-      const run = Bun.spawnSync([binary, '--title'], { stdin: Buffer.from(JSON.stringify(list)), timeout: 30_000 });
-      const reply = JSON.parse(run.stdout.toString()) as { available?: boolean; title?: string };
+      const reply = askModel(binary, 'title', list, 30_000) as { available?: boolean; title?: string };
       return reply.available && typeof reply.title === 'string' ? reply.title : null;
     } catch {
       return null;
@@ -197,8 +213,7 @@ export function findLooker(local: () => string | null = () => null): Looker | un
   if (!existsSync(binary)) return undefined;
   return (input) => {
     try {
-      const run = Bun.spawnSync([binary, '--looks-done'], { stdin: Buffer.from(JSON.stringify({ ...input, ...localField(local()) })), timeout: 45_000 });
-      const reply = JSON.parse(run.stdout.toString()) as { available?: boolean; seen?: string };
+      const reply = askModel(binary, 'looks-done', { ...input, ...localField(local()) }, 45_000, local()) as { available?: boolean; seen?: string };
       if (!reply.available) return null;
       return reply.seen === 'done' || reply.seen === 'notDone' ? reply.seen : 'unsure';
     } catch {
@@ -213,8 +228,7 @@ export function findChatReader(): ChatReader | undefined {
   if (!existsSync(binary)) return undefined;
   return (question) => {
     try {
-      const run = Bun.spawnSync([binary, '--chat'], { stdin: Buffer.from(JSON.stringify(question)), timeout: 30_000 });
-      const reply = JSON.parse(run.stdout.toString()) as { available?: boolean; asks?: boolean; task?: string };
+      const reply = askModel(binary, 'chat', question, 30_000) as { available?: boolean; asks?: boolean; task?: string };
       if (!reply.available) return null;
       return { asks: reply.asks === true, task: reply.task ?? '' };
     } catch {
@@ -229,8 +243,7 @@ export function findReplyJudge(): ReplyJudge | undefined {
   if (!existsSync(binary)) return undefined;
   return (question) => {
     try {
-      const run = Bun.spawnSync([binary, '--chat-reply'], { stdin: Buffer.from(JSON.stringify(question)), timeout: 30_000 });
-      const reply = JSON.parse(run.stdout.toString()) as { available?: boolean; verdict?: string };
+      const reply = askModel(binary, 'chat-reply', question, 30_000) as { available?: boolean; verdict?: string };
       if (!reply.available) return null;
       return reply.verdict === 'settles' || reply.verdict === 'defers' ? reply.verdict : 'unsure';
     } catch {
@@ -245,8 +258,7 @@ export function findCriteriaWriter(): CriteriaWriter | undefined {
   if (!existsSync(binary)) return undefined;
   return (question) => {
     try {
-      const run = Bun.spawnSync([binary, '--criteria'], { stdin: Buffer.from(JSON.stringify(question)), timeout: 30_000 });
-      const reply = JSON.parse(run.stdout.toString()) as { available?: boolean; where?: unknown; success?: unknown; pending?: unknown; tokens?: unknown };
+      const reply = askModel(binary, 'criteria', question, 30_000) as { available?: boolean; where?: unknown; success?: unknown; pending?: unknown; tokens?: unknown };
       if (!reply.available) return null;
       return cleanCriteria(reply);
     } catch {
@@ -261,8 +273,7 @@ export function findMailReader(local: () => string | null = () => null): MailRea
   if (!existsSync(binary)) return undefined;
   return (email) => {
     try {
-      const run = Bun.spawnSync([binary, '--needs-reply'], { stdin: Buffer.from(JSON.stringify({ ...email, ...localField(local()) })), timeout: 45_000 });
-      const reply = JSON.parse(run.stdout.toString()) as { available?: boolean; need?: string; task?: string; asker?: string };
+      const reply = askModel(binary, 'needs-reply', { ...email, ...localField(local()) }, 45_000, local()) as { available?: boolean; need?: string; task?: string; asker?: string };
       if (!reply.available) return null;
       const need = reply.need === 'reply' || reply.need === 'action' ? reply.need : 'none';
       return { need, task: reply.task ?? '', asker: reply.asker };
