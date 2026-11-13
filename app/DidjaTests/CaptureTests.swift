@@ -301,7 +301,7 @@ final class ObservationStoreTests: XCTestCase {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: dir) }
         let migrations = ObservationStore.bundledMigrations()
-        XCTAssertEqual(migrations.map(\.version).sorted(), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26], "every schema step must be bundled with the app")
+        XCTAssertEqual(migrations.map(\.version).sorted(), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27], "every schema step must be bundled with the app")
         let store = try ObservationStore(directory: dir, migrations: migrations)
 
         let now = Date()
@@ -3279,5 +3279,36 @@ final class EngineWakerTests: XCTestCase {
     func testAnEngineThatIsNotRunningIsNotWoken() {
         // No engine started (tests never start one): waking does nothing and does not crash.
         EngineRunner().wake()
+    }
+}
+
+/// SCR-74: "When a task looks done" has three choices; installs move to Tick When Didja Is Sure once.
+final class LooksDoneModeTests: XCTestCase {
+    private func defaults() -> UserDefaults {
+        let name = "didja-test-\(UUID().uuidString)"
+        let d = UserDefaults(suiteName: name)!
+        d.removePersistentDomain(forName: name)
+        return d
+    }
+
+    func testANewInstallTicksWhenSure() {
+        XCTAssertEqual(LooksDoneMode.saved(defaults()), .sure)
+    }
+
+    func testAskMeBeforeIsMovedOnceAndAcceptIsKept() {
+        let asked = defaults()
+        asked.set(false, forKey: "acceptsLooksDone")
+        XCTAssertEqual(LooksDoneMode.saved(asked), .sure)
+        // Chosen again later, Ask Me sticks.
+        asked.set(LooksDoneMode.ask.rawValue, forKey: LooksDoneMode.key)
+        XCTAssertEqual(LooksDoneMode.saved(asked), .ask)
+        let accepting = defaults()
+        accepting.set(true, forKey: "acceptsLooksDone")
+        XCTAssertEqual(LooksDoneMode.saved(accepting), .accept)
+    }
+
+    func testTheEngineIsToldTheWordItReads() {
+        XCTAssertEqual(LooksDoneMode.allCases.map(\.rawValue), ["ask", "sure", "accept"])
+        XCTAssertEqual(LooksDoneMode.allCases.map(\.label), ["Ask Me", "Tick When Didja Is Sure", "Accept Automatically"])
     }
 }

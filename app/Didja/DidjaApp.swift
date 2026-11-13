@@ -321,8 +321,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             .action(PanelStaysOpen.menuTitle, checked: PanelStaysOpen.isOn) { PanelStaysOpen.isOn.toggle() },
         ]
         let tasks: [MenuEntry] = [
-            .choice("Looks Done", [("Ask Me", false), ("Accept Automatically", true)], current: capture.acceptsLooksDone) { [weak self] in
-                self?.capture.acceptsLooksDone = $0
+            .choice("Looks Done", LooksDoneMode.allCases.map { ($0.label, $0) }, current: capture.looksDoneMode) { [weak self] in
+                self?.capture.looksDoneMode = $0
             },
             .choice("Older Messages", [("Capture Tasks From Them", false), ("Ignore Them (New Messages Only)", true)],
                     current: capture.onlyNewMessages) { [weak self] in self?.capture.onlyNewMessages = $0 },

@@ -319,7 +319,7 @@ struct TaskRow: View {
                         .help("From \(item.source): \(key). Click to open it there. Ticking it here updates it there, as set in Connections.")
                     }
                     if item.acceptedFrom != nil, item.status == .done {
-                        Text("auto-accepted")
+                        Text("ticked for you")
                             .font(.caption2.weight(.medium))
                             .foregroundStyle(Palette.done)
                             .padding(.horizontal, 6)

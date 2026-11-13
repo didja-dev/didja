@@ -179,10 +179,9 @@ struct GeneralSettingsView: View {
                         ForEach(TaskBoard.Sort.allCases) { Text($0.label).tag($0) }
                     }.labelsHidden().fixedSize()
                 }
-                row("When a task looks done", "Ask you, or tick it for you (labelled \"auto-accepted\"; reopen it if it was not).") {
-                    Picker("", selection: $capture.acceptsLooksDone) {
-                        Text("Ask Me").tag(false)
-                        Text("Accept Automatically").tag(true)
+                row("When a task looks done", "Ask you; tick it when Didja is sure (two signs on the same screen agree, or you said yes there five times with no \"not yet\" since); or tick every one. A tick is labelled \"ticked for you\": reopen it if it was not done, and Didja asks there again.") {
+                    Picker("", selection: $capture.looksDoneMode) {
+                        ForEach(LooksDoneMode.allCases) { Text($0.label).tag($0) }
                     }.labelsHidden().fixedSize()
                 }
                 row("Older messages", "Take tasks from all messages, or only from ones sent since capture started (at launch, or when you last pressed Resume). Mail and chat messages show when they were sent; a Claude reply does not, so it is always read, even when you scroll back to it.") {

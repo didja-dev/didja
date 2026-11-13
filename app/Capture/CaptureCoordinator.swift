@@ -49,6 +49,31 @@ enum ForgetPrompt {
 /// focused app (focus, title, value changed), and a 5s poll. Triggers are
 /// coalesced so capture runs at most once a second. Only the focused window of
 /// the frontmost app is ever read.
+/// What Didja does when a task looks done (SCR-74).
+enum LooksDoneMode: String, CaseIterable, Identifiable {
+    case ask, sure, accept
+
+    var id: String { rawValue }
+    static let key = "looksDoneMode"
+
+    var label: String {
+        switch self {
+        case .ask: return "Ask Me"
+        case .sure: return "Tick When Didja Is Sure"
+        case .accept: return "Accept Automatically"
+        }
+    }
+
+    /// The saved choice. Before SCR-74 there were two, as a switch: an install on Accept
+    /// Automatically keeps it, every other moves to Tick When Didja Is Sure, once.
+    static func saved(_ defaults: UserDefaults = .standard) -> LooksDoneMode {
+        if let raw = defaults.string(forKey: key), let mode = LooksDoneMode(rawValue: raw) { return mode }
+        let mode: LooksDoneMode = defaults.bool(forKey: "acceptsLooksDone") ? .accept : .sure
+        defaults.set(mode.rawValue, forKey: key)
+        return mode
+    }
+}
+
 final class CaptureCoordinator: ObservableObject {
     enum Status: Equatable {
         case starting
@@ -97,17 +122,18 @@ final class CaptureCoordinator: ObservableObject {
             tasks.focus = focus
         }
     }
-    /// Accept "looks done" for you instead of asking. Off unless you turn it on. The engine
-    /// reads the choice from the database, where the rules about ticking live.
-    @Published var acceptsLooksDone = UserDefaults.standard.bool(forKey: "acceptsLooksDone") {
+    /// When a task looks done (SCR-74): ask you, tick it when Didja is sure (the default), or accept
+    /// every "looks done". The engine reads the choice from the database, where the rules about
+    /// ticking live.
+    @Published var looksDoneMode = LooksDoneMode.saved() {
         didSet {
-            UserDefaults.standard.set(acceptsLooksDone, forKey: "acceptsLooksDone")
+            UserDefaults.standard.set(looksDoneMode.rawValue, forKey: LooksDoneMode.key)
             applyLooksDoneMode()
         }
     }
 
     private func applyLooksDoneMode() {
-        let mode = acceptsLooksDone ? "accept" : "ask"
+        let mode = looksDoneMode.rawValue
         queue.async { try? self.store?.setMeta("looks_done", mode) }
     }
 

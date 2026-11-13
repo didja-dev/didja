@@ -35,7 +35,7 @@ enum ModelJob: String, CaseIterable, Identifiable, Codable {
         case .titles: return "Taught by renaming a checklist."
         case .emails: return "Taught by \u{201C}Not an Action\u{201D} on a task from an email."
         case .chats: return "Taught by \u{201C}Not an Action\u{201D} on a task from a chat."
-        case .looksDone: return "Taught by \u{201C}Not Done\u{201D} on a task that was auto-accepted."
+        case .looksDone: return "Taught by \u{201C}Not Done\u{201D} on a task Didja ticked for you because it looked done."
         }
     }
 

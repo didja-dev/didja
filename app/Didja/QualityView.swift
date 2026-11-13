@@ -4,7 +4,7 @@ import SwiftUI
 /// in Settings › General. Counts only; read on this Mac and never sent anywhere.
 struct QualityReport: Decodable, Equatable {
     struct Ticked: Decodable, Equatable {
-        var command = 0, link = 0, setting = 0, file = 0, screen = 0, reply = 0, tool = 0, accepted = 0, total = 0
+        var command = 0, link = 0, setting = 0, file = 0, screen = 0, reply = 0, tool = 0, accepted = 0, sure = 0, total = 0
     }
 
     /// One row: a kind of source, or every source together.
