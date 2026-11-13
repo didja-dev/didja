@@ -113,6 +113,8 @@ export class JudgeServer {
       try {
         this.child = spawn(this.command[0]!, this.command.slice(1), { stdio: [childIn, childOut, 'ignore'] });
         this.child.on('error', () => {});
+        // Never keep this process alive for it: when we exit, its input closes and it stops too.
+        this.child.unref();
       } finally {
         closeSync(childIn);
         closeSync(childOut);
