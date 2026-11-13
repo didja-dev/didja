@@ -315,7 +315,7 @@ The engine runs as two processes, so a model never holds up what needs none:
 - **Model jobs, most wanted first:** mail and chat reads (in the window loop), then list verdicts (`judgePending`, moved ahead), done criteria, "looks done?", titles. Criteria stay ahead of looks: they narrow which screens a look may use, and running looks first could let one through that criteria would rule out. A list judged in a pass is not shown that pass's screens (`maxTaskId` cutoff), as before. Stale jobs are dropped: each queue picks only open tasks, and a queued list whose words were already judged under another window is cleared without asking.
 - Without a model binary (the engine run outside the app), `run` is one lane, as before.
 
-With Apple's model, the benchmark (two lanes) is unchanged in what it finds and ticks (13 ticked, 3 asked, 6 missed, 0 wrong). New tasks and sure ticks that need no model are shown in the pass that reads them, at 0 s simulated; the 1.0 s left at p90 is email tasks and chat-reply ticks, which are read by the model. Model-judged events stay at 11 s: the list waits 6 s to settle (SCR-78 shows it at once as "checking…"), and each model call starts the app binary (SCR-77).
+With Apple's model, the benchmark (two lanes) is unchanged in what it finds and ticks (13 ticked, 3 asked, 6 missed, 0 wrong). New tasks and sure ticks that need no model are shown in the pass that reads them, at 0 s simulated; the 1.0 s left at p90 is email tasks and chat-reply ticks, which are read by the model. Model-judged events stay at 11 s: the list waits 6 s to settle (SCR-78 shows it at once as "checking…"). Asking through one long-lived judge (SCR-77) did not shorten a question much: see The judge server.
 
 ## The judge server (SCR-77)
 
