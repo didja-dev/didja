@@ -6,6 +6,9 @@ Each entry says what changed, and what was **not verified** where that applies: 
 
 ## 2026-11-13
 
+### Didja 0.7.1 (build 9)
+- Released from GitHub on a version tag, with SCR-80: newer Claude Code in a terminal, checklists of boxes, everyday steps (get, back up, bring…) and prompts ending in › now make tasks; toolbar toggles are not read as boxes.
+
 ### Newer Claude Code, checklists, and everyday steps become tasks (SCR-80)
 - A new user's Didja read Claude Code in Ghostty and the Claude app but made no tasks. Fixed in four places:
   - **Newer Claude Code in a terminal** is recognised by its status line ("✻ Baked for 4s · done 13:13"), or by its "●" replies and "❯" prompt together, when the tab title says nothing. Its steps written as a name with the command under it ("1. Folder", then `mkdir -p components/widget`, at the same indent or after a blank line) become tasks carrying the command, so running it ticks them. A box in front ("- [ ] 1. Folder") is read through.
