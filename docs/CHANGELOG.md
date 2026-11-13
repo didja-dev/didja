@@ -6,6 +6,11 @@ Each entry says what changed, and what was **not verified** where that applies: 
 
 ## 2026-11-13
 
+### Drag tasks onto a canvas (SCR-50)
+- Drag a task from the Quick View or the Tasks window onto an open canvas to put it there, the same as right-click › Send to Canvas: at the end, a checklist as its heading and steps, a task already there not added twice. With several rows chosen, dragging one of them takes them all. The canvas shows an outline while tasks are over it.
+- The drag carries the tasks' ids in a type only Didja reads (`dev.didja.task-ids`, declared in the app's Info.plist), and their titles as plain text, so dropping them in another app gives the titles. Plain text dropped on a canvas is not taken as tasks.
+- Tests: app 2 new (ids in and out of a drag, junk refused; a drop goes to the engine as `canvas send`; plain text is not a drop). Not verified: dragging in the live app, from the Quick View panel or the Tasks window to a canvas window.
+
 ### How Didja is doing: a local report of tasks made, ticked, asked, confirmed and cleared (SCR-73)
 - `didja quality [--days N] [--json]`: per kind of source and overall, tasks made; ticked for you, by what showed it (command, link, setting, file, screen, reply, connected tool, accepted automatically); "looks done?" asked, yes, not yet, no answer; ticked by you; shown done in Didja Missed This; dismissed, Not an Action, Fresh Start; and reopened after Didja ticked it (wrong ticks). Counts only.
 - Settings › General › **How Didja Is Doing**: the same for the last 7 days, as a table, saying the numbers never leave the Mac.

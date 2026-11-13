@@ -318,3 +318,8 @@ A live back-and-forth made a task per message. Waiting before an ask becomes a t
 - Chat asks dismissed before SCR-71 were stored as list lessons; the chat path checks both, so they still stop the same wording.
 - "Plain dismiss teaches nothing" is left as it is: a dismiss can mean "not now" as well as "not mine", and Not an Action is the way to teach.
 
+
+## Dragging tasks onto a canvas (SCR-50, 2026-11-13)
+- The issue had only its title; it was read as "drag rows from the Quick View or the Tasks window onto an open canvas window", the drag counterpart of Send to Canvas. Dragging onto the "…" menu's Canvases list, or between canvases, is not part of it.
+- A drop does exactly what Send to Canvas does (the engine's `canvas send`): the tasks go to the end, a checklist as heading and steps. Dropping at a place in the canvas would need a new engine command with a position; reordering stays with ⌥↑↓ and Move Up/Down.
+- The ids travel in a Didja-only type (`ownProcess`), with the titles as plain text for other apps. Plain text dropped on a canvas is not turned into tasks: a drop from another app would make tasks from whatever was dragged, which is what typing on the canvas is for.
