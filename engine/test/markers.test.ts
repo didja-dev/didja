@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
 import { deriveCriteria, extractMarkers, requiredMarkers } from '../src/markers.ts';
-import { commandAtPrompt } from '../src/match.ts';
+import { commandAtPrompt, commandOutcome, failed } from '../src/match.ts';
 
 const values = (title: string, fragments: string[] = []) =>
   extractMarkers(title, fragments).map((m) => `${m.kind}:${m.value}`);
@@ -46,4 +46,59 @@ test('commandAtPrompt needs a prompt right before the command and nothing after 
   expect(commandAtPrompt('npm run build', 'npm run build')).toBe(false);
   expect(commandAtPrompt('then run npm run build', 'npm run build')).toBe(false);
   expect(commandAtPrompt('$ npm run build --watch', 'npm run build')).toBe(false);
+});
+
+// SCR-61: typed is not run, and a failed run is not done.
+const at = (texts: [string, number][]) => texts.flatMap(([text, m], i) =>
+  text.split('\n').map((t) => ({ text: t, ts: new Date(Date.UTC(2026, 10, 10, 10, m)).toISOString(), observationId: i + 1 })));
+const outcome = (texts: [string, number][], command = 'git push origin main') => commandOutcome(at(texts), command)?.outcome ?? null;
+
+test('a command typed but not entered has not run', () => {
+  expect(outcome([['~/repo % git push origin main', 0]])).toBe('typed');
+  expect(outcome([['some output', 0]])).toBeNull();
+});
+
+test('a command with output, or a new prompt after it, has run', () => {
+  expect(outcome([['~/repo % git push origin main\nTo example.com:acme/shop.git\n   1a2b3c4..5d6e7f8  main -> main\n~/repo %', 0]])).toBe('ran');
+  expect(outcome([['~/repo % git push origin main', 0], ['Everything up-to-date', 1]])).toBe('ran');
+  expect(outcome([['❯ git push origin main', 0], ['❯', 1]])).toBe('ran');
+  // Output that comes too late is not this command's.
+  expect(outcome([['~/repo % git push origin main', 0], ['Everything up-to-date', 9]])).toBe('typed');
+});
+
+test('a run that printed a failure, or whose prompt shows a non-zero exit, has not been done', () => {
+  const fails = [
+    'fatal: could not read from remote repository.',
+    'error: failed to push some refs to the remote',
+    ' ! [rejected]        main -> main (fetch first)',
+    'zsh: command not found: gti',
+    'npm ERR! code ELIFECYCLE',
+    'error: script "build" exited with code 1',
+    '** BUILD FAILED **',
+    'HTTP/2 404',
+    'gh: Not Found (HTTP 404)',
+    'curl: (6) Could not resolve host: example.com',
+    '✘ [ERROR] Could not find a wrangler.toml',
+    'Error response from daemon: no such container',
+    ' 3 fail',
+    'Traceback (most recent call last):',
+  ];
+  for (const line of fails) {
+    expect(failed(line)).toBe(true);
+    expect(outcome([[`~/repo % git push origin main\n${line}\n~/repo %`, 0]])).toBe('failed');
+  }
+  expect(outcome([['❯ git push origin main\nsome output\n✘ ❯', 0]])).toBe('failed');
+  expect(outcome([['~/repo % git push origin main\nsome output\n[1] ~/repo %', 0]])).toBe('failed');
+  expect(outcome([['~/repo % git push origin main\nsome output\n[0] ~/repo %', 0]])).toBe('ran');
+  // Ordinary output is not a failure.
+  for (const line of ['Everything up-to-date', ' 0 fail', '290 pass', 'found 0 vulnerabilities', 'Applying migration 0007…', 'No errors found', '** TEST SUCCEEDED **']) {
+    expect(failed(line)).toBe(false);
+  }
+});
+
+test('the same command run again after a failure, and succeeding, has run', () => {
+  expect(outcome([
+    ['~/repo % git push origin main\nfatal: could not read from remote repository.\n~/repo %', 0],
+    ['~/repo % git push origin main\nEverything up-to-date\n~/repo %', 1],
+  ])).toBe('ran');
 });

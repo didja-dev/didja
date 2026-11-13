@@ -4,12 +4,12 @@ import { accountOf, baseSubject, responseAction, isAutomatic, isMine, isRecent, 
 import type { MailIdentity, MailReader } from './email.ts';
 import { chatApp, chatKey, asksForAcknowledgement, chatTaskTitle, isEmojiOnly, isPositiveEmoji, isReaction, lineHash, plainReactions, reactedTo, namesMe, chatSourceRef, chatTime, isMine as isMyMessage, mayAskOfMe, parseChatMessages, plainlyDefers, sentBefore } from './chat.ts';
 import type { ChatMessage, ChatReader, ReplyJudge } from './chat.ts';
-import { assemble, classifySource, extractCommands, extractChecklists, sourceRef } from './extract.ts';
+import { assemble, classifySource, extractCommands, extractChecklists, sourceRef, TERMINALS } from './extract.ts';
 import { rewordPlacesOnce } from './missed.ts';
 import { isWhereItIsDone, learnedWhere, placeOf, relevantSnippet, siteOf } from './looksdone.ts';
 import type { Looker } from './looksdone.ts';
 import { deriveCriteria, extractMarkers } from './markers.ts';
-import { findSightings, isComplete } from './match.ts';
+import { findSightings, isComplete, RUN_WINDOW_MS } from './match.ts';
 import type { Checklist, ChecklistItem } from './extract.ts';
 import type { Job, NewNode, Observation, PendingChatAsk, Store, Task, Teaching } from './store.ts';
 import { KEPT_KIND, KEPT_LIST } from './store.ts';
@@ -313,7 +313,13 @@ export function pollOnce(store: Store, now: Date = new Date(), opts: PollOptions
   const touched = new Set<number>();
   // My List (SCR-46) is ticked only by you, never by what is seen on screen.
   const watchable = store.listTasks({ all: true }).filter((t) => (t.status === 'open' || t.status === 'snoozed') && t.sourceKind !== KEPT_KIND);
-  for (const s of findSightings(watchable, elsewhere)) {
+  // A command counts once the lines after it show it ran (SCR-61); those may come in a later
+  // observation, and the command's own line in an earlier one, so terminals' recent lines are given too.
+  const firstFresh = elsewhere.reduce<string | null>((m, o) => (m === null || o.ts < m ? o.ts : m), null);
+  const terminalHistory = firstFresh === null ? [] : store
+    .observationsSince(new Date(Date.parse(firstFresh) - RUN_WINDOW_MS).toISOString())
+    .filter((o) => TERMINALS.has(o.bundleId) && !claudeWindows.has(windowKey(o)));
+  for (const s of findSightings(watchable, elsewhere, [...terminalHistory, ...elsewhere.filter((o) => !terminalHistory.some((h) => h.id === o.id))])) {
     if (store.addSighting(s.taskId, s.marker.value, s.observationId, s.ts, s.detail)) {
       stats.sightings++;
       touched.add(s.taskId);

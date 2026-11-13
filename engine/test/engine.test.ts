@@ -179,7 +179,7 @@ test('a command typed at a terminal prompt ticks its task', () => {
 test('a command merely shown on screen does not tick', () => {
   const store = seeded();
   observe(store, { ...TERMINAL, ts: LATER, text: 'To apply it run supabase db push\nsupabase db push\n$ supabase db push --dry-run' });
-  observe(store, { bundleId: 'com.microsoft.VSCode', app: 'Code', windowTitle: 'README.md', ts: LATER, text: '$ supabase db push' });
+  observe(store, { bundleId: 'com.microsoft.VSCode', app: 'Code', windowTitle: 'README.md', ts: LATER, text: '$ supabase db push\nApplying migration 0007…' });
   expect(pollOnce(store, NOW).completed).toBe(0);
   store.close();
 });
@@ -203,14 +203,14 @@ test('an env var seen on the named service ticks; seen anywhere else it does not
 test('seeing the marker in a Claude window never ticks', () => {
   const store = seeded();
   observe(store, { ts: LATER, text: 'Claude responded: reminder\nme % supabase db push' });
-  observe(store, { ...TERMINAL, windowTitle: '✳ Claude Code', ts: LATER, text: '$ supabase db push' });
+  observe(store, { ...TERMINAL, windowTitle: '✳ Claude Code', ts: LATER, text: '$ supabase db push\nApplying migration 0007…' });
   expect(pollOnce(store, NOW).completed).toBe(0);
   store.close();
 });
 
 test('a marker seen before the task existed does not count', () => {
   const store = seeded();
-  observe(store, { ...TERMINAL, ts: '2026-11-10T09:59:00.000Z', text: '$ supabase db push' });
+  observe(store, { ...TERMINAL, ts: '2026-11-10T09:59:00.000Z', text: '$ supabase db push\nApplying migration 0007…' });
   expect(pollOnce(store, NOW).completed).toBe(0);
   store.close();
 });
@@ -239,7 +239,7 @@ test('tasks without a usable marker or a single named service are never auto-tic
 
 test('a task ticked by the engine stays ticked and a manual tick is labelled', () => {
   const store = seeded();
-  observe(store, { ...TERMINAL, ts: LATER, text: '$ supabase db push' });
+  observe(store, { ...TERMINAL, ts: LATER, text: '$ supabase db push\nApplying migration 0007…' });
   pollOnce(store, NOW);
   observe(store, { ts: '2026-11-10T10:03:00.000Z', text: '2. Run the migration with `supabase db push`' });
   pollOnce(store, NOW);
@@ -287,7 +287,7 @@ test('the engine ticking the last step completes the parent', () => {
   const store = seeded();
   store.setStatus(1, 'done');
   store.setStatus(3, 'done');
-  observe(store, { ...TERMINAL, ts: LATER, text: '$ supabase db push' });
+  observe(store, { ...TERMINAL, ts: LATER, text: '$ supabase db push\nApplying migration 0007…' });
   pollOnce(store, NOW);
   expect(statusOf(store, 4)).toBe('done');
   expect(store.getTask(4)!.doneAt).not.toBeNull();
@@ -378,7 +378,7 @@ test('a checklist whose remaining steps are all snoozed is itself snoozed until 
 test('a snoozed task still ticks if it is seen being done', () => {
   const store = seeded();
   store.snooze(2, new Date('2026-11-11T09:00:00Z'), NOW);
-  observe(store, { ...TERMINAL, ts: LATER, text: '$ supabase db push' });
+  observe(store, { ...TERMINAL, ts: LATER, text: '$ supabase db push\nApplying migration 0007…' });
   expect(pollOnce(store, NOW).completed).toBe(1);
   expect(statusOf(store, 2)).toBe('done');
   store.close();
@@ -866,5 +866,39 @@ test('a task added by hand is not merged into a captured one with the same words
   const before = store.listTasks().length;
   addManualTask(store, 'Run the migration with supabase db push', NOW);
   expect(store.listTasks().length).toBe(before + 1);
+  store.close();
+});
+
+test('SCR-61: a command typed but not run does not tick; its output arriving later does', () => {
+  const store = seeded();
+  observe(store, { ...TERMINAL, ts: LATER, text: 'me@mac shop % supabase db push' });
+  expect(pollOnce(store, NOW).completed).toBe(0);
+  expect(statusOf(store, 2)).toBe('open');
+  // Return pressed: the output comes in the window's next observation (its command line is not captured again).
+  observe(store, { ...TERMINAL, ts: '2026-11-10T10:02:30.000Z', text: 'Applying migration 0007…\nme@mac shop %' });
+  expect(pollOnce(store, NOW).completed).toBe(1);
+  expect(statusOf(store, 2)).toBe('done');
+  store.close();
+});
+
+test('SCR-61: a failed run does not tick or ask; run again and succeeding, it ticks', () => {
+  const store = seeded();
+  observe(store, { ...TERMINAL, ts: LATER, text: 'me@mac shop % supabase db push\nError: failed to connect to postgres\nme@mac shop %' });
+  const first = pollOnce(store, NOW);
+  expect(first.completed).toBe(0);
+  expect(first.suggested).toBe(0);
+  expect(store.getTask(2)!.suggestion).toBeNull();
+  observe(store, { ...TERMINAL, ts: '2026-11-10T10:03:00.000Z', text: 'me@mac shop % supabase db push\nApplying migration 0007…\nme@mac shop %' });
+  expect(pollOnce(store, NOW).completed).toBe(1);
+  expect(statusOf(store, 2)).toBe('done');
+  store.close();
+});
+
+test('SCR-61: output in another terminal window does not make a typed command run', () => {
+  const store = seeded();
+  observe(store, { ...TERMINAL, ts: LATER, text: 'me@mac shop % supabase db push' });
+  observe(store, { ...TERMINAL, windowTitle: 'other tab', ts: '2026-11-10T10:02:30.000Z', text: 'Applying migration 0007…\nme@mac shop %' });
+  pollOnce(store, NOW);
+  expect(statusOf(store, 2)).toBe('open');
   store.close();
 });
