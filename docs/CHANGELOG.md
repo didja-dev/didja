@@ -6,6 +6,9 @@ Each entry says what changed, and what was **not verified** where that applies: 
 
 ## 2026-11-13
 
+### Didja 0.6.0 (build 7)
+- Released from GitHub on a version tag. In it since 0.5.0: commands count only when run and not failed (SCR-61); Hebrew and other non-Latin titles keep their own keys (SCR-62); a new "Done"/"Sent" line is kept when the same words are elsewhere on screen (SCR-63); the end-to-end benchmark (SCR-64); Claude Code's own steps and docs in editors are not your tasks (SCR-65); the model is shown the screens where a task was likely done (SCR-66); done criteria written at capture (SCR-67); checkboxes, toggles and notices captured (SCR-68); terminals read command, output and outcome (SCR-69); unclear lists held until judged, and the local model for the list judge (SCR-70); feedback that teaches (SCR-71); one window identity (SCR-72); `didja quality` (SCR-73); and SCR-50, 51, 52, 57, 58, 59.
+
 ### Tick a heading on a canvas to finish everything under it (SCR-59)
 - A heading with tasks under it now has a circle. Clicking it (or Space on the chosen heading, or **Mark All Under It Done** in its "…" menu) marks every open or snoozed task under it done, up to the next heading, as if you had ticked each. When all of them are done the circle is filled, and clicking it opens them again. Dismissed tasks are not touched and not counted.
 - Engine: `didja canvas tick <heading item> [--undo]`, `Store.tickCanvasSection` and `canvasSection`; `canvas show` gives each heading `section: { tasks, open }`. Each task is changed through `changeByYou`, so How Didja Is Doing counts them as ticked by you.
