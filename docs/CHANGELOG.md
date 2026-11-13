@@ -6,6 +6,12 @@ Each entry says what changed, and what was **not verified** where that applies: 
 
 ## 2026-11-13
 
+### The engine acts on new screens at once, and models never hold it up (SCR-76)
+- Capture wakes the engine after each observation (a line on its standard input); it reads it within about 50 ms instead of at its next 5-second pass. The 5-second pass stays as a heartbeat.
+- `didja run` is now the fast lane: no model, so a clear list, a command run, a marker, an archived email or a signed request is shown or ticked at once, even while a model is busy. It starts `didja lane`, the model lane, which runs the full pass with the models as before (email and chat reads, list verdicts, done criteria, "looks done?", titles), in that order: list verdicts now come before criteria and looks. A queued list already judged elsewhere is dropped without asking the model.
+- What is decided is unchanged: the benchmark with Apple's model finds and ticks the same (13 ticked, 3 asked, 6 missed, 0 wrong); with no model, the same as before.
+- Tests: engine 9 new (`lanes.test.ts`: no model in the fast lane, mail left to the full pass, an unclear list held for the judge; the fast lane's starting place; a tick made once across lanes; model job order; stale jobs dropped; a wake runs a pass within 300 ms; a wake during a pass; stdin lines; a sure tick by the fast lane while a real model-lane process waits three seconds on a fake model). App 3 new (a wake is one line; a wake after the engine has gone is harmless; no engine, no wake). Checked by hand: the compiled binary starts its lane, and the lane stops when `run` is killed. Not verified: live timings on this Mac, and the model lane with Ollama. Ollama still answers one job at a time, not two.
+
 ### How fast it is, measured (SCR-75)
 - Each new task, each tick Didja makes and each "looks done?" is timed: when the screen showed it, when the engine's pass began, and when the task or tick was written (schema 026 `timings`; times only, no text). Nothing is timed for your own changes.
 - `didja quality` has a **How fast** section: median and 90th percentile per kind (new task, sure tick, model-judged, chat ask) and per source, split into the wait for the engine and the time in it. Settings › General › How Didja Is Doing shows the overall rows, with the 90% in orange when over target.
