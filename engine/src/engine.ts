@@ -64,6 +64,15 @@ export type Judge = (list: { leadIn: string; steps: string[]; after?: string[]; 
 export type Titler = (list: { leadIn: string; steps: string[]; teach?: Teaching }) => string | null;
 
 export interface PollOptions {
+  /**
+   * Which lane runs this pass (SCR-76). 'fast' asks no model and never waits for one: it reads new
+   * screens on its own cursor and writes what needs no model (clear lists, commands, markers, archives,
+   * signed requests); mail and chats, verdicts, looks, criteria and titles are left to the full pass.
+   * 'full' (the default) is the whole pass, as before; the model lane runs it.
+   */
+  lane?: 'fast' | 'full';
+  /** For the fast lane: a judge exists in the model lane, so an unclear list waits for it instead of being "maybe". */
+  judging?: boolean;
   judge?: Judge;
   titler?: Titler;
   looker?: Looker;
@@ -196,6 +205,8 @@ function judgementKey(list: Checklist): string {
 }
 
 const CURSOR_KEY = 'last_observation_id';
+/** The fast lane's own place in the observations (SCR-76). */
+const FAST_CURSOR_KEY = 'fast_observation_id';
 /**
  * An observation holds only the lines new to its window, so a list can be
  * spread over several. Extraction re-reads this much of the window's history.
@@ -241,9 +252,15 @@ function timedAs<T>(store: Store, path: TimingPath, work: () => T): T {
   }
 }
 
-function pass(store: Store, now: Date, opts: PollOptions): PollStats {
+function pass(store: Store, now: Date, options: PollOptions): PollStats {
+  const fast = options.lane === 'fast';
+  // The fast lane never asks a model, whatever it was given.
+  const opts: PollOptions = fast ? { lane: 'fast', judging: options.judging } : options;
   store.wakeSnoozed(now);
-  const cursor = Number(store.getMeta(CURSOR_KEY) ?? 0);
+  // The fast lane keeps its own place; it starts where the full pass is, never from the beginning.
+  const cursorKey = fast ? FAST_CURSOR_KEY : CURSOR_KEY;
+  if (fast && store.getMeta(FAST_CURSOR_KEY) === null) store.setMeta(FAST_CURSOR_KEY, store.getMeta(CURSOR_KEY) ?? '0');
+  const cursor = Number(store.getMeta(cursorKey) ?? 0);
   const fresh = store.observationsAfter(cursor);
   if (store.pass) store.pass.seen = fresh.reduce<string | null>((m, o) => (m === null || o.ts > m ? o.ts : m), null);
   const stats: PollStats = {
@@ -275,6 +292,8 @@ function pass(store: Store, now: Date, opts: PollOptions): PollStats {
     const history = store.windowObservations(latest, since);
     const text = assemble(history.map((o) => o.text));
     const mailbox = mailSource(latest);
+    // Mail and chats are read by the full pass: what they make depends on a model (SCR-76).
+    if (fast && (mailbox || chatApp(latest))) continue;
     if (mailbox) {
       const mail = readMail(store, text, latest, mailbox, opts.mailReader, now);
       stats.emails += mail.created;
@@ -343,7 +362,7 @@ function pass(store: Store, now: Date, opts: PollOptions): PollStats {
         wrap: only === null,
       };
       if (unclear && verdict === null) {
-        if (opts.judge) {
+        if (opts.judge || opts.judging) {
           const slot = `${sourceRef(latest, kind)}\u0000${list.title ?? ''}`;
           const payload = JSON.stringify({
             leadIn: list.title ?? '', steps: list.items.map((i) => i.title), after: list.after.slice(0, 3),
@@ -408,13 +427,26 @@ function pass(store: Store, now: Date, opts: PollOptions): PollStats {
 
   // An e-signature request from an email, signed through its link: ticked without asking the model.
   stats.completed += signedFromEmail(store, fresh, now);
+  if (fast) {
+    const last = fresh.at(-1);
+    if (last) store.setMeta(cursorKey, String(last.id));
+    return stats;
+  }
+
+  // Model jobs, most wanted first (SCR-76): verdicts on new tasks (mail and chats were read above,
+  // lists here), then what done looks like, then "looks done?", then titles. Each queue picks only
+  // what still needs it: an open task, a list not yet judged.
+  const lookable = store.maxTaskId();
+  if (opts.judge) stats.judged = timedAs(store, 'model', () => judgePending(store, opts.judge!, now));
   // What done looks like, written while the task's source is still at hand (SCR-67).
   if (opts.criteria) writeCriteria(store, opts.criteria);
   if (opts.looker) {
-    const followed = followLinks(store, opts.looker, elsewhere, now);
+    // A list judged just now is looked at from the next pass, as before verdicts came first:
+    // these screens were read before it was a task.
+    const followed = followLinks(store, opts.looker, elsewhere, now, lookable);
     stats.completed += followed.completed;
     stats.suggested += followed.suggested;
-    stats.suggested += lookForDone(store, opts.looker, elsewhere, now);
+    stats.suggested += lookForDone(store, opts.looker, elsewhere, now, lookable);
   }
   // If you chose to accept "looks done" automatically, every suggestion waiting
   // for a yes is taken as a yes, labelled as ticked for you.
@@ -429,7 +461,6 @@ function pass(store: Store, now: Date, opts: PollOptions): PollStats {
   }
   // The same thing seen in two places (a Teams message and the email it announced): suggest merging.
   suggestMerges(store, now);
-  if (opts.judge) stats.judged = timedAs(store, 'model', () => judgePending(store, opts.judge!, now));
   if (opts.titler) stats.titled = titlePending(store, opts.titler, now);
 
   const last = fresh.at(-1);
@@ -873,9 +904,9 @@ const TICKED_BY_LINK = 'Ticked: you opened the link from the email, and the page
  * been ticked this way before (if you reopened it, it will only ask). A "done"
  * on arrival, when you may simply be looking at the request, asks you to confirm.
  */
-function followLinks(store: Store, looker: Looker, observations: Observation[], now: Date): { completed: number; suggested: number } {
+function followLinks(store: Store, looker: Looker, observations: Observation[], now: Date, upTo = Infinity): { completed: number; suggested: number } {
   const result = { completed: 0, suggested: 0 };
-  const tasks = store.tasksWithLinks();
+  const tasks = store.tasksWithLinks().filter((t) => t.id <= upTo);
   if (tasks.length === 0) return result;
   let asked = 0;
   for (const o of [...observations].reverse()) {
@@ -929,10 +960,10 @@ export function lookAgainAt(store: Store, looker: Looker, site: string, now: Dat
   return lookForDone(store, looker, screens, now);
 }
 
-function lookForDone(store: Store, looker: Looker, observations: Observation[], now: Date): number {
+function lookForDone(store: Store, looker: Looker, observations: Observation[], now: Date, upTo = Infinity): number {
   let suggested = 0;
   let asked = 0;
-  const tasks = store.tasksToWatch(new Date(now.getTime() - AUTO_FALLBACK_MS).toISOString());
+  const tasks = store.tasksToWatch(new Date(now.getTime() - AUTO_FALLBACK_MS).toISOString()).filter((t) => t.id <= upTo);
   if (tasks.length === 0) return 0;
   const learned = store.donePlaces();
   // Every screen worth a look for every task, best first (SCR-66): a screen that shows an id from the
@@ -1130,6 +1161,11 @@ function judgePending(store: Store, judge: Judge, now: Date): number {
   let judged = 0;
   const settled = store.settledPendingJudgements(new Date(now.getTime() - JUDGE_SETTLE_MS), JUDGE_PER_POLL);
   for (const row of settled) {
+    // Judged already, under another window (SCR-76): nothing to ask; the lists are made from that verdict.
+    if (store.getJudgement(row.key) !== null) {
+      store.clearPendingJudgement(row.slot);
+      continue;
+    }
     const list = JSON.parse(row.payload) as PendingList;
     const reply = judge({ leadIn: list.leadIn, steps: list.steps, after: list.after, ...(list.asked ? { asked: list.asked } : {}),
       ...(list.reply ? { reply: list.reply } : {}), ...taught(store, 'lists') });
@@ -1159,26 +1195,72 @@ function judgePending(store: Store, judge: Judge, now: Date): number {
   return judged;
 }
 
-/** Poll forever. A failed pass is logged and retried on the next tick. */
-export async function runLoop(
-  store: Store,
-  log: (line: string) => void,
-  opts: {
-    intervalSeconds?: number; signal?: AbortSignal; judge?: Judge; titler?: Titler; looker?: Looker; mailReader?: MailReader; chatReader?: ChatReader; replyJudge?: ReplyJudge; criteria?: CriteriaWriter;
-    /** Connected tools: synced every five minutes, and soon after a task of theirs is ticked. */
-    sync?: () => Promise<{ created: number; closed: number; written: number; errors: string[] }>;
-    syncDue?: () => boolean;
-  } = {},
-): Promise<void> {
-  const interval = (opts.intervalSeconds ?? 5) * 1000;
+/**
+ * Wakes a sleeping loop at once (SCR-76): the app wrote new screens. A wake that comes while a pass
+ * runs is kept, so the loop goes round once more as soon as it is done.
+ */
+export class Waker {
+  private pending = false;
+  private resolve: (() => void) | null = null;
+
+  wake(): void {
+    this.pending = true;
+    this.resolve?.();
+  }
+
+  /** Wait for a wake or `ms`, whichever comes first, or until `signal` aborts. True when woken. */
+  async sleep(ms: number, signal?: AbortSignal): Promise<boolean> {
+    if (this.pending) {
+      this.pending = false;
+      return true;
+    }
+    if (signal?.aborted) return false;
+    const woken = await new Promise<boolean>((done) => {
+      const finish = (w: boolean) => {
+        clearTimeout(timer);
+        this.resolve = null;
+        done(w);
+      };
+      const timer = setTimeout(() => finish(false), ms);
+      this.resolve = () => finish(true);
+      signal?.addEventListener('abort', () => finish(false), { once: true });
+    });
+    this.pending = false;
+    return woken;
+  }
+}
+
+/** Wakes this close together make one pass: capture writes a burst of windows at once. */
+export const WAKE_COALESCE_MS = 50;
+
+export interface LoopOptions extends PollOptions {
+  /** The heartbeat: a pass this often even when nothing wakes the loop (default 5 s). */
+  intervalSeconds?: number;
+  signal?: AbortSignal;
+  /** Woken when new screens are written (SCR-76). */
+  waker?: Waker;
+  /** After each pass, with what it did: the fast lane wakes the model lane here. */
+  afterPass?: (stats: PollStats) => void;
+  /** Connected tools: synced every five minutes, and soon after a task of theirs is ticked. */
+  sync?: () => Promise<{ created: number; closed: number; written: number; errors: string[] }>;
+  syncDue?: () => boolean;
+}
+
+/**
+ * Pass after pass, forever: at once when woken, else every few seconds. A failed pass is logged
+ * and retried on the next one. `lane` and the models in `opts` say which pass this loop runs.
+ */
+export async function runLoop(store: Store, log: (line: string) => void, opts: LoopOptions = {}): Promise<void> {
+  const { intervalSeconds, signal, waker = new Waker(), afterPass, sync, syncDue, ...poll } = opts;
+  const interval = (intervalSeconds ?? 5) * 1000;
   let lastError = '';
   let lastSync = 0;
   let syncError = '';
-  while (!opts.signal?.aborted) {
-    if (opts.sync && (Date.now() - lastSync > 5 * 60_000 || opts.syncDue?.())) {
+  while (!signal?.aborted) {
+    if (sync && (Date.now() - lastSync > 5 * 60_000 || syncDue?.())) {
       lastSync = Date.now();
       try {
-        const s = await opts.sync();
+        const s = await sync();
         if (s.created || s.closed || s.written) log(`${new Date().toISOString()}  connections: new=${s.created} closed=${s.closed} written=${s.written}`);
         const message = s.errors.join('; ');
         if (message && message !== syncError) log(`connections: ${message}`);
@@ -1188,19 +1270,17 @@ export async function runLoop(
       }
     }
     try {
-      const s = pollOnce(store, new Date(), { judge: opts.judge, titler: opts.titler, looker: opts.looker, mailReader: opts.mailReader, chatReader: opts.chatReader, replyJudge: opts.replyJudge, criteria: opts.criteria });
+      const s = pollOnce(store, new Date(), poll);
       lastError = '';
+      afterPass?.(s);
       if (s.newTasks > 0 || s.completed > 0 || s.suggested > 0 || s.emails > 0 || s.chats > 0) {
-        log(`${new Date().toISOString()}  observations=${s.observations} new=${s.newTasks} emails=${s.emails} chats=${s.chats} completed=${s.completed}`);
+        log(`${new Date().toISOString()}  ${poll.lane === 'fast' ? 'fast ' : ''}observations=${s.observations} new=${s.newTasks} emails=${s.emails} chats=${s.chats} completed=${s.completed}`);
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       if (message !== lastError) log(`poll failed (will keep retrying): ${message}`);
       lastError = message;
     }
-    await new Promise<void>((resolve) => {
-      const timer = setTimeout(resolve, interval);
-      opts.signal?.addEventListener('abort', () => { clearTimeout(timer); resolve(); }, { once: true });
-    });
+    if (await waker.sleep(interval, signal)) await Bun.sleep(WAKE_COALESCE_MS);
   }
 }

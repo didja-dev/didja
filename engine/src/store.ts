@@ -988,6 +988,11 @@ export class Store {
     return row?.ts ?? this.pass?.seen ?? null;
   }
 
+  /** The newest task's id, or 0 (SCR-76: what a pass's looks may consider). */
+  maxTaskId(): number {
+    return (this.db.query('SELECT COALESCE(MAX(id), 0) AS id FROM tasks').get() as { id: number }).id;
+  }
+
   /** Timed events whose task or tick was written since a moment, with their source kind (SCR-75). */
   timingsSince(sinceIso: string): Timing[] {
     return this.db

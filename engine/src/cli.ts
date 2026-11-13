@@ -6,7 +6,8 @@ import { enabled, places, readLog, serve } from './mcp.ts';
 import { localField, localModelOf, setLocalModel } from './localmodel.ts';
 import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { addManualTask, keepTask, lookAgainAt, myNames, namesOf, pollOnce, runLoop } from './engine.ts';
+import { addManualTask, keepTask, lookAgainAt, myNames, namesOf, pollOnce, runLoop, Waker } from './engine.ts';
+import { startModelLane, wakeOnInput } from './lanes.ts';
 import { ADAPTERS } from './adapters.ts';
 import { bringOf, forgetSecrets, KINDS, listConnections, openSession, saveConnections, signIn, updateConnection } from './connections.ts';
 import type { Bring, Connection } from './connections.ts';
@@ -35,7 +36,9 @@ const USAGE = `didja <command>
                       let your Claude read Didja (masked), or not; and what it has asked
   local-model [status [--json] | on <model> | off]
                       use a model in Ollama on this Mac (127.0.0.1) for emails and "looks done?", before Apple's
-  run                 extract tasks from new observations every 5s
+  run                 extract tasks from new observations: at once when a line arrives on standard input
+                      (the app writes one per new screen), else every 5s; models run in a separate lane
+  lane                the model lane "run" starts: the full pass, with the on-device model (SCR-76)
   poll                one extraction pass, then exit
   nudges              checklists left unfinished for hours, as JSON (each is reported once)
   why <id>            what would tick a task, and what has been seen so far
@@ -425,9 +428,32 @@ async function main(argv: string[]): Promise<number> {
       case 'run': {
         const controller = new AbortController();
         for (const sig of ['SIGINT', 'SIGTERM'] as const) process.on(sig, () => controller.abort());
-        console.log('Extracting tasks from new observations every 15s. Ctrl-C to stop.');
-        await runLoop(store, console.log, { signal: controller.signal, judge: findJudge(() => localModelOf(store)), titler: findTitler(), looker: findLooker(() => localModelOf(store)), mailReader: findMailReader(() => localModelOf(store)), chatReader: findChatReader(), replyJudge: findReplyJudge(), criteria: findCriteriaWriter(),
-          sync: () => syncConnections(store, mcpRemote(store)), syncDue: () => writebackWaiting(store) });
+        const waker = new Waker();
+        wakeOnInput(Bun.stdin.stream(), waker);
+        const sync = { sync: () => syncConnections(store, mcpRemote(store)), syncDue: () => writebackWaiting(store) };
+        if (findJudge() === undefined) {
+          // No model on this machine (run outside the app): one lane does it all, as before.
+          console.log('Reading new observations at once when woken, else every 5s. Ctrl-C to stop.');
+          await runLoop(store, console.log, { signal: controller.signal, waker, ...sync });
+          return 0;
+        }
+        // The fast lane here; models in their own process, so they never hold up a task or a tick (SCR-76).
+        console.log('Fast lane: new observations at once when woken, else every 5s; models in the model lane. Ctrl-C to stop.');
+        const lane = startModelLane(controller.signal, console.log);
+        await runLoop(store, console.log, {
+          signal: controller.signal, waker, lane: 'fast', judging: true, ...sync,
+          afterPass: (s) => { if (s.observations > 0) lane.wake(); },
+        });
+        return 0;
+      }
+      case 'lane': {
+        const controller = new AbortController();
+        for (const sig of ['SIGINT', 'SIGTERM'] as const) process.on(sig, () => controller.abort());
+        const waker = new Waker();
+        // Woken by `run`; when `run` goes away its end of the pipe closes, and so does this lane.
+        wakeOnInput(Bun.stdin.stream(), waker, () => controller.abort());
+        const log = (line: string) => console.log(`lane: ${line}`);
+        await runLoop(store, log, { signal: controller.signal, waker, judge: findJudge(() => localModelOf(store)), titler: findTitler(), looker: findLooker(() => localModelOf(store)), mailReader: findMailReader(() => localModelOf(store)), chatReader: findChatReader(), replyJudge: findReplyJudge(), criteria: findCriteriaWriter() });
         return 0;
       }
       case 'poll': {

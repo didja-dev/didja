@@ -152,6 +152,8 @@ export function runScenario(s: Scenario, opts: PollOptions = {}, model: ModelCho
         url: step.url ?? null, source: step.source ?? 'ax', text: step.text.join('\n'),
       });
     }
+    // With a model, as `didja run` does (SCR-76): the fast lane first, then the model lane's full pass.
+    if (model !== 'none') pollOnce(store, time(minute), { lane: 'fast', judging: opts.judge !== undefined });
     pollOnce(store, time(minute), opts);
     for (const t of store.listTasks({ all: true })) {
       if (t.status === 'done' && !tickedAt.has(t.id)) tickedAt.set(t.id, minute);
