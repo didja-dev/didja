@@ -6,7 +6,8 @@
    - **Triggers:** frontmost-app change (NSWorkspace), AXObserver on the focused window (focus, title, value changed), plus a 5s poll; 1s debounce. Only the focused window is ever read.
    - **Primary source, Accessibility API:** walk the focused window's AX tree (depth and char caps), collect AXStaticText / AXTextArea / AXTextField values, the window title, and AXURL of web areas. Chromium and Electron apps (Chrome, Claude desktop, Slack, VS Code) need AXManualAccessibility / AXEnhancedUserInterface set to true before their tree fills in.
    - **Fallback, OCR:** when AX returns too little text, grab one frame of that window with ScreenCaptureKit (SCScreenshotManager), run Vision VNRecognizeTextRequest, drop the image. The frame is of the focused window only: the on-screen window with its title, or the app's only window. When neither fits, nothing is read. That window's own title must also pass the exclude list (`OCRCapture.pick`). It runs only when `OCRCapture.shouldRun` says so: Screen Recording granted, the `ocrFallbackEnabled` switch on (Settings › General, on by default, SCR-41), fewer than 40 characters from AX, and at least 10 s since the last frame. This is the only use of ScreenCaptureKit, and it is what macOS's periodic "bypass the system private window picker" alert is about.
-   - **Diff:** hash per window; store only lines new since that window's last snapshot (a line is the same line only under the same section and as the same occurrence, so a second "Done" or a re-run command is new), as an observation (ts, bundle_id, app, window_title, url, source ax|ocr, text).
+   - **Diff:** hash per window; store only lines not seen in that window recently (a line is the same line only under the same section and as the same occurrence, so a second "Done" or a re-run command is new; a line that left the screen is remembered for 10 minutes, so scrolling away and back or a re-render reports nothing, SCR-72), as an observation (ts, bundle_id, app, window_title, url, source ax|ocr, text, window_key).
+   - **Window key** (`Differ.windowKey`, SCR-72): the app plus the page (query and fragment dropped) or, with no page, the title without what comes and goes while it is the same window (a spinner or unread dot in front, an unread count, "— Edited"). Written on every observation (schema 024); the engine reads a window by it. The engine's `windowKeyFor` (`engine/src/window.ts`) is the same rule, checked on the same cases in both test suites; it keys rows written without one (tests, the benchmark).
    - **Privacy:** bundle-ID denylist (password managers, Keychain Access, user-added banking apps), skip AXSecureTextField and private/incognito windows, pause hotkey + menu toggle, 24h TTL.
    - **Permissions:** Accessibility (required); Screen Recording (only for the OCR fallback). Onboarding explains both.
 2. **Extract** — every ~60s, new observations are scanned for task-like content: numbered checklists in Claude / Claude Code, "don't forget / please reply" in email, setup steps in docs. Heuristics first, on-device model second, Claude API on escalation. Each task stores: title, source app/URL, done-criteria, markers.
@@ -20,7 +21,7 @@
 
 SQLite, schema in [`schema/001_init.sql`](../schema/001_init.sql):
 
-- `observations(id, ts, bundle_id, app, window_title, url, source, text)`
+- `observations(id, ts, bundle_id, app, window_title, url, source, text)`, and `window_key` since schema 024
 - `tasks(id, title, source, criteria, markers, status, confidence)`
 - `evidence(task_id, observation_id, ts)`
 - `sources(id, kind, ref)`
@@ -56,7 +57,7 @@ Capture writes observations; the engine reads them and writes tasks. Windows lat
 How the text is shaped:
 
 - `AXCapture` turns the accessibility tree into lines. Inline pieces (bold, inline code, links) are joined into the line of their paragraph or list item, list markers ("1. ", "• ") are kept, and nested lists are indented two spaces per level. That is what lets the engine see "1. Set `FOO` in Vercel" as one numbered line.
-- An observation's `text` is only the lines that were not in that window's previous snapshot, so the engine reassembles a window by reading its recent observations in order.
+- An observation's `text` is only the lines that were not seen in that window recently, so the engine reassembles a window by reading its recent observations (30 minutes, by `window_key`; by app and exact title for rows from before schema 024) in order.
 - Inline code is wrapped in backticks, which gives exact boundaries for commands. A list item's further paragraphs and code blocks are indented under it.
 - In Claude desktop and claude.ai the engine keeps only lists that follow a "Claude responded:" label. Your own messages, and views with no labels (a document preview), are ignored.
 - When the window title is just the app's name (Electron apps), the title of its web page is used instead, so tasks group by conversation.
@@ -207,7 +208,7 @@ Connections (the one network use; `connections.ts`, `sync.ts`, `ConnectionsView.
 
 The same thing in two places (`related.ts`, schema 015): tasks from chats, emails and connected tools, created within three days of each other in different places, from the same person (chat sender; email origin note's name without "via …") and about the same kind of action (`actions`), are put in `merge_suggestions`. The app shows the question on the open one. `Store.merge` sets `merged_into`; `Store.setStatus` gives merged tasks the same status; the app leaves merged tasks out of the list and labels the one kept.
 
-How a window's text is put back together: an observation holds only new lines, each batch under the section line of the message it belongs to, so a streaming reply or an email whose body loads late arrives in pieces. Before reading, the engine gathers every section's lines under one heading (`assemble`).
+How a window's text is put back together: an observation holds only new lines, each batch under the section line of the message it belongs to, so a streaming reply or an email whose body loads late arrives in pieces. Before reading, the engine gathers every section's lines under one heading (`assemble`). A line still streaming is kept once: when a section's batch starts with a longer version of the line its previous batch ended on, the longer one replaces it (SCR-72). Other repeats stay, since two emails can share a section name and a terminal command typed again is a new run.
 
 Commands Claude tells you to run (`extractCommands`): in a message that is not yours, a line holding only a shell command in backticks (`commandLine`: a known program first) becomes a step when the line before hands it over (ends in ":" or "run/paste/type/enter") or a line after mentions the Terminal or pasting; "I ran:"-style lead-ins are Claude's own. They join the window's lists (minus commands a list already holds), so they are judged, grouped and ticked like list steps; the command is the marker.
 

@@ -6,6 +6,13 @@ Each entry says what changed, and what was **not verified** where that applies: 
 
 ## 2026-11-13
 
+### One window identity across capture and the engine; streaming and scrolled-back lines kept once (SCR-72)
+- Capture writes each observation's window key (schema 024 `observations.window_key`), and the engine reads a window's last 30 minutes by it. The key is the app plus the page, or the title without a spinner or unread dot in front, an unread count or "— Edited". A Claude Code list that arrives while the title's spinner changes (✳, ✻) is one list from one source; two pages titled "Inbox" at different addresses stay apart. Rows from before keep the old grouping.
+- Capture remembers a window's lines for 10 minutes after they leave the screen: scrolling away and back, or a list re-rendering, reports nothing new. After that a line is new again.
+- A line caught while streaming is kept once, as it ended, when the engine puts a window back together.
+- Task sources use the same title rule, so "✻ Fix auth" and "✳ Fix auth" are one source.
+- Tests: the same window-key cases in Swift and TypeScript; spinner change → one list, its own window repeating a step does not tick it; same title at two addresses → two windows; rows from before; streaming collapse and what is not collapsed; the differ forgets after 10 minutes, and a new message with old words is still new; `window_key` written by the app. Benchmark: a new scenario (Claude Code list split by a spinner change) goes from 0 of 2 found to 2 of 2 found and ticked; the other 37 unchanged, wrong ticks 0. **Not verified:** on live Claude Code or browser windows.
+
 ### Feedback that teaches, and dedupe and take-back kept to their own conversation (SCR-71)
 - **Yes, done** on a "looks done?" and **This Shows It Done** are recorded as `confirmed` evidence (place, kind of task, its verb), for trust earned later.
 - A step already seen in another conversation is a new task when that one is done, or open but not seen for 3 days: a recurring "Restart the app" no longer disappears into an old done task. The same conversation, or one renamed within the hour, is still the same task.
