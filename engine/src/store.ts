@@ -27,6 +27,7 @@ import schema22 from '../../schema/022_criteria_model.sql' with { type: 'text' }
 import schema23 from '../../schema/023_teaching_any_job.sql' with { type: 'text' };
 import schema24 from '../../schema/024_window_key.sql' with { type: 'text' };
 import schema25 from '../../schema/025_outcomes.sql' with { type: 'text' };
+import schema26 from '../../schema/026_timings.sql' with { type: 'text' };
 import { contextLines } from './context.ts';
 import { parseCriteria } from './donecriteria.ts';
 import type { DoneCriteria } from './donecriteria.ts';
@@ -128,6 +129,22 @@ export type Outcome =
   | (typeof TICKS)[number]
   | 'asked' | 'yes' | 'not-yet' | 'done-by-hand' | 'shown-done'
   | 'dismissed' | 'not-an-action' | 'fresh-start' | 'reopened-after-tick';
+
+/** What a timed event is measured against (SCR-75): ≤3 s, ≤10 s, or a chat ask's wait for your reply. */
+export type TimingPath = 'fast' | 'model' | 'wait';
+export type TimingEvent = 'task' | 'tick' | 'asked';
+/** Ticks that need no model: something exact was seen (a command, a link, a setting, a file, your reply). */
+const SURE_TICKS: readonly Outcome[] = ['ticked-command', 'ticked-link', 'ticked-setting', 'ticked-file', 'ticked-reply', 'ticked-tool'];
+
+export interface Timing {
+  taskId: number;
+  event: TimingEvent;
+  path: TimingPath;
+  kind: string;
+  seenAt: string | null;
+  engineAt: string;
+  shownAt: string;
+}
 
 export interface Task {
   id: number;
@@ -423,6 +440,14 @@ export interface Place {
 
 export class Store {
   private db: Database;
+  /**
+   * The engine pass running now, if any (SCR-75): set by `pollOnce` so that what it writes is timed.
+   * `at` is the pass's time, `started` the clock when it began, `seen` the newest observation it
+   * read (when a tick has no observation of its own), `path` the target a new task is measured by.
+   */
+  pass: { at: Date; started: number; seen: string | null; path: TimingPath } | null = null;
+  /** Measures time spent inside a pass; the benchmark swaps in a fake clock that charges model calls. */
+  clock: () => number = () => Date.now();
 
   constructor(path: string = process.env.DIDJA_DB ?? DEFAULT_DB_PATH) {
     if (path === DEFAULT_DB_PATH) moveFromOldName();
@@ -432,7 +457,7 @@ export class Store {
     // The app migrates the same file. Take the write lock first so only one side runs each step.
     this.db.transaction(() => {
       const { user_version } = this.db.query('PRAGMA user_version').get() as { user_version: number };
-      [schema1, schema2, schema3, schema4, schema5, schema6, schema7, schema8, schema9, schema10, schema11, schema12, schema13, schema14, schema15, schema16, schema17, schema18, schema19, schema20, schema21, schema22, schema23, schema24, schema25].forEach((sql, i) => {
+      [schema1, schema2, schema3, schema4, schema5, schema6, schema7, schema8, schema9, schema10, schema11, schema12, schema13, schema14, schema15, schema16, schema17, schema18, schema19, schema20, schema21, schema22, schema23, schema24, schema25, schema26].forEach((sql, i) => {
         if (user_version < i + 1) this.db.exec(sql);
       });
     }).immediate();
@@ -722,6 +747,7 @@ export class Store {
       this.db
         .query('INSERT INTO evidence (task_id, observation_id, ts) VALUES (?, ?, ?)')
         .run(id, input.observationId, input.ts);
+      this.recordTiming(id, 'task', this.pass?.path ?? 'fast', input.ts);
       this.notePlace(id, input.observationId);
       this.noteContext(id, input.observationId, input.title);
       return { id, created: true, parentId: null };
@@ -927,6 +953,51 @@ export class Store {
   /** One outcome for one step. Counts only: the row holds the task's id, the time and the outcome. */
   recordOutcome(taskId: number, outcome: Outcome, now: Date = new Date()): void {
     this.db.query('INSERT INTO outcomes (task_id, ts, outcome) VALUES (?, ?, ?)').run(taskId, now.toISOString(), outcome);
+    // Ticks for you and "looks done?" are timed too (SCR-75): from the screen that showed it.
+    if (outcome === 'asked' || (TICKS as readonly string[]).includes(outcome)) {
+      const path: TimingPath = SURE_TICKS.includes(outcome) ? 'fast' : 'model';
+      this.recordTiming(taskId, outcome === 'asked' ? 'asked' : 'tick', path, this.seenFor(taskId));
+    }
+  }
+
+  /**
+   * Time a task event written during an engine pass (SCR-75); outside one (your own changes, a
+   * connected tool's sync) nothing is recorded. `shown_at` is the pass's time plus the time spent
+   * in it so far, so the benchmark's fake clock and the live clock read the same way.
+   */
+  recordTiming(taskId: number, event: TimingEvent, path: TimingPath, seenAt: string | null): void {
+    const pass = this.pass;
+    if (!pass) return;
+    const shown = new Date(pass.at.getTime() + Math.max(0, this.clock() - pass.started));
+    this.db
+      .query('INSERT INTO timings (task_id, event, path, seen_at, engine_at, shown_at) VALUES (?, ?, ?, ?, ?, ?)')
+      .run(taskId, event, path, seenAt, pass.at.toISOString(), shown.toISOString());
+  }
+
+  /**
+   * When the screen showed a tick's reason: the newest observation its evidence points to (the
+   * last marker seen, the screen that looked done), else the newest observation this pass read.
+   */
+  private seenFor(taskId: number): string | null {
+    const row = this.db
+      .query(
+        `SELECT MAX(o.ts) AS ts FROM evidence e JOIN observations o ON o.id = e.observation_id
+         WHERE e.task_id = ? AND e.kind IN ('marker', 'judged', 'suggested')`,
+      )
+      .get(taskId) as { ts: string | null } | null;
+    return row?.ts ?? this.pass?.seen ?? null;
+  }
+
+  /** Timed events whose task or tick was written since a moment, with their source kind (SCR-75). */
+  timingsSince(sinceIso: string): Timing[] {
+    return this.db
+      .query(
+        `SELECT m.task_id AS taskId, m.event AS event, m.path AS path, COALESCE(s.kind, '') AS kind,
+                m.seen_at AS seenAt, m.engine_at AS engineAt, m.shown_at AS shownAt
+         FROM timings m LEFT JOIN tasks t ON t.id = m.task_id LEFT JOIN sources s ON s.id = t.source
+         WHERE m.shown_at >= ? ORDER BY m.id`,
+      )
+      .all(sinceIso) as Timing[];
   }
 
   /** The step's newest outcome, if any. */
@@ -1487,10 +1558,11 @@ export class Store {
 
   /** Tick a task because of what was seen, and say why. */
   tickSeen(id: number, observationId: number | null, detail: string, now: Date): void {
-    this.withOutcome(id, 'ticked-screen', now, () => this.setStatus(id, 'done', now));
+    // The evidence first, so the tick is timed from the screen that showed it (SCR-75).
     this.db
       .query("INSERT INTO evidence (task_id, observation_id, ts, kind, detail) VALUES (?, ?, ?, 'judged', ?)")
       .run(id, observationId, now.toISOString(), detail);
+    this.withOutcome(id, 'ticked-screen', now, () => this.setStatus(id, 'done', now));
   }
 
   /** Open "reply to…" tasks with no suggestion waiting. */

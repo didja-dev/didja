@@ -15,7 +15,7 @@ import { deriveCriteria, extractMarkers, withoutLinkTargets } from './markers.ts
 import { findSightings, isComplete, RUN_WINDOW_MS } from './match.ts';
 import { splitSession, terminalLines } from './terminal.ts';
 import type { Checklist, ChecklistItem } from './extract.ts';
-import type { Job, NewChecklist, NewNode, Observation, Outcome, PendingChatAsk, Store, Task, Teaching } from './store.ts';
+import type { Job, NewChecklist, NewNode, Observation, Outcome, PendingChatAsk, Store, Task, Teaching, TimingPath } from './store.ts';
 import { KEPT_KIND, KEPT_LIST } from './store.ts';
 
 export interface PollStats {
@@ -219,9 +219,33 @@ const windowKey = (o: Observation) => o.windowKey ?? `${o.bundleId}\u0000${o.win
  * them as tasks, then tick tasks whose markers have shown up elsewhere.
  */
 export function pollOnce(store: Store, now: Date = new Date(), opts: PollOptions = {}): PollStats {
+  // What this pass writes is timed from the screen that showed it (SCR-75).
+  store.pass = { at: now, started: store.clock(), seen: null, path: 'fast' };
+  try {
+    return pass(store, now, opts);
+  } finally {
+    store.pass = null;
+  }
+}
+
+/** Run `work` with new tasks measured against `path` (a model's verdict, a chat ask's wait). */
+function timedAs<T>(store: Store, path: TimingPath, work: () => T): T {
+  const pass = store.pass;
+  if (!pass) return work();
+  const before = pass.path;
+  pass.path = path;
+  try {
+    return work();
+  } finally {
+    pass.path = before;
+  }
+}
+
+function pass(store: Store, now: Date, opts: PollOptions): PollStats {
   store.wakeSnoozed(now);
   const cursor = Number(store.getMeta(CURSOR_KEY) ?? 0);
   const fresh = store.observationsAfter(cursor);
+  if (store.pass) store.pass.seen = fresh.reduce<string | null>((m, o) => (m === null || o.ts > m ? o.ts : m), null);
   const stats: PollStats = {
     observations: fresh.length,
     windows: 0,
@@ -405,7 +429,7 @@ export function pollOnce(store: Store, now: Date = new Date(), opts: PollOptions
   }
   // The same thing seen in two places (a Teams message and the email it announced): suggest merging.
   suggestMerges(store, now);
-  if (opts.judge) stats.judged = judgePending(store, opts.judge, now);
+  if (opts.judge) stats.judged = timedAs(store, 'model', () => judgePending(store, opts.judge!, now));
   if (opts.titler) stats.titled = titlePending(store, opts.titler, now);
 
   const last = fresh.at(-1);
@@ -414,7 +438,7 @@ export function pollOnce(store: Store, now: Date = new Date(), opts: PollOptions
   foldChatConversationsOnce(store, now);
   rewordPlacesOnce(store, now);
   store.dropEmptyLessonsOnce();
-  stats.chats += promotePendingChatAsks(store, now);
+  stats.chats += timedAs(store, 'wait', () => promotePendingChatAsks(store, now));
   stats.expired = store.pruneObservations(now);
   store.pruneContext();
   return stats;
