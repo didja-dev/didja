@@ -117,3 +117,63 @@ test("items keep their level, and a checklist's steps sit one level in", () => {
   expect(store.canvas(id)!.items.at(-1)!.level).toBe(0);
   store.close();
 });
+
+/** SCR-59: ticking a heading ticks the tasks under it, up to the next heading, and nothing else. */
+test('a heading ticks every task under it, and only those', () => {
+  const store = new Store(':memory:');
+  const id = store.createCanvas('Ship', NOW);
+  const { parent, steps } = checklist(store); // heading "Before you ship", its two steps
+  store.sendToCanvas(id, [parent], NOW);
+  const own = addManualTask(store, 'Run it again tomorrow', NOW)!;
+  store.addCanvasTask(id, own, 1, NOW);
+  store.addCanvasNote(id, 'note', 'Downtime is 22:00', NOW);
+  const snoozed = addManualTask(store, 'Tell the team', NOW)!;
+  store.addCanvasTask(id, snoozed, 1, NOW);
+  store.setStatus(snoozed, 'snoozed', NOW, new Date(NOW.getTime() + 3_600_000));
+  const dismissed = addManualTask(store, 'Order pizza', NOW)!;
+  store.addCanvasTask(id, dismissed, 1, NOW);
+  store.setStatus(dismissed, 'dismissed', NOW);
+  store.addCanvasNote(id, 'heading', 'Later', NOW);
+  const later = addManualTask(store, 'Write the release notes', NOW)!;
+  store.sendToCanvas(id, [later], NOW);
+
+  const page = () => store.canvas(id)!;
+  const [first, second] = page().items.filter((i) => i.kind === 'heading');
+  expect(first!.section).toEqual({ tasks: 4, open: 4 }); // the dismissed one is not counted
+  expect(second!.section).toEqual({ tasks: 1, open: 1 });
+
+  const changed = store.tickCanvasSection(first!.id, false, NOW);
+  expect(changed.sort()).toEqual([...steps, own, snoozed].sort());
+  const status = (t: number) => store.getTask(t)!.status;
+  expect(steps.map(status)).toEqual(['done', 'done']);
+  expect([own, snoozed].map(status)).toEqual(['done', 'done']);
+  expect(status(dismissed)).toBe('dismissed');
+  expect(status(later)).toBe('open'); // under the next heading
+  expect(page().items.find((i) => i.id === first!.id)!.section).toEqual({ tasks: 4, open: 0 });
+  expect(store.tickCanvasSection(first!.id, false, NOW)).toEqual([]); // nothing left to tick
+
+  // Undo: those done are open again; the dismissed one stays dismissed.
+  expect(store.tickCanvasSection(first!.id, true, NOW).sort()).toEqual([...steps, own, snoozed].sort());
+  expect([...steps, own, snoozed].map(status)).toEqual(['open', 'open', 'open', 'open']);
+  expect(status(dismissed)).toBe('dismissed');
+
+  // Only a heading ticks: a note, a task item or no item does nothing.
+  const note = page().items.find((i) => i.kind === 'note')!;
+  const task = page().items.find((i) => i.kind === 'task')!;
+  expect(store.tickCanvasSection(note.id, false, NOW)).toEqual([]);
+  expect(store.tickCanvasSection(task.id, false, NOW)).toEqual([]);
+  expect(store.tickCanvasSection(9999, false, NOW)).toEqual([]);
+  expect(status(later)).toBe('open');
+  store.close();
+});
+
+test('a heading with nothing under it has nothing to tick', () => {
+  const store = new Store(':memory:');
+  const id = store.createCanvas('Ship', NOW);
+  store.addCanvasNote(id, 'heading', 'Empty', NOW);
+  store.addCanvasNote(id, 'note', 'Only a note', NOW);
+  const heading = store.canvas(id)!.items[0]!;
+  expect(heading.section).toEqual({ tasks: 0, open: 0 });
+  expect(store.tickCanvasSection(heading.id, false, NOW)).toEqual([]);
+  store.close();
+});

@@ -45,7 +45,7 @@ const USAGE = `didja <command>
   canvas list | new <title> | show <id> | send <id> <task…> | add <id> <title> | note <id> <text>
          | heading <id> <text> | line <id> [--note] [--level n] <markdown> | level <item> <0-4>
          | edit <item> <text> | move <item> <before|end> | remove <item>
-         | rename <id> <title> | delete <id> | export <id> [md|txt]
+         | rename <id> <title> | delete <id> | export <id> [md|txt] | tick <heading> [--undo]
                       canvases: pages of tasks, headings and notes you keep open while you work (JSON)
   missed <id> [--learn <site> | --done-at <screen id>] | places | forget <place id>
                       "Didja Missed This…": what Didja knows about a task you finished unnoticed (JSON);
@@ -712,6 +712,8 @@ async function main(argv: string[]): Promise<number> {
             }
             return json({ item: store.addCanvasNote(n, line.kind, line.text, new Date(), line.level), kind: line.kind });
           }
+          // canvas tick <heading item> [--undo]: every task under a heading done, or open again (SCR-59).
+          case 'tick': if (Number.isInteger(n)) return json({ changed: store.tickCanvasSection(n, rest[0] === '--undo') }); break;
           case 'level': if (store.setCanvasLevel(n, Number(rest[0]))) return json({ ok: true }); break;
           case 'note': case 'heading': { const id = store.addCanvasNote(n, sub, text); if (id !== null) return json({ id }); break; }
           case 'edit': if (store.editCanvasItem(n, text)) return json({ ok: true }); break;
@@ -725,7 +727,7 @@ async function main(argv: string[]): Promise<number> {
             break;
           }
         }
-        console.error('usage: didja canvas list | new <title> | show <id> | send <id> <task…> | add <id> <title> | note|heading <id> <text> | edit <item> <text> | move <item> <before|end> | remove <item> | rename <id> <title> | delete <id> | export <id> [md|txt]');
+        console.error('usage: didja canvas list | new <title> | show <id> | send <id> <task…> | add <id> <title> | note|heading <id> <text> | edit <item> <text> | move <item> <before|end> | remove <item> | rename <id> <title> | delete <id> | tick <heading> [--undo] | export <id> [md|txt]');
         return 1;
       }
       case 'missed': {

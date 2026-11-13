@@ -43,6 +43,21 @@ export interface DonePlace { id: number; taskId: number | null; source: number |
 /** A canvas (SCR-49), as listed: how many of its tasks are still open. */
 export interface Canvas { id: number; title: string; updatedAt: string; open: number }
 export const MAX_CANVAS_LEVEL = 4;
+
+/**
+ * The task items under a heading on a canvas (SCR-59): those after it, up to the next heading.
+ * Notes between them are passed over.
+ */
+export function canvasSection(items: CanvasItem[], headingId: number): CanvasItem[] {
+  const at = items.findIndex((i) => i.id === headingId && i.kind === 'heading');
+  if (at < 0) return [];
+  const out: CanvasItem[] = [];
+  for (const item of items.slice(at + 1)) {
+    if (item.kind === 'heading') break;
+    if (item.kind === 'task' && item.task) out.push(item);
+  }
+  return out;
+}
 const clampLevel = (n: number) => Math.max(0, Math.min(MAX_CANVAS_LEVEL, Math.trunc(Number.isFinite(n) ? n : 0)));
 export interface CanvasItem {
   id: number;
@@ -52,6 +67,8 @@ export interface CanvasItem {
   /** The task's title, or the note's or heading's text. */
   text: string;
   task?: { id: number; status: TaskStatus; suggestion: string | null; source: string };
+  /** On a heading (SCR-59): the tasks under it (not dismissed), and how many are still open or snoozed. */
+  section?: { tasks: number; open: number };
 }
 
 /** My List (SCR-46): tasks you keep, added by hand or by Siri; never ticked or cleared for you. */
@@ -1202,6 +1219,11 @@ export class Store {
       if (!task) return [];
       return [{ id: r.id, kind: 'task' as const, text: task.title, level: r.level, task: { id: task.id, status: task.status, suggestion: task.suggestion, source: task.sourceRef } }];
     });
+    for (const item of items) {
+      if (item.kind !== 'heading') continue;
+      const under = canvasSection(items, item.id).filter((t) => t.task!.status !== 'dismissed');
+      item.section = { tasks: under.length, open: under.filter((t) => t.task!.status === 'open' || t.task!.status === 'snoozed').length };
+    }
     return { ...head, items };
   }
 
@@ -1258,6 +1280,25 @@ export class Store {
   addCanvasTask(canvasId: number, taskId: number, level: number, now: Date = new Date()): number | null {
     if (!this.db.query('SELECT 1 FROM canvases WHERE id = ?').get(canvasId)) return null;
     return this.addCanvasItem(canvasId, 'task', taskId, null, now, level);
+  }
+
+  /**
+   * Tick every task under a heading, as if you ticked each (SCR-59): those open or snoozed become
+   * done. With `undo`, those done become open again. Dismissed tasks are left as they are. Returns
+   * the tasks changed.
+   */
+  tickCanvasSection(headingId: number, undo = false, now: Date = new Date()): number[] {
+    const row = this.db.query("SELECT canvas_id AS canvasId FROM canvas_items WHERE id = ? AND kind = 'heading'")
+      .get(headingId) as { canvasId: number } | null;
+    const page = row ? this.canvas(row.canvasId) : null;
+    if (!row || !page) return [];
+    const wanted: TaskStatus[] = undo ? ['done'] : ['open', 'snoozed'];
+    const ids = canvasSection(page.items, headingId).map((t) => t.task!).filter((t) => wanted.includes(t.status)).map((t) => t.id);
+    return this.db.transaction(() => {
+      const changed = ids.filter((id) => this.changeByYou(id, undo ? 'open' : 'done', now));
+      if (changed.length) this.touchCanvas(row.canvasId, now);
+      return changed;
+    })();
   }
 
   /** Indent or outdent an item (0 to 4). */
