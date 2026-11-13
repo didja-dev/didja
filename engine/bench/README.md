@@ -1,0 +1,46 @@
+# End-to-end benchmark (SCR-64)
+
+Made-up sessions replayed through the engine with a fake clock, measured against labels written by hand: what should become a task, what must not, and when each task was really done (or that it never was).
+
+```bash
+cd engine
+bun bench/run.ts                      # no model: deterministic, what CI runs
+bun bench/run.ts --model apple        # Apple's on-device model, through the built app (DIDJA_JUDGE or the Debug build)
+bun bench/run.ts --model ollama:qwen3.8:latest   # that local model asked first, as the app does
+bun bench/run.ts --only outlook-reply --verbose  # one scenario, with the tasks it made
+```
+
+It prints one row per scenario and the totals:
+
+- **Capture:** recall (labelled tasks found), precision (tasks made that were labelled), and tasks made that must not exist.
+- **Done:** of the tasks really done, how many were ticked, asked about ("looks done?") or missed; **wrong ticks** (ticked before it was done, or never done, or a task that must not exist ticked) and **wrong asks**; the median minutes from done to ticked or asked.
+
+It exits 1 on any wrong tick. `bun test` runs it with no model too (`test/bench.test.ts`).
+
+## A scenario
+
+`scenarios/NN-<id>.json`, made-up content only: people and chats from `profiles/fixtures/names.txt`, addresses at `example.com` or `acme.com` (checked by `test/bench.test.ts`).
+
+```json
+{
+  "id": "terminal-failed-then-rerun",
+  "about": "A push is rejected, then run again after a pull and accepted.",
+  "start": "2026-11-11T09:00",
+  "steps": [
+    { "at": 0, "app": "Claude", "bundle": "com.anthropic.claudefordesktop", "title": "Release", "text": ["⟦Message 4⟧", "Claude responded: …", "`git push origin main`"] },
+    { "at": 3, "app": "Terminal", "bundle": "com.apple.Terminal", "title": "zsh", "text": ["… % git push origin main", " ! [rejected] …", "… % "] }
+  ],
+  "expect": {
+    "tasks": [{ "words": ["git push origin main"], "done": { "at": 6, "where": "Terminal" } }],
+    "none": [["run the tests"]]
+  }
+}
+```
+
+- `steps` are observations as capture stores them: one window's **new** lines (what `Differ` reports), with the same `⟦…⟧` section lines, `at` minutes after `start` (local time). Optional `url` and `source` (`ax`, `ocr`).
+- `expect.tasks`: a task matches when every word is in its title (any case); `done` is null when it was never done. `expect.none`: tasks that must not exist, by the same rule.
+- Optional `me` (your name, default "Mike Rosen") and `tail` (minutes polled after the last step, default 15: a chat ask waits 10 for your reply).
+
+The engine is polled every half minute from the start to the end, as the live engine polls every few seconds.
+
+Labels say what really happened, not what the engine does today: a scenario the engine gets wrong stays wrong in the table until the engine is fixed.

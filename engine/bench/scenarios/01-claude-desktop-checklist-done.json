@@ -1,0 +1,70 @@
+{
+  "id": "claude-desktop-checklist-done",
+  "about": "A Claude desktop reply with two steps for you; both done: the env var in Vercel, the migration in Terminal.",
+  "start": "2026-11-11T09:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "Claude",
+      "bundle": "com.anthropic.claudefordesktop",
+      "title": "Stripe webhooks",
+      "text": [
+        "⟦Message 1⟧",
+        "You said: How do I get the webhooks working in prod?",
+        "⟦Message 2⟧",
+        "Claude responded: Before this works in prod:",
+        "Before this works in prod:",
+        "1. Set STRIPE_WEBHOOK_SECRET in Vercel prod",
+        "2. Run the migration with `supabase db push`"
+      ]
+    },
+    {
+      "at": 6,
+      "app": "Google Chrome",
+      "bundle": "com.google.Chrome",
+      "title": "Environment Variables – acme-web – Vercel",
+      "url": "https://vercel.com/acme/acme-web/settings/environment-variables",
+      "text": [
+        "Environment Variables",
+        "STRIPE_WEBHOOK_SECRET",
+        "Production",
+        "Added just now"
+      ]
+    },
+    {
+      "at": 9,
+      "app": "Terminal",
+      "bundle": "com.apple.Terminal",
+      "title": "zsh",
+      "text": [
+        "mike@mac acme-web % supabase db push",
+        "Applying migration 20261111_webhooks.sql...",
+        "Finished supabase db push.",
+        "mike@mac acme-web % "
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [
+      {
+        "words": [
+          "stripe_webhook_secret"
+        ],
+        "done": {
+          "at": 6,
+          "where": "Vercel"
+        }
+      },
+      {
+        "words": [
+          "supabase db push"
+        ],
+        "done": {
+          "at": 9,
+          "where": "Terminal"
+        }
+      }
+    ],
+    "none": []
+  }
+}

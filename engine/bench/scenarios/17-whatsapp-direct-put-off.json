@@ -1,0 +1,38 @@
+{
+  "id": "whatsapp-direct-put-off",
+  "about": "Sam asks for the invoice; you say you will send it tomorrow.",
+  "start": "2026-11-11T09:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "WhatsApp",
+      "bundle": "net.whatsapp.WhatsApp",
+      "title": "Sam Carter",
+      "text": [
+        "⟦Chat message: Sam Carter (direct) — from Sam Carter — Today at 9:00⟧",
+        "Can you send me the invoice for October?"
+      ]
+    },
+    {
+      "at": 15,
+      "app": "WhatsApp",
+      "bundle": "net.whatsapp.WhatsApp",
+      "title": "Sam Carter",
+      "text": [
+        "⟦Chat message: Sam Carter (direct) — from me — Today at 9:15⟧",
+        "I'll send it tomorrow morning"
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [
+      {
+        "words": [
+          "invoice"
+        ],
+        "done": null
+      }
+    ],
+    "none": []
+  }
+}

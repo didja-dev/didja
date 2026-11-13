@@ -1,0 +1,32 @@
+{
+  "id": "outlook-fyi",
+  "about": "An FYI email that says no action is needed.",
+  "start": "2026-11-11T09:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "Microsoft Outlook",
+      "bundle": "com.microsoft.Outlook",
+      "title": "Inbox • me@example.com",
+      "text": [
+        "Inbox",
+        "⟦Email⟧",
+        "Subject: Deck for Thursday",
+        "From: Dana Levi, dana@acme.com",
+        "Date: Today at 9:00",
+        "To: me@example.com",
+        "Hi Mike,",
+        "FYI: the deck for Thursday is in the shared folder. No action needed.",
+        "Dana"
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [],
+    "none": [
+      [
+        "deck"
+      ]
+    ]
+  }
+}

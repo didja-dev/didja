@@ -223,6 +223,19 @@ Reminders: a top-level item left open for four hours with nothing ticked, not sn
 
 Not built yet: Developer ID signing + notarization. The OCR fallback has never been exercised on a real window.
 
+## How well it works (SCR-64)
+
+`engine/bench/` replays made-up sessions through the engine with a fake clock and measures them against hand-written labels (see `engine/bench/README.md`). CI runs it with no model; with a model it is run by hand. Each later issue that changes capture or ticking updates these numbers.
+
+Baseline, 27 scenarios, 24 labelled tasks, 15 of them really done (2026-11-13, at `SCR-64`):
+
+| Model | Recall | Precision | Must not exist | Ticked | Asked | Missed | Wrong ticks | Wrong asks |
+|---|---|---|---|---|---|---|---|---|
+| none (CI) | 11/24 (46%) | 11/13 (85%) | 2 | 5 | 0 | 10 | 0 | 0 |
+| Apple on-device | 18/24 (75%) | 18/20 (90%) | 2 | 8 | 2 | 5 | 0 | 0 |
+
+Median time from done to ticked or asked: under half a minute (the next poll). With no model, chats and emails make no tasks. What both runs miss: a one-step list ("Last step is on your side: 1. …") is never captured (`MIN_ITEMS = 2` in `extract.ts`), in Claude desktop, claude.ai and Claude Code; a command Claude Code asks you to run is not captured; the "looks done" pages (GitHub settings, Supabase) are never reached for those. What must not happen and does: a CLAUDE.md open in an editor makes tasks of its rules.
+
 ## Updates (SCR-33)
 
 - Sparkle 2 (Swift Package Manager, pinned in `project.xcworkspace/xcshareddata/swiftpm/Package.resolved`). `Updates.swift` owns an `SPUStandardUpdaterController`, started at launch only in Release builds with a real `SUPublicEDKey` and never under tests, so a development build never replaces itself and tests make no requests. The menu's **Check for Updates…** and Settings › General's toggle call it.

@@ -1,0 +1,60 @@
+{
+  "id": "terminal-failed-then-rerun",
+  "about": "A push is rejected, then run again after a pull and accepted.",
+  "start": "2026-11-11T09:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "Claude",
+      "bundle": "com.anthropic.claudefordesktop",
+      "title": "Release",
+      "text": [
+        "⟦Message 4⟧",
+        "Claude responded: Committed. Now push:",
+        "Now push:",
+        "`git push origin main`"
+      ]
+    },
+    {
+      "at": 3,
+      "app": "Terminal",
+      "bundle": "com.apple.Terminal",
+      "title": "zsh",
+      "text": [
+        "mike@mac acme-web % git push origin main",
+        "To github.com:acme/widgets.git",
+        " ! [rejected]        main -> main (fetch first)",
+        "error: failed to push some refs to 'github.com:acme/widgets.git'",
+        "mike@mac acme-web % "
+      ]
+    },
+    {
+      "at": 6,
+      "app": "Terminal",
+      "bundle": "com.apple.Terminal",
+      "title": "zsh",
+      "text": [
+        "mike@mac acme-web % git pull --rebase",
+        "Successfully rebased and updated refs/heads/main.",
+        "mike@mac acme-web % git push origin main",
+        "To github.com:acme/widgets.git",
+        "   1a2b3c4..5d6e7f8  main -> main",
+        "mike@mac acme-web % "
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [
+      {
+        "words": [
+          "git push origin main"
+        ],
+        "done": {
+          "at": 6,
+          "where": "Terminal"
+        }
+      }
+    ],
+    "none": []
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "id": "teams-answered-by-someone-else",
+  "about": "Sam asks you in a Teams group to send the deck; Dana answers that she already sent it.",
+  "start": "2026-11-11T09:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "Microsoft Teams",
+      "bundle": "com.microsoft.teams2",
+      "title": "Design review | Microsoft Teams",
+      "text": [
+        "⟦Chat message: Design review (group) — from Sam Carter, mentions me — Today at 9:00⟧",
+        "Mike, can you send the final deck to the client?"
+      ]
+    },
+    {
+      "at": 20,
+      "app": "Microsoft Teams",
+      "bundle": "com.microsoft.teams2",
+      "title": "Design review | Microsoft Teams",
+      "text": [
+        "⟦Chat message: Design review (group) — from Dana Levi — Today at 9:20⟧",
+        "I sent it to them already"
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [
+      {
+        "words": [
+          "deck"
+        ],
+        "done": null
+      }
+    ],
+    "none": []
+  }
+}

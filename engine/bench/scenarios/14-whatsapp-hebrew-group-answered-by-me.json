@@ -1,0 +1,41 @@
+{
+  "id": "whatsapp-hebrew-group-answered-by-me",
+  "about": "In a Hebrew family group Noa asks you to book a table; you answer 25 minutes later that it is booked.",
+  "start": "2026-11-11T09:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "WhatsApp",
+      "bundle": "net.whatsapp.WhatsApp",
+      "title": "Family",
+      "text": [
+        "⟦Chat message: Family (group) — from נועה כץ, mentions me — Today at 9:00⟧",
+        "מייק, תוכל להזמין שולחן במסעדה לשישי בערב?"
+      ]
+    },
+    {
+      "at": 25,
+      "app": "WhatsApp",
+      "bundle": "net.whatsapp.WhatsApp",
+      "title": "Family",
+      "text": [
+        "⟦Chat message: Family (group) — from me — Today at 9:25⟧",
+        "הזמנתי, שמונה בערב"
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [
+      {
+        "words": [
+          "שולחן"
+        ],
+        "done": {
+          "at": 25,
+          "where": "WhatsApp reply"
+        }
+      }
+    ],
+    "none": []
+  }
+}

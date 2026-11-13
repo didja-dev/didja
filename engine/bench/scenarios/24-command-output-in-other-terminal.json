@@ -1,0 +1,49 @@
+{
+  "id": "command-output-in-other-terminal",
+  "about": "A command typed in one terminal; output in another window does not make it run.",
+  "start": "2026-11-11T09:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "Claude",
+      "bundle": "com.anthropic.claudefordesktop",
+      "title": "Seed",
+      "text": [
+        "⟦Message 2⟧",
+        "Claude responded: Then seed the database:",
+        "Then seed the database:",
+        "`bun run seed`"
+      ]
+    },
+    {
+      "at": 3,
+      "app": "Terminal",
+      "bundle": "com.apple.Terminal",
+      "title": "zsh — acme-web",
+      "text": [
+        "mike@mac acme-web % bun run seed"
+      ]
+    },
+    {
+      "at": 4,
+      "app": "Terminal",
+      "bundle": "com.apple.Terminal",
+      "title": "zsh — api",
+      "text": [
+        "Seeded 12 rows.",
+        "mike@mac api % "
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [
+      {
+        "words": [
+          "bun run seed"
+        ],
+        "done": null
+      }
+    ],
+    "none": []
+  }
+}

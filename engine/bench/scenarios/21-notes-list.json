@@ -1,0 +1,29 @@
+{
+  "id": "notes-list",
+  "about": "A shopping list in Notes is not a Claude list.",
+  "start": "2026-11-11T09:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "Notes",
+      "bundle": "com.apple.Notes",
+      "title": "Groceries",
+      "text": [
+        "Groceries",
+        "1. Buy milk",
+        "2. Call the plumber"
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [],
+    "none": [
+      [
+        "milk"
+      ],
+      [
+        "plumber"
+      ]
+    ]
+  }
+}

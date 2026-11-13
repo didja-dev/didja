@@ -1,0 +1,55 @@
+{
+  "id": "outlook-approval-response-email",
+  "about": "A workflow approval request; your Approve link sends a response email, seen in Sent Items.",
+  "start": "2026-11-11T09:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "Microsoft Outlook",
+      "bundle": "com.microsoft.Outlook",
+      "title": "Inbox • me@example.com",
+      "text": [
+        "Inbox",
+        "⟦Email⟧",
+        "Subject: Action Required: Purchase order 5520 for USD 1,200.00 needs your approval",
+        "From: Acme Approvals Flow, wf.prod@acme.com",
+        "Date: Today at 9:00",
+        "To: me@example.com",
+        "Purchase order 5520 needs your approval.",
+        "Approve",
+        "Reject"
+      ]
+    },
+    {
+      "at": 7,
+      "app": "Microsoft Outlook",
+      "bundle": "com.microsoft.Outlook",
+      "title": "Sent Items • me@example.com",
+      "text": [
+        "Sent Items",
+        "⟦Email⟧",
+        "Subject: Action Required: Purchase order 5520 for USD 1,200.00 needs your approval",
+        "From: Mike Rosen, me@example.com",
+        "Date: Today at 9:07",
+        "To: wf.response@acme.com",
+        "Response Action: 'Approve'",
+        "Forward To: ''",
+        "Note: ''"
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [
+      {
+        "words": [
+          "5520"
+        ],
+        "done": {
+          "at": 7,
+          "where": "Outlook Sent Items"
+        }
+      }
+    ],
+    "none": []
+  }
+}

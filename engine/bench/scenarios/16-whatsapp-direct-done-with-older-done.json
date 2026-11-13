@@ -1,0 +1,49 @@
+{
+  "id": "whatsapp-direct-done-with-older-done",
+  "about": "Dana asks for the signed contract; you reply \"Done\", with an older \"Done\" of yours in the chat (SCR-63).",
+  "start": "2026-11-11T09:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "WhatsApp",
+      "bundle": "net.whatsapp.WhatsApp",
+      "title": "Dana Levi",
+      "text": [
+        "⟦Chat message: Dana Levi (direct) — from Dana Levi — Today at 8:40⟧",
+        "Can you look at the draft?",
+        "⟦Chat message: Dana Levi (direct) — from me — Today at 8:45⟧",
+        "Done",
+        "⟦Chat message: Dana Levi (direct) — from Dana Levi — Today at 9:00⟧",
+        "Can you send me the signed contract?"
+      ]
+    },
+    {
+      "at": 20,
+      "app": "WhatsApp",
+      "bundle": "net.whatsapp.WhatsApp",
+      "title": "Dana Levi",
+      "text": [
+        "⟦Chat message: Dana Levi (direct) — from me — Today at 9:20⟧",
+        "Done"
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [
+      {
+        "words": [
+          "contract"
+        ],
+        "done": {
+          "at": 20,
+          "where": "WhatsApp reply"
+        }
+      }
+    ],
+    "none": [
+      [
+        "draft"
+      ]
+    ]
+  }
+}

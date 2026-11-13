@@ -1,0 +1,55 @@
+{
+  "id": "claude-plan-then-your-step",
+  "about": "Claude's own plan, then one step for you: merge the pull request, which GitHub then shows merged.",
+  "start": "2026-11-11T09:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "Claude",
+      "bundle": "com.anthropic.claudefordesktop",
+      "title": "Rename env var",
+      "text": [
+        "⟦Message 3⟧",
+        "Claude responded: Here's the plan.",
+        "I'll do these now:",
+        "1. Rename the env var in the code",
+        "2. Update the README",
+        "Then on your side:",
+        "1. Merge pull request #42 on GitHub"
+      ]
+    },
+    {
+      "at": 9,
+      "app": "Google Chrome",
+      "bundle": "com.google.Chrome",
+      "title": "Rename env var by mike-rosen · Pull Request #42 · acme/widgets",
+      "url": "https://github.com/acme/widgets/pull/42",
+      "text": [
+        "Rename env var #42",
+        "Merged",
+        "mike-rosen merged 1 commit into main"
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [
+      {
+        "words": [
+          "merge"
+        ],
+        "done": {
+          "at": 9,
+          "where": "GitHub"
+        }
+      }
+    ],
+    "none": [
+      [
+        "rename the env"
+      ],
+      [
+        "readme"
+      ]
+    ]
+  }
+}

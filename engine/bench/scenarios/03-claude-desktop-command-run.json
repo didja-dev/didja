@@ -1,0 +1,47 @@
+{
+  "id": "claude-desktop-command-run",
+  "about": "Claude hands you a command; you run it in Terminal and it prints its answer.",
+  "start": "2026-11-11T09:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "Claude",
+      "bundle": "com.anthropic.claudefordesktop",
+      "title": "Check my IP",
+      "text": [
+        "⟦Message 1⟧",
+        "You said: How do I check my public IP from the terminal?",
+        "⟦Message 2⟧",
+        "Claude responded: Run this:",
+        "Check it (takes a second):",
+        "`curl ipinfo.io`",
+        "Open the Terminal app, paste the command, and press Return."
+      ]
+    },
+    {
+      "at": 3,
+      "app": "Terminal",
+      "bundle": "com.apple.Terminal",
+      "title": "zsh",
+      "text": [
+        "mike@mac ~ % curl ipinfo.io",
+        "{ \"ip\": \"203.0.113.7\", \"city\": \"Example\" }",
+        "mike@mac ~ % "
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [
+      {
+        "words": [
+          "curl ipinfo.io"
+        ],
+        "done": {
+          "at": 3,
+          "where": "Terminal"
+        }
+      }
+    ],
+    "none": []
+  }
+}

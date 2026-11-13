@@ -1,0 +1,57 @@
+{
+  "id": "claude-code-mixed",
+  "about": "Claude Code runs the tests itself and leaves one step for you, done in the Supabase dashboard.",
+  "start": "2026-11-11T09:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "Ghostty",
+      "bundle": "com.mitchellh.ghostty",
+      "title": "✳ Fix auth",
+      "text": [
+        "> fix the login redirect",
+        "⏺ I'll run the tests first.",
+        "⏺ Bash(bun test)",
+        "  ⎿  42 pass, 0 fail",
+        "⏺ Fixed the redirect in src/auth.ts. One thing on your side:",
+        "  1. Add http://localhost:3000/callback to the redirect URLs in Supabase auth settings",
+        "? for shortcuts"
+      ]
+    },
+    {
+      "at": 8,
+      "app": "Google Chrome",
+      "bundle": "com.google.Chrome",
+      "title": "Auth · acme · Supabase",
+      "url": "https://supabase.com/dashboard/project/acme/auth/url-configuration",
+      "text": [
+        "URL Configuration",
+        "Redirect URLs",
+        "http://localhost:3000/callback",
+        "Saved"
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [
+      {
+        "words": [
+          "redirect",
+          "supabase"
+        ],
+        "done": {
+          "at": 8,
+          "where": "Supabase"
+        }
+      }
+    ],
+    "none": [
+      [
+        "run the tests"
+      ],
+      [
+        "bun test"
+      ]
+    ]
+  }
+}

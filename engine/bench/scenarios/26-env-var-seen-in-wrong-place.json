@@ -1,0 +1,52 @@
+{
+  "id": "env-var-seen-in-wrong-place",
+  "about": "The env var's name shows up in Slack and in Claude again, never in Vercel.",
+  "start": "2026-11-11T09:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "Claude",
+      "bundle": "com.anthropic.claudefordesktop",
+      "title": "Sentry",
+      "text": [
+        "⟦Message 2⟧",
+        "Claude responded: One step on your side:",
+        "One step on your side:",
+        "1. Set SENTRY_DSN in Vercel prod"
+      ]
+    },
+    {
+      "at": 4,
+      "app": "Slack",
+      "bundle": "com.tinyspeck.slackmacgap",
+      "title": "general (Channel) - Acme - Slack",
+      "text": [
+        "⟦Message from Sam Carter⟧",
+        "did you set SENTRY_DSN in Vercel prod yet?"
+      ]
+    },
+    {
+      "at": 6,
+      "app": "Claude",
+      "bundle": "com.anthropic.claudefordesktop",
+      "title": "Sentry",
+      "text": [
+        "⟦Message 3⟧",
+        "You said: Where do I find SENTRY_DSN?",
+        "⟦Message 4⟧",
+        "Claude responded: In Sentry, under Settings › Client Keys."
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [
+      {
+        "words": [
+          "sentry_dsn"
+        ],
+        "done": null
+      }
+    ],
+    "none": []
+  }
+}

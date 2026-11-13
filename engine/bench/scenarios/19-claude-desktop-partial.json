@@ -1,0 +1,58 @@
+{
+  "id": "claude-desktop-partial",
+  "about": "Three steps; only the migration is done.",
+  "start": "2026-11-11T09:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "Claude",
+      "bundle": "com.anthropic.claudefordesktop",
+      "title": "Email setup",
+      "text": [
+        "⟦Message 2⟧",
+        "Claude responded: To send email from prod:",
+        "To send email from prod:",
+        "1. Add the DNS records for acme.com in Cloudflare",
+        "2. Set RESEND_API_KEY in Vercel prod",
+        "3. Run `bun run migrate`"
+      ]
+    },
+    {
+      "at": 5,
+      "app": "Terminal",
+      "bundle": "com.apple.Terminal",
+      "title": "zsh",
+      "text": [
+        "mike@mac acme-web % bun run migrate",
+        "Migrated 3 tables.",
+        "mike@mac acme-web % "
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [
+      {
+        "words": [
+          "dns"
+        ],
+        "done": null
+      },
+      {
+        "words": [
+          "resend_api_key"
+        ],
+        "done": null
+      },
+      {
+        "words": [
+          "bun run migrate"
+        ],
+        "done": {
+          "at": 5,
+          "where": "Terminal"
+        }
+      }
+    ],
+    "none": []
+  }
+}

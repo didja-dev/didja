@@ -1,0 +1,35 @@
+{
+  "id": "email-newsletter",
+  "about": "A newsletter asks nothing of you.",
+  "start": "2026-11-11T09:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "Microsoft Outlook",
+      "bundle": "com.microsoft.Outlook",
+      "title": "Inbox • me@example.com",
+      "text": [
+        "Inbox",
+        "⟦Email⟧",
+        "Subject: This week at Acme",
+        "From: Acme Weekly, newsletter@acme.com",
+        "Date: Today at 9:00",
+        "To: me@example.com",
+        "Five things you missed this week.",
+        "Read more on our blog.",
+        "Unsubscribe"
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [],
+    "none": [
+      [
+        "acme weekly"
+      ],
+      [
+        "this week"
+      ]
+    ]
+  }
+}

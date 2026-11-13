@@ -1,0 +1,42 @@
+{
+  "id": "terminal-failed-run",
+  "about": "The command is run and fails; it is not run again.",
+  "start": "2026-11-11T09:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "Claude",
+      "bundle": "com.anthropic.claudefordesktop",
+      "title": "Deploy",
+      "text": [
+        "⟦Message 2⟧",
+        "Claude responded: To ship it, run:",
+        "To ship it, run:",
+        "`npm run deploy`"
+      ]
+    },
+    {
+      "at": 3,
+      "app": "Terminal",
+      "bundle": "com.apple.Terminal",
+      "title": "zsh",
+      "text": [
+        "mike@mac acme-web % npm run deploy",
+        "npm ERR! Missing script: \"deploy\"",
+        "npm ERR! A complete log of this run can be found in: /tmp/npm.log",
+        "mike@mac acme-web % "
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [
+      {
+        "words": [
+          "npm run deploy"
+        ],
+        "done": null
+      }
+    ],
+    "none": []
+  }
+}

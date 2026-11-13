@@ -1,0 +1,45 @@
+{
+  "id": "claude-code-asks-you-to-run",
+  "about": "Claude Code cannot push tags itself and asks you to; you run it in another terminal tab.",
+  "start": "2026-11-11T09:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "Ghostty",
+      "bundle": "com.mitchellh.ghostty",
+      "title": "✳ Release",
+      "text": [
+        "> tag the release",
+        "⏺ Tagged v1.4.0 locally. I can't push from here. Please run:",
+        "  `git push --tags`",
+        "? for shortcuts"
+      ]
+    },
+    {
+      "at": 3,
+      "app": "Ghostty",
+      "bundle": "com.mitchellh.ghostty",
+      "title": "zsh",
+      "text": [
+        "mike@mac acme-web % git push --tags",
+        "To github.com:acme/widgets.git",
+        " * [new tag]         v1.4.0 -> v1.4.0",
+        "mike@mac acme-web % "
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [
+      {
+        "words": [
+          "git push --tags"
+        ],
+        "done": {
+          "at": 3,
+          "where": "Terminal"
+        }
+      }
+    ],
+    "none": []
+  }
+}

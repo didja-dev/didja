@@ -1,0 +1,37 @@
+{
+  "id": "claude-desktop-own-plan",
+  "about": "Claude lists what it will do itself: none of it is yours.",
+  "start": "2026-11-11T09:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "Claude",
+      "bundle": "com.anthropic.claudefordesktop",
+      "title": "Webhook test",
+      "text": [
+        "⟦Message 1⟧",
+        "You said: Can you fix the failing webhook test?",
+        "⟦Message 2⟧",
+        "Claude responded: I'll take care of it:",
+        "I'll take care of it:",
+        "1. Read the webhook handler",
+        "2. Update the tests",
+        "3. Open a pull request"
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [],
+    "none": [
+      [
+        "webhook handler"
+      ],
+      [
+        "update the tests"
+      ],
+      [
+        "pull request"
+      ]
+    ]
+  }
+}

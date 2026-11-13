@@ -1,0 +1,52 @@
+{
+  "id": "outlook-reply",
+  "about": "Dana asks for the Q3 numbers; you reply in the conversation 20 minutes later.",
+  "start": "2026-11-11T09:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "Microsoft Outlook",
+      "bundle": "com.microsoft.Outlook",
+      "title": "Inbox • me@example.com",
+      "text": [
+        "Inbox",
+        "⟦Email⟧",
+        "Subject: Q3 budget numbers",
+        "From: Dana Levi, dana@acme.com",
+        "Date: Today at 9:00",
+        "To: me@example.com",
+        "Hi Mike,",
+        "Can you send me the updated Q3 numbers before the review?",
+        "Thanks,",
+        "Dana"
+      ]
+    },
+    {
+      "at": 20,
+      "app": "Microsoft Outlook",
+      "bundle": "com.microsoft.Outlook",
+      "title": "Inbox • me@example.com",
+      "text": [
+        "⟦Email 2: RE: Q3 budget numbers⟧",
+        "From: Mike Rosen, me@example.com",
+        "To: Dana Levi",
+        "Date: Today at 9:20",
+        "Attached are the updated numbers."
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [
+      {
+        "words": [
+          "q3"
+        ],
+        "done": {
+          "at": 20,
+          "where": "Outlook reply"
+        }
+      }
+    ],
+    "none": []
+  }
+}

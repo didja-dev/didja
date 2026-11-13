@@ -1,0 +1,25 @@
+{
+  "id": "whatsapp-group-not-naming-me",
+  "about": "A group message asks anyone to pick up milk: not yours.",
+  "start": "2026-11-11T09:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "WhatsApp",
+      "bundle": "net.whatsapp.WhatsApp",
+      "title": "Family",
+      "text": [
+        "⟦Chat message: Family (group) — from Noa Katz — Today at 9:00⟧",
+        "Can someone pick up milk on the way home?"
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [],
+    "none": [
+      [
+        "milk"
+      ]
+    ]
+  }
+}
