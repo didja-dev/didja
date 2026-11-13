@@ -6,7 +6,7 @@ import XCTest
 final class CanvasTests: XCTestCase {
     private let page = #"""
     {"id":3,"title":"Ship to production","updatedAt":"","open":1,"items":[
-     {"id":1,"kind":"heading","text":"Before you ship"},
+     {"id":1,"kind":"heading","text":"Before you ship","section":{"tasks":2,"open":1}},
      {"id":2,"kind":"task","text":"Set STRIPE_KEY in Vercel","task":{"id":11,"status":"done","suggestion":null,"source":"Claude — Deploy"}},
      {"id":3,"kind":"task","text":"Run the migration","task":{"id":12,"status":"open","suggestion":"seen in Terminal","source":"Claude — Deploy"}},
      {"id":4,"kind":"note","text":"Ask Noa about the **downtime** window","level":0}]}
@@ -77,6 +77,32 @@ final class CanvasTests: XCTestCase {
         })
         wait(for: [got], timeout: 2)
         XCTAssertFalse(TaskDrag.receive([NSItemProvider(object: "12,40" as NSString)]) { _ in XCTFail("plain text is not a drop") })
+    }
+
+    /// SCR-59: a heading ticks everything under it; the engine decides what is under it.
+    func testAHeadingTicksWhatIsUnderIt() throws {
+        var ran: [[String]] = []
+        let m = model { ran.append($0) }
+        let items = try XCTUnwrap(m.page?.items)
+        let heading = items[0]
+        XCTAssertEqual(heading.section, .init(tasks: 2, open: 1))
+        XCTAssertFalse(heading.sectionDone)
+        m.tickSection(heading)
+        var done = heading
+        done.section = .init(tasks: 2, open: 0)
+        XCTAssertTrue(done.sectionDone)
+        m.tickSection(done)                       // all done: open them again
+        var empty = heading
+        empty.section = .init(tasks: 0, open: 0)
+        XCTAssertFalse(empty.sectionDone)
+        m.tickSection(empty)                      // nothing under it: nothing to do
+        m.tickSection(items[3])                   // a note never ticks a section
+        // Space on a chosen heading does the same.
+        m.selected = heading.id
+        m.perform(.toggle)
+        XCTAssertEqual(ran.filter { !$0.starts(with: ["canvas", "show"]) }, [
+            ["canvas", "tick", "1"], ["canvas", "tick", "1", "--undo"], ["canvas", "tick", "1"],
+        ])
     }
 
     func testNotesShowTheirMarkdown() {

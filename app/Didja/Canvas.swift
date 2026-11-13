@@ -65,7 +65,15 @@ struct CanvasPage: Codable, Equatable {
         /// How far it is indented, 0 to 4.
         var level: Int?
         var task: Task?
+        /// On a heading (SCR-59): the tasks under it, and how many are still open.
+        struct Section: Codable, Equatable {
+            var tasks: Int
+            var open: Int
+        }
+        var section: Section?
         var indent: Int { level ?? 0 }
+        /// A heading with tasks under it, all of them done.
+        var sectionDone: Bool { (section?.tasks ?? 0) > 0 && section?.open == 0 }
 
         /// The task as the list's actions take it (SCR-58): they act on its id.
         var taskItem: TaskItem? {
@@ -160,6 +168,12 @@ final class CanvasModel: ObservableObject {
     func toggle(_ item: CanvasPage.Item) {
         guard let task = item.task else { return }
         change([task.status == "done" ? "reopen" : "done", String(task.id)])
+    }
+    /// Tick every task under a heading, or, when all are done, open them again (SCR-59). The engine
+    /// decides which tasks are under it.
+    func tickSection(_ item: CanvasPage.Item) {
+        guard item.kind == "heading", let section = item.section, section.tasks > 0 else { return }
+        change(["canvas", "tick", String(item.id)] + (item.sectionDone ? ["--undo"] : []))
     }
     func confirmDone(_ item: CanvasPage.Item) { if let t = item.task { change(["done", String(t.id)]) } }
     func notYet(_ item: CanvasPage.Item) { if let t = item.task { change(["notyet", String(t.id)]) } }
@@ -270,7 +284,7 @@ final class CanvasModel: ObservableObject {
             backToTyping()
         case .toggle:
             guard let item = current else { return false }
-            if item.task != nil { toggle(item) }
+            if item.task != nil { toggle(item) } else if item.kind == "heading" { tickSection(item) }
         case .indent, .outdent:
             guard let item = current, item.kind != "heading" else { return current != nil }
             setLevel(item, item.indent + (action == .indent ? 1 : -1))
@@ -502,6 +516,16 @@ struct CanvasView: View {
                     }
                 }
             default:
+                if item.kind == "heading", let section = item.section, section.tasks > 0 {
+                    Button { model.tickSection(item) } label: {
+                        Image(systemName: item.sectionDone ? "checkmark.circle.fill" : "circle")
+                            .foregroundStyle(item.sectionDone ? Palette.done : .secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.top, 6)
+                    .help(item.sectionDone ? "Open the \(section.tasks) tasks under it again"
+                                           : "Mark the \(section.open) open under it done")
+                }
                 if model.editing == item.id {
                     editor
                 } else {
@@ -529,6 +553,9 @@ struct CanvasView: View {
                 if item.kind != "heading" {
                     if item.indent < CanvasModel.maxLevel { Button("Indent") { model.setLevel(item, item.indent + 1) } }
                     if item.indent > 0 { Button("Outdent") { model.setLevel(item, item.indent - 1) } }
+                }
+                if item.kind == "heading", let section = item.section, section.tasks > 0 {
+                    Button(item.sectionDone ? "Reopen All Under It" : "Mark All Under It Done (\(section.open))") { model.tickSection(item) }
                 }
                 Button(item.kind == "task" ? "Rename (Return)" : "Edit (Return)") { model.startEditing(item) }
                 Button(item.kind == "task" ? "Take Off This Canvas" : "Delete") { model.remove(item) }
