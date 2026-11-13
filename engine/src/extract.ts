@@ -7,6 +7,7 @@
  */
 
 import type { Observation } from './store.ts';
+import { stableTitle } from './window.ts';
 
 export type SourceKind = 'claude-desktop' | 'claude-web' | 'claude-code';
 
@@ -93,8 +94,9 @@ export function classifySource(
  * editor is "Claude Code", with the terminal named at the end.
  */
 export function sourceRef(window: Pick<Observation, 'app' | 'windowTitle'>, kind: SourceKind | null = null): string {
-  // Claude Code prefixes the terminal title with a spinner glyph that changes constantly.
-  let title = window.windowTitle.replace(/^[\s✳⠂⠐⠁⠈⠠⠄·*]+/, '').trim();
+  // Claude Code prefixes the terminal title with a spinner glyph that changes constantly (✳, ✻, ⠂…);
+  // the same rule as the window key (SCR-72), so one window is one source.
+  let title = stableTitle(window.windowTitle);
   if (kind === 'claude-code') {
     title = title.replace(/^claude code$/i, '');
     return title ? `Claude Code — ${title} (${window.app})` : `Claude Code (${window.app})`;
@@ -137,22 +139,41 @@ const USER_LABEL = /^\s*You said:/;
  * other things in between. This gathers every section's lines, in the order
  * they arrived, under one heading, so a list or an email reads as one piece.
  * Lines outside any section come first.
+ *
+ * A line still streaming is kept once (SCR-72): when a batch starts with a
+ * longer version of the line its section's previous batch ended on ("1. Run
+ * the bu", then "1. Run the build"), the longer one replaces it. Other repeats
+ * stay: two emails can share a section name, and a terminal command typed
+ * again is a new run (SCR-63). Lines that scroll away and come back are not
+ * reported again by capture (`Differ`) in the first place.
  */
 export function assemble(observations: string[]): string {
   const outside: string[] = [];
   const sections = new Map<string, string[]>();
   for (const text of observations) {
     let current: string[] = outside; // each observation starts outside any section
+    let first = true;
     for (const line of text.split(/\r?\n/)) {
       if (SECTION_LINE.test(line)) {
         current = sections.get(line) ?? [];
         sections.set(line, current);
-      } else {
-        current.push(line);
+        first = true;
+        continue;
       }
+      addLine(current, line, first);
+      first = false;
     }
   }
   return [...outside, ...[...sections].flatMap(([name, lines]) => [name, ...lines])].join('\n');
+}
+
+function addLine(lines: string[], line: string, firstOfBatch: boolean): void {
+  const tail = lines[lines.length - 1];
+  if (firstOfBatch && tail !== undefined && tail.trim() !== '' && line.length > tail.length && line.startsWith(tail)) {
+    lines[lines.length - 1] = line; // the same line, further along
+  } else {
+    lines.push(line);
+  }
 }
 const CLAUDE_LABEL = /^\s*Claude responded:/;
 /** Non-empty lines allowed between two items (wrapped text, sub-bullets, code). */

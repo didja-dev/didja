@@ -202,7 +202,8 @@ const CURSOR_KEY = 'last_observation_id';
  */
 const WINDOW_CONTEXT_MS = 30 * 60 * 1000;
 
-const windowKey = (o: Observation) => `${o.bundleId}\u0000${o.windowTitle}`;
+/** Capture's window key (SCR-72); app and exact title for a row from before schema 24. */
+const windowKey = (o: Observation) => o.windowKey ?? `${o.bundleId}\u0000${o.windowTitle}`;
 
 /**
  * One pass: read new observations, find checklists in Claude windows and store
@@ -238,7 +239,7 @@ export function pollOnce(store: Store, now: Date = new Date(), opts: PollOptions
 
   const since = new Date(now.getTime() - WINDOW_CONTEXT_MS).toISOString();
   for (const latest of windows.values()) {
-    const history = store.windowObservations(latest.bundleId, latest.windowTitle, since);
+    const history = store.windowObservations(latest, since);
     const text = assemble(history.map((o) => o.text));
     const mailbox = mailSource(latest);
     if (mailbox) {

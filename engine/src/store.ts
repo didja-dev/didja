@@ -25,6 +25,7 @@ import schema20 from '../../schema/020_canvas_levels.sql' with { type: 'text' };
 import schema21 from '../../schema/021_done_places.sql' with { type: 'text' };
 import schema22 from '../../schema/022_criteria_model.sql' with { type: 'text' };
 import schema23 from '../../schema/023_teaching_any_job.sql' with { type: 'text' };
+import schema24 from '../../schema/024_window_key.sql' with { type: 'text' };
 import { contextLines } from './context.ts';
 import { parseCriteria } from './donecriteria.ts';
 import type { DoneCriteria } from './donecriteria.ts';
@@ -32,6 +33,7 @@ import type { ContextLine } from './context.ts';
 import { renamedSource } from './extract.ts';
 import { baseSubject, emailLessonKey, originSender, sameMatter } from './email.ts';
 import { requiredMarkers } from './markers.ts';
+import { windowKeyFor } from './window.ts';
 import type { Criteria, Marker } from './markers.ts';
 
 /** A place a step was done, as you told Didja. */
@@ -95,6 +97,8 @@ export interface Observation {
   url: string | null;
   source: 'ax' | 'ocr';
   text: string;
+  /** The window it was seen in, as capture keys it (`windowKeyFor`); absent on rows from before schema 24. */
+  windowKey?: string;
 }
 
 export interface Task {
@@ -299,6 +303,7 @@ interface ObservationRow {
   url: string | null;
   source: 'ax' | 'ocr';
   text: string;
+  window_key: string;
 }
 
 interface TaskRow {
@@ -346,6 +351,7 @@ function toObservation(r: ObservationRow): Observation {
     url: r.url,
     source: r.source,
     text: r.text,
+    ...(r.window_key ? { windowKey: r.window_key } : {}),
   };
 }
 
@@ -398,7 +404,7 @@ export class Store {
     // The app migrates the same file. Take the write lock first so only one side runs each step.
     this.db.transaction(() => {
       const { user_version } = this.db.query('PRAGMA user_version').get() as { user_version: number };
-      [schema1, schema2, schema3, schema4, schema5, schema6, schema7, schema8, schema9, schema10, schema11, schema12, schema13, schema14, schema15, schema16, schema17, schema18, schema19, schema20, schema21, schema22, schema23].forEach((sql, i) => {
+      [schema1, schema2, schema3, schema4, schema5, schema6, schema7, schema8, schema9, schema10, schema11, schema12, schema13, schema14, schema15, schema16, schema17, schema18, schema19, schema20, schema21, schema22, schema23, schema24].forEach((sql, i) => {
         if (user_version < i + 1) this.db.exec(sql);
       });
     }).immediate();
@@ -450,12 +456,13 @@ export class Store {
 
   /** For tests and tooling. In production the Swift capture layer does the writing. */
   insertObservation(o: Omit<Observation, 'id'>): number {
+    const key = o.windowKey ?? windowKeyFor(o.bundleId, o.windowTitle, o.url);
     const info = this.db
       .query(
-        `INSERT INTO observations (ts, bundle_id, app, window_title, url, source, text)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO observations (ts, bundle_id, app, window_title, url, source, text, window_key)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       )
-      .run(o.ts, o.bundleId, o.app, o.windowTitle, o.url, o.source, o.text);
+      .run(o.ts, o.bundleId, o.app, o.windowTitle, o.url, o.source, o.text, key);
     return Number(info.lastInsertRowid);
   }
 
@@ -473,14 +480,23 @@ export class Store {
     return rows.map(toObservation).reverse();
   }
 
-  /** Everything recently seen in one window, oldest first. */
-  windowObservations(bundleId: string, windowTitle: string, sinceIso: string): Observation[] {
-    const rows = this.db
-      .query(
-        `SELECT * FROM observations
-         WHERE bundle_id = ? AND window_title = ? AND ts >= ? ORDER BY id`,
-      )
-      .all(bundleId, windowTitle, sinceIso) as ObservationRow[];
+  /**
+   * Everything recently seen in the window `o` was seen in, oldest first: by its window key
+   * (SCR-72), or by app and exact title for a row from before schema 24.
+   */
+  windowObservations(o: Pick<Observation, 'bundleId' | 'windowTitle' | 'windowKey'>, sinceIso: string): Observation[] {
+    const rows = (
+      o.windowKey
+        ? this.db
+            .query('SELECT * FROM observations WHERE window_key = ? AND ts >= ? ORDER BY id')
+            .all(o.windowKey, sinceIso)
+        : this.db
+            .query(
+              `SELECT * FROM observations
+               WHERE bundle_id = ? AND window_title = ? AND window_key = '' AND ts >= ? ORDER BY id`,
+            )
+            .all(o.bundleId, o.windowTitle, sinceIso)
+    ) as ObservationRow[];
     return rows.map(toObservation);
   }
 
