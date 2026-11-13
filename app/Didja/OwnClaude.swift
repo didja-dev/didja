@@ -150,3 +150,30 @@ enum OwnClaude {
         return "On: \(s.calls) \(s.calls == 1 ? "call" : "calls")\(last.map { ", the last on \($0)" } ?? "")."
     }
 }
+
+/// The shell hook (SCR-87): off until turned on in Settings › General › Commands. The engine adds a
+/// few marked lines to ~/.zshrc and ~/.bashrc (and a fish function) that write each command you run,
+/// with its exit code, to shell.log beside Didja's database, 24 hours; turning it off removes them
+/// and the log. A command step then ticks only on an exact run that ended with exit 0.
+enum ShellHook {
+    struct Status: Decodable, Equatable {
+        var on: Bool
+        var installed: Bool
+        var runs: Int
+    }
+
+    static func status() -> Status {
+        let output = EngineRunner.output(["shell-hook", "status", "--json"]) ?? ""
+        return (try? JSONDecoder().decode(Status.self, from: Data(output.utf8))) ?? Status(on: false, installed: false, runs: 0)
+    }
+
+    @discardableResult
+    static func set(_ on: Bool) -> Bool { EngineRunner.run(["shell-hook", on ? "on" : "off"]) }
+
+    /// What the switch does, in Settings and in Privacy.
+    static let explanation = "Adds a few lines (between marked comments) to ~/.zshrc and ~/.bashrc, and a fish function if you use fish, so each command you run is written with its exit code to shell.log beside Didja's data, kept 24 hours. A step to run a command then ticks only on that exact command ending well, never on a failure. Commands that look like they hold a key or a token are kept only as a hash. Turning it off removes the lines and the log. Open a new terminal window after turning it on."
+
+    static func words(_ s: Status) -> String {
+        s.on ? "On: \(s.runs) \(s.runs == 1 ? "command" : "commands") in the last 24 hours." : "Off."
+    }
+}

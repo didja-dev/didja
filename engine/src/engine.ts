@@ -6,6 +6,7 @@ import { chatApp, chatKey, asksForAcknowledgement, chatTaskTitle, isEmojiOnly, i
 import type { ChatMessage, ChatReader, ReplyJudge } from './chat.ts';
 import { agentWork, assistantFor, hasTurns } from './assistants.ts';
 import { followUpOn, listedOn, targetsOf } from './done.ts';
+import { hookFiles, readShellLog, shellOutcome } from './shellhook.ts';
 import type { Listed } from './done.ts';
 import { agentCommands, agentTodos, ranByAgent, todoKey, withoutAgentWork } from './agents.ts';
 import { normalizeSteps } from './steps.ts';
@@ -89,6 +90,8 @@ export interface PollOptions {
   replyJudge?: ReplyJudge;
   /** Writes what done looks like for a new task (SCR-67). */
   criteria?: CriteriaWriter;
+  /** The shell hook's log to read (SCR-87); by default the one in your home, only while the hook is on. */
+  shellLog?: string | null;
 }
 
 const EMAILS_PER_POLL = 2;
@@ -507,7 +510,25 @@ function pass(store: Store, now: Date, options: PollOptions): PollStats {
     .observationsSince(new Date(Date.parse(firstFresh) - RUN_WINDOW_MS).toISOString())
     .filter((o) => (TERMINALS.has(o.bundleId) || EDITORS.has(o.bundleId)) && !claudeWindows.has(windowKey(o)));
   const seenOn = new Map<number, Observation>();
+  // The shell hook (SCR-87): with it on, a command step's exact run ending with exit 0 ticks it, and
+  // when every exact run since the step failed, a screen that looked fine does not.
+  const shellPath = opts.shellLog !== undefined ? opts.shellLog : store.getMeta('shell_hook') === 'on' ? hookFiles().log : null;
+  const shellRuns = shellPath ? readShellLog(shellPath, now) : [];
+  const shellFailed = new Set<string>();
+  for (const task of shellRuns.length > 0 ? watchable : []) {
+    for (const m of task.markers.filter((k) => k.kind === 'command')) {
+      const said = shellOutcome(shellRuns, m.value, Date.parse(task.createdAt));
+      if (said?.outcome === 'failed') shellFailed.add(`${task.id}\u0000${m.value}`);
+      if (said?.outcome !== 'ran') continue;
+      const ts = new Date(said.run.at).toISOString();
+      if (store.addSighting(task.id, m.value, null, ts, `Ran \`${m.value}\` in your shell, exit 0 (shell hook)`)) {
+        stats.sightings++;
+        touched.add(task.id);
+      }
+    }
+  }
   for (const s of findSightings(watchable, elsewhere, [...terminalHistory, ...elsewhere.filter((o) => !terminalHistory.some((h) => h.id === o.id))])) {
+    if (shellFailed.has(`${s.taskId}\u0000${s.marker.value}`)) continue;
     if (store.addSighting(s.taskId, s.marker.value, s.observationId, s.ts, s.detail)) {
       stats.sightings++;
       touched.add(s.taskId);

@@ -5,6 +5,7 @@ import { profiles, profilesDir } from './profiles.ts';
 import { canvasMarkdown, canvasText, parseCanvasLine } from './canvas.ts';
 import { doneAt, missedReport, rewordPlacesOnce, wordForPlace } from './missed.ts';
 import { enabled, places, readLog, serve } from './mcp.ts';
+import { hookFiles, hookInstalled, installHook, readShellLog, removeHook } from './shellhook.ts';
 import { localField, localModelOf, setLocalModel } from './localmodel.ts';
 import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -37,6 +38,8 @@ const USAGE = `didja <command>
   profiles [--json]   the app profiles (how each chat and email app is read) and the AI tools (profiles/assistants)
   mcp                 serve your own Claude over MCP (stdio), when turned on; see docs/AGENTS.md
   mcp on|off|status|log [--json]
+  shell-hook on|off|status [--json]
+                      the opt-in shell hook: exact exit codes of the commands you run (SCR-87)
                       let your Claude read Didja (masked), or not; and what it has asked
   local-model [status [--json] | on <model> | off]
                       use a model in Ollama on this Mac (127.0.0.1) for emails and "looks done?", before Apple's
@@ -425,6 +428,29 @@ async function main(argv: string[]): Promise<number> {
         }
         await serve(store, p);
         return 0;
+      }
+      case 'shell-hook': {
+        const sub = args[0];
+        if (sub === 'on') {
+          const files = installHook();
+          store.setMeta('shell_hook', 'on');
+          console.log(`Shell hook on: ${files.join(', ')}. Open a new terminal window for it to start.`);
+          return 0;
+        }
+        if (sub === 'off') {
+          removeHook();
+          store.setMeta('shell_hook', 'off');
+          console.log('Shell hook off: its lines and its log are removed.');
+          return 0;
+        }
+        if (sub === 'status') {
+          const runs = readShellLog(hookFiles().log, new Date());
+          const status = { on: store.getMeta('shell_hook') === 'on', installed: hookInstalled(), runs: runs.length, log: hookFiles().log };
+          console.log(args.includes('--json') ? JSON.stringify(status) : `${status.on ? 'On' : 'Off'}; ${status.runs} commands in the last 24 hours`);
+          return 0;
+        }
+        console.error('usage: didja shell-hook [on|off|status [--json]]');
+        return 1;
       }
       case 'profiles': {
         const list = profiles();

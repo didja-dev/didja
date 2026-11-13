@@ -25,8 +25,11 @@ const GENERAL = new RegExp(`^(.{0,80}?[${PROMPT_CHARS}])(?:\\s+(.*))?$`);
 /** What a right-side prompt holds: times, durations, status marks, a branch, an exit code. */
 const RPROMPT_PART = /^(?:\d{1,2}:\d{2}(?::\d{2})?(?:[AP]M)?|[AP]M|took|at|\d+(?:\.\d+)?(?:ms|s|m)|[✔✘✗✓]|\[\d+\]|\(\d+\)|git:\([^)]*\)|[\w.-]+@[\w.-]+)$/i;
 
-/** The command typed on a prompt line, and the prompt before it; null when the line is not a prompt. */
-export function parsePrompt(line: string): { prompt: string; command: string } | null {
+/**
+ * The command typed on a prompt line, the prompt before it, and a right-side prompt after it (which
+ * shows how the command before ended: "✘ 1"); null when the line is not a prompt.
+ */
+export function parsePrompt(line: string): { prompt: string; command: string; right: string } | null {
   const text = line.replace(/\s+$/, '');
   if (text.trim() === '') return null;
   const lead = text.trimStart();
@@ -35,8 +38,24 @@ export function parsePrompt(line: string): { prompt: string; command: string } |
   const prompt = m[1]!.replace(/\s+/g, ' ').trim();
   // The prompt itself has no sentence in it: a line of output that happens to hold "$ " or "> ".
   if (/[.!?,;]\s|\b(the|and|then|run|please|you)\b/i.test(prompt)) return null;
-  const command = cleanCommand(m[2] ?? '');
-  return { prompt, command };
+  const rest = m[2] ?? '';
+  // Nothing typed, only a right-side prompt (powerlevel10k's "✘ 1  10:42:01" after a failure, SCR-87).
+  if (onlyRightPrompt(rest)) return { prompt, command: '', right: rest.replace(/\s+/g, ' ').trim() };
+  const gap = /\s{3,}(\S.*)$/.exec(rest);
+  const right = gap && rightPrompt(gap[1]!) ? gap[1]!.replace(/\s+/g, ' ').trim() : '';
+  return { prompt, command: cleanCommand(rest), right };
+}
+
+/** Whether text is a right-side prompt: times, durations, status marks, an exit code. */
+function rightPrompt(text: string): boolean {
+  // powerlevel10k writes the exit code after the mark: "✘ 1", "✘ 127".
+  const parts = text.trim().replace(/([✘✗])\s*\d{1,3}\b/g, '$1').split(/\s+/);
+  return text.length <= 40 && parts.every((part) => RPROMPT_PART.test(part));
+}
+
+/** A line's text after the prompt that is only a right-side prompt with a status or a time in it. */
+function onlyRightPrompt(text: string): boolean {
+  return text.trim() !== '' && rightPrompt(text.trim()) && /[✔✘✗✓]|\[\s*\d+\s*\]|\d{1,2}:\d{2}/.test(text);
 }
 
 /** A typed command without a right-side prompt or a trailing comment, its spaces squashed. */
@@ -70,6 +89,8 @@ function stripComment(text: string): string {
 /** A prompt without what changes between runs (times, exit marks, codes), so the next prompt is recognised. */
 export function promptCore(prompt: string): string {
   return prompt
+    // fish's "~/acme-web [1]>" after a failure is the same prompt as "~/acme-web>" (SCR-87).
+    .replace(/\s*\[\s*\d+\s*\](?=[%$❯➜>#›»]$)/, '')
     .replace(/\d{1,2}:\d{2}(:\d{2})?(\s?[AP]M)?/gi, ' ')
     .replace(/[✔✘✓]|\[\s*\d+\s*\]|\(\s*\d+\s*\)|\bexit \d+\b/g, ' ')
     // oh-my-zsh: the ✗ after the branch says the tree is dirty, which changes as you work.
@@ -167,6 +188,11 @@ function promptSaysFailed(prompt: string): boolean {
   return FAILED_PROMPT.test(prompt.replace(/(git:\([^)]*\))\s*✗/g, '$1'));
 }
 
+/** Whether the next prompt, left or right side, says the command before it failed. */
+function nextSaysFailed(p: { prompt: string; right: string }): boolean {
+  return promptSaysFailed(p.prompt) || (p.right !== '' && FAILED_PROMPT.test(p.right));
+}
+
 /** One command typed at a prompt, what followed it, and how it ended. */
 export interface CommandRun {
   command: string;
@@ -197,7 +223,7 @@ export function splitSession(lines: TerminalLine[]): CommandRun[] {
     const output = next === -1 ? after : after.slice(0, next);
     let outcome: CommandRun['outcome'];
     if (after.length === 0) outcome = 'typed';
-    else if (output.some((l) => failed(l.text)) || (next !== -1 && promptSaysFailed(parsePrompt(after[next]!.text)!.prompt))) outcome = 'failed';
+    else if (output.some((l) => failed(l.text)) || (next !== -1 && nextSaysFailed(parsePrompt(after[next]!.text)!))) outcome = 'failed';
     else outcome = 'ok';
     const evidence = after[next === -1 ? after.length - 1 : next] ?? lines[i]!;
     runs.push({ command: parsed.command, prompt: parsed.prompt, line: lines[i]!, output, outcome, evidence });

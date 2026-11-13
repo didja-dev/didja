@@ -102,6 +102,7 @@ struct GeneralSettingsView: View {
     @StateObject private var hotKey = HotKeyRecording()
     @State private var ocrOn = OCRCapture.isEnabled
     @State private var ownClaude = OwnClaude.Status(on: false, calls: 0, last: nil)
+    @State private var shellHook = ShellHook.Status(on: false, installed: false, runs: 0)
     @State private var local = LocalModel.Status(on: false, model: nil)
     /// The models Ollama has, or nil when it is not running.
     @State private var ollamaModels: [String]?
@@ -195,6 +196,17 @@ struct GeneralSettingsView: View {
                         .toggleStyle(.switch).labelsHidden()
                 }
             }
+
+            section("Commands") {
+                row("Read the exit code of commands you run", "\(ShellHook.explanation) \(ShellHook.words(shellHook))") {
+                    Toggle("", isOn: Binding(get: { shellHook.on }, set: { on in
+                        ShellHook.set(on)
+                        shellHook = ShellHook.status()
+                    }))
+                    .toggleStyle(.switch).labelsHidden()
+                }
+            }
+            .onAppear { shellHook = ShellHook.status() }
 
             section("Your Own Claude") {
                 row("Let my own Claude read Didja", "For fixing how Didja reads an app: Claude Code or Claude Desktop, set up with `\(OwnClaude.command)`, can read the reports you give it, the text Didja kept (masked), and draft an app profile with you. What it reads goes to your AI provider. \(OwnClaude.words(ownClaude))") {

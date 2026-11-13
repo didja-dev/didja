@@ -10,6 +10,7 @@
 import { localModelOf } from './localmodel.ts';
 import { qualityReport, sourceGroup } from './quality.ts';
 import type { Store } from './store.ts';
+import { EDITORS } from './extract.ts';
 
 /** What the app writes to `meta.app_facts` each time it starts, and before it shows the report. */
 export interface AppFacts {
@@ -48,6 +49,11 @@ export interface DoctorReport {
   sources: { source: string; read: number; seen: number; made: number; drops: Record<string, number> }[];
   tasks: { source: string; made: number; ticked: number; dismissed: number }[];
   settings: { retentionHours: string; newMessagesOnly: boolean; looksDone: string; excluded: AppFacts['excluded'] | null };
+  /**
+   * Commands (SCR-87): open steps with a command to run, editors read and how many of their
+   * readings held their built-in terminal's text, Warp's empty readings, and whether the shell hook is on.
+   */
+  commands: { openSteps: number; editorsRead: string[]; editorTerminalReadings: number; warpEmpty: number; shellHook: boolean };
 }
 
 /** The words for each outcome capture records (`capture_outcomes.result`). */
@@ -136,6 +142,19 @@ export function doctorReport(store: Store, now: Date = new Date()): DoctorReport
   }
   for (const s of sourceMap.values()) s.made = made.get(sourceGroup(s.source)) ?? 0;
 
+  // Commands: an editor draws its terminal as a picture, readable only in screen-reader mode, so a
+  // command run there is never seen unless its text arrives (SCR-87). Counts only.
+  const editorsRead = apps.filter((a) => EDITORS.has(a.bundleId) && a.lastDay > 0).map((a) => a.app);
+  const editorTerminalReadings = editorsRead.length === 0 ? 0 : store.observationsSince(dayAgo, 5000)
+    .filter((o) => EDITORS.has(o.bundleId) && o.text.includes('⟦Terminal⟧')).length;
+  const warp = apps.find((a) => a.bundleId === 'dev.warp.Warp-Stable');
+  const commands = {
+    openSteps: store.listTasks().filter((t) => t.markers.some((m) => m.kind === 'command')).length,
+    editorsRead, editorTerminalReadings,
+    warpEmpty: warp ? warp.outcomes.filter((o) => o.result === 'ax-tree-empty').reduce((n, o) => n + o.n, 0) : 0,
+    shellHook: store.getMeta('shell_hook') === 'on',
+  };
+
   const report: DoctorReport = {
     generatedAt: now.toISOString(),
     findings: [],
@@ -155,6 +174,7 @@ export function doctorReport(store: Store, now: Date = new Date()): DoctorReport
       looksDone: store.getMeta('looks_done') ?? 'sure',
       excluded: app?.excluded ?? null,
     },
+    commands,
   };
   report.findings = findings(report);
   return report;
@@ -220,6 +240,15 @@ export function findings(r: DoctorReport): string[] {
       if (top) out.push(`${name}: ${s.seen} ${s.seen === 1 ? 'list or message' : 'lists or messages'} seen, none became a task; most often because of ${DROP_WORDS[top[0]] ?? top[0]} (${top[1]}).`);
     }
   }
+  const c = r.commands;
+  if (c && !c.shellHook && c.openSteps > 0) {
+    if (c.editorsRead.length > 0 && c.editorTerminalReadings === 0) {
+      out.push(`${c.editorsRead.join(', ')} ${c.editorsRead.length === 1 ? 'was' : 'were'} read, but never ${c.editorsRead.length === 1 ? 'its' : 'their'} built-in terminal: editors draw it as a picture, readable only in screen-reader mode. For commands you run there to tick their steps, turn on the shell hook (Settings › General › Commands), or set "editor.accessibilitySupport" to "on" in the editor's settings. Didja never changes the editor's settings.`);
+    }
+    if (c.warpEmpty > 0) {
+      out.push(`Warp gave no text in ${c.warpEmpty} ${c.warpEmpty === 1 ? 'try' : 'tries'}, so commands run there are not seen: turn on the shell hook (Settings › General › Commands) for them to tick their steps.`);
+    }
+  }
   const reading = r.capture.apps.some((a) => a.lastDay > 0);
   if (out.length === 0 && r.capture.state === 'capturing' && !reading) {
     out.push('Capture is on, but nothing has been read in the last 24 hours. Click into a Claude window or a terminal and wait a few seconds.');
@@ -264,6 +293,9 @@ export function formatDoctor(r: DoctorReport): string {
     for (const o of a.outcomes) {
       lines.push(`    ${o.result}${o.result === 'ok' || o.result === 'ocr-used' ? ` ${o.lines} lines` : ''} ×${o.n}, last ${ago(o.last, now)}${OUTCOME_WORDS[o.result] ? ` (${OUTCOME_WORDS[o.result]})` : ''}`);
     }
+  }
+  if (r.commands) {
+    lines.push(`  Commands: ${r.commands.openSteps} open steps to run; shell hook ${r.commands.shellHook ? 'on' : 'off'}; editors read: ${r.commands.editorsRead.length ? r.commands.editorsRead.join(', ') : 'none'}, ${r.commands.editorTerminalReadings} readings with their terminal`);
   }
   lines.push(
     '',

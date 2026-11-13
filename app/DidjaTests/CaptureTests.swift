@@ -365,6 +365,19 @@ final class PrivacyTests2: XCTestCase {
                        "WhatsApp, Acme Chat (community, new) for chats; Gmail, Mailbox (community) for email")
     }
 
+    /// SCR-87: the shell hook's switch reads the engine's status, and says what it does.
+    func testShellHookStatusAndWords() throws {
+        let json = #"{"on":true,"installed":true,"runs":3,"log":"/Users/x/Library/Application Support/Didja/shell.log"}"#
+        let status = try JSONDecoder().decode(ShellHook.Status.self, from: Data(json.utf8))
+        XCTAssertEqual(status, ShellHook.Status(on: true, installed: true, runs: 3))
+        XCTAssertEqual(ShellHook.words(status), "On: 3 commands in the last 24 hours.")
+        XCTAssertEqual(ShellHook.words(.init(on: true, installed: true, runs: 1)), "On: 1 command in the last 24 hours.")
+        XCTAssertEqual(ShellHook.words(.init(on: false, installed: false, runs: 0)), "Off.")
+        XCTAssertTrue(ShellHook.explanation.contains("~/.zshrc"))
+        XCTAssertTrue(ShellHook.explanation.contains("removes the lines and the log"))
+        XCTAssertEqual(facts().shellHook.on, false, "off unless you turn it on")
+    }
+
     func testTheModelStatusIsWordedForPeople() {
         XCTAssertFalse(Judge.modelStatus.isEmpty)
         XCTAssertFalse(Judge.modelStatus.contains("unavailable("), "never a raw enum description")

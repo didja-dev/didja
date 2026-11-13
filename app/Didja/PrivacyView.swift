@@ -23,6 +23,8 @@ struct PrivacyFacts: Equatable {
     var ownClaude = OwnClaude.Status(on: false, calls: 0, last: nil)
     /// The model in Ollama asked first for emails and "looks done?", when one is turned on.
     var localModel: String?
+    /// The shell hook (SCR-87): your shell writing the commands you run to a log of Didja's.
+    var shellHook = ShellHook.Status(on: false, installed: false, runs: 0)
 
     /// "WhatsApp, Teams (community, new) for chats; Gmail, Outlook for email".
     var profileSummary: String {
@@ -157,6 +159,12 @@ struct PrivacyContent: View {
                     if facts.ownClaude.on {
                         line("And what your own Claude reads through `didja mcp` (Your own Claude, below): it goes to your AI provider.")
                     }
+                }
+
+                section("terminal", "Commands you run") {
+                    line(facts.shellHook.on
+                         ? "Shell hook on (Settings › General › Commands): your shell writes each command you run, its exit code and a hash of its folder to shell.log in Didja's data folder, kept 24 hours; key-looking commands only as a hash. \(ShellHook.words(facts.shellHook)) Nothing of it leaves this Mac."
+                         : "Shell hook off. Turned on in Settings › General › Commands, a few marked lines in ~/.zshrc and ~/.bashrc would write the commands you run, with their exit codes, to a log Didja reads, kept 24 hours.")
                 }
 
                 section("person.badge.key", "Your own Claude") {

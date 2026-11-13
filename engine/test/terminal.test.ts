@@ -60,7 +60,7 @@ test('zsh, oh-my-zsh, a starship-like prompt, bash and fish: commands split, out
 });
 
 test('a right-side prompt and a trailing comment are not part of the command; output is not a prompt', () => {
-  expect(parsePrompt('sam@mac acme-web % git push origin main                 10:42:01')).toEqual({ prompt: 'sam@mac acme-web %', command: 'git push origin main' });
+  expect(parsePrompt('sam@mac acme-web % git push origin main                 10:42:01')).toEqual({ prompt: 'sam@mac acme-web %', command: 'git push origin main', right: '10:42:01' });
   expect(parsePrompt('❯ git push origin main   ✔  took 3s  at 10:42')!.command).toBe('git push origin main');
   expect(cleanCommand('git push origin main # ship it')).toBe('git push origin main');
   expect(cleanCommand('git commit -m "fix #42"')).toBe('git commit -m "fix #42"');

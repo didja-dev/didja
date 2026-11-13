@@ -159,9 +159,31 @@ test('didja doctor --json has the shape the app reads', () => {
   const s = store();
   s.recordCaptureOutcome('com.apple.Terminal', 'Terminal', 'ok', 12, at(-5));
   const r = JSON.parse(JSON.stringify(doctorReport(s, NOW)));
-  expect(Object.keys(r).sort()).toEqual(['app', 'capture', 'engine', 'findings', 'generatedAt', 'settings', 'sources', 'tasks']);
+  expect(Object.keys(r).sort()).toEqual(['app', 'capture', 'commands', 'engine', 'findings', 'generatedAt', 'settings', 'sources', 'tasks']);
+  expect(r.commands).toEqual({ openSteps: 0, editorsRead: [], editorTerminalReadings: 0, warpEmpty: 0, shellHook: false });
   expect(Object.keys(r.capture).sort()).toEqual(['apps', 'lastObservation', 'state', 'status']);
   expect(r.capture.apps[0]).toEqual({ app: 'Terminal', bundleId: 'com.apple.Terminal', lastHour: 0, lastDay: 0, outcomes: [expect.objectContaining({ result: 'ok', lines: 12, n: 1 })] });
   expect(Object.keys(r.engine).sort()).toEqual(['errors', 'lastPass', 'localModel', 'running']);
   expect(r.settings).toEqual({ retentionHours: '24', newMessagesOnly: false, looksDone: 'sure', excluded: { apps: 2, titles: 1, sites: 0 } });
+});
+
+// SCR-87: an editor's built-in terminal is drawn as a picture; commands run there are not seen.
+test('an editor read without its terminal, with a command step open and the hook off, gets a finding; never a change of its settings', () => {
+  const s = store();
+  s.insertObservation({ ts: at(-120).toISOString(), bundleId: 'com.anthropic.claudefordesktop', app: 'Claude', windowTitle: 'Migrate', url: null, source: 'ax',
+    text: '⟦Message 3⟧\nClaude responded: Apply the migration — run:\n`npm run migrate`' });
+  pollOnce(s, at(-119));
+  s.insertObservation({ ts: at(-60).toISOString(), bundleId: 'com.microsoft.VSCode', app: 'Code', windowTitle: 'acme-web', url: null, source: 'ax', text: 'src/db.ts\nexport const db = 1' });
+  s.recordCaptureOutcome('com.microsoft.VSCode', 'Code', 'ok', 2, at(-60));
+  const r = doctorReport(s, NOW);
+  expect(r.commands).toEqual({ openSteps: 1, editorsRead: ['Code'], editorTerminalReadings: 0, warpEmpty: 0, shellHook: false });
+  const finding = r.findings.find((f) => f.includes('built-in terminal'));
+  expect(finding).toContain('shell hook');
+  expect(finding).toContain('editor.accessibilitySupport');
+  expect(formatDoctor(r)).toContain('Commands: 1 open steps to run; shell hook off');
+  // Its terminal read once, or the hook on: no such finding.
+  s.insertObservation({ ts: at(-30).toISOString(), bundleId: 'com.microsoft.VSCode', app: 'Code', windowTitle: 'acme-web', url: null, source: 'ax', text: '⟦Terminal⟧\nsam@mac acme-web % ls' });
+  expect(doctorReport(s, NOW).findings.some((f) => f.includes('built-in terminal'))).toBe(false);
+  s.setMeta('shell_hook', 'on');
+  expect(doctorReport(s, NOW).commands.shellHook).toBe(true);
 });
