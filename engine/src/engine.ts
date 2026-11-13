@@ -9,9 +9,9 @@ import { rewordPlacesOnce } from './missed.ts';
 import { localModelOf } from './localmodel.ts';
 import { cleanCriteria, groundCriteria, matchCriteria, matchedWords } from './donecriteria.ts';
 import type { CriteriaWriter } from './donecriteria.ts';
-import { learnedWhere, lookCandidate, placeOf, relevantSnippet, siteOf } from './looksdone.ts';
+import { doneState, hasToken, learnedWhere, lookCandidate, placeOf, relevantSnippet, siteOf, strongTokens } from './looksdone.ts';
 import type { Looker } from './looksdone.ts';
-import { deriveCriteria, extractMarkers } from './markers.ts';
+import { deriveCriteria, extractMarkers, withoutLinkTargets } from './markers.ts';
 import { findSightings, isComplete, RUN_WINDOW_MS } from './match.ts';
 import type { Checklist, ChecklistItem } from './extract.ts';
 import type { Job, NewNode, Observation, PendingChatAsk, Store, Task, Teaching } from './store.ts';
@@ -256,7 +256,8 @@ export function pollOnce(store: Store, now: Date = new Date(), opts: PollOptions
     // In Claude Code only Claude's replies hold steps for you: not its tool calls and their output
     // (a file it read, `cat` of a doc), nor what you typed (SCR-65).
     const transcript = chat ? null : splitClaudeCode(text);
-    const source = transcript?.replies ?? text;
+    // Where a link in a reply points is not a step's words, nor a marker to tick it by (SCR-68).
+    const source = withoutLinkTargets(transcript?.replies ?? text);
     const lists = extractChecklists(source, { claudeOnly: chat, joinWrapped: !chat, includeAssistant: true });
     // Commands Claude tells you to run, outside any list (a list's own commands are already in it).
     const listed = lists.flatMap((l) => l.items.flatMap(function all(i: ChecklistItem): string[] {
@@ -897,6 +898,17 @@ function lookForDone(store: Store, looker: Looker, observations: Observation[], 
       // a strong candidate. The looks-done model still has to see it done.
       const match = done ? matchCriteria(done, o) : 'none';
       if (match === 'pending' || match === 'missing') continue;
+      // A box ticked, a switch turned on or a notice that names the task (SCR-68): a strong candidate,
+      // still for the model to judge. A box that names it but is not ticked says it is not done yet.
+      const state = doneState(task.capturedTitle, o.text);
+      if (state.kind === 'unchecked') continue;
+      if (state.kind === 'checked') {
+        const ids = strongTokens(task.capturedTitle).filter((t) => hasToken(o, t));
+        const near = relevantSnippet(task.capturedTitle, o, ids) ?? '';
+        const snippet = near.includes(state.line) ? near : [state.line, near].filter(Boolean).join('\n');
+        candidates.push({ task, o, snippet, score: 9 });
+        continue;
+      }
       if (match === 'match') {
         const snippet = relevantSnippet(task.capturedTitle, o, matchedWords(done!, o));
         if (snippet) {

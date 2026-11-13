@@ -10,7 +10,7 @@
  */
 
 import { TERMINALS } from './extract.ts';
-import { requiredMarkers } from './markers.ts';
+import { requiredMarkers, withoutLinkTargets } from './markers.ts';
 import type { Marker } from './markers.ts';
 import type { Observation, Task } from './store.ts';
 
@@ -142,10 +142,12 @@ function seenIn(o: Observation, marker: Marker, task: Task, history: Observation
   }
   if (marker.kind === 'env' || marker.kind === 'url') {
     if (!task.criteria?.service || !o.url || !onHost(hostOf(o.url), task.criteria.hosts)) return null;
+    // A link pointing at the page is not the page: only text on screen counts (SCR-68).
+    const text = withoutLinkTargets(o.text);
     const found =
       marker.kind === 'env'
-        ? new RegExp(`(?<![A-Z0-9_])${marker.value}(?![A-Z0-9_])`).test(o.text)
-        : o.text.toLowerCase().includes(marker.value.toLowerCase());
+        ? new RegExp(`(?<![A-Z0-9_])${marker.value}(?![A-Z0-9_])`).test(text)
+        : text.toLowerCase().includes(marker.value.toLowerCase());
     return found ? `Saw ${marker.value} on ${pageRef(o.url)}` : null;
   }
   return null;

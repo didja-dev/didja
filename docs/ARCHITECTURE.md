@@ -60,6 +60,9 @@ How the text is shaped:
 - Inline code is wrapped in backticks, which gives exact boundaries for commands. A list item's further paragraphs and code blocks are indented under it.
 - In Claude desktop and claude.ai the engine keeps only lists that follow a "Claude responded:" label. Your own messages, and views with no labels (a document preview), are ignored.
 - When the window title is just the app's name (Electron apps), the title of its web page is used instead, so tasks group by conversation.
+- States that say "done" (SCR-68): a checkbox or radio button is written before its label as `[x]` / `[ ]` (`[-]` mixed), a switch as `[on]` / `[off]` (`AXCapture.stateMark`, from the control's `AXValue`). A box with no label of its own (a task list's) goes before the text after it, like a list marker: `[x] Approve 4410`. A control with no value is read as before. `AXSelected`, `AXEnabled` and `AXExpanded` are not read.
+- Notices (`NoticeWatcher.swift`, SCR-68): capture also listens for `AXAnnouncementRequested` and live-region changes in the app in front. A notice from an app on the exclude list is dropped as it arrives; others are held in memory for at most 10 seconds and written into the window's next observation as `⟦Notice: Message sent⟧`, after the same app, window and address checks as any capture. A live region is read only then, only if its own window is allowed, at most 40 elements, never a secure field or the draft being typed. Only one or two short lines (at most 80 characters, 12 words) count; the same notice in the same window is written once a minute. `AXCreated` is not listened to: web apps post it for every new element.
+- Link targets on pages (SCR-68): in the main content (`AXLandmarkMain`) of a web page that no chat or email profile labels, a link keeps where it points after its words, `Deploy 981 ⟨https://ci.example.com/acme/shop/deploys/981⟩`, with no query, fragment or login part (they can carry tokens), at most 200 characters and 20 links a page, never a link within the same page. The engine takes these out before reading steps from a Claude window and before matching URL and env markers (`withoutLinkTargets`), so a link pointing at a page is never seeing it, and a step's title is the same as before.
 
 How completion works (tiers 1 and 2):
 
@@ -114,6 +117,13 @@ What done looks like (SCR-67):
 - The engine keeps only what the model could have taken from what it was shown (`groundCriteria`): a site keeps only path parts that were in the question, and a token must be copied from the step or the lines around it and look like an id (a digit, `/`, `_`, `a-b`, or capitals). Stored in `tasks.criteria_model` (schema 022) as JSON, `{}` when there was nothing; cleared when the task is done or dismissed, with its kept lines. Shown in why: "Didja is looking for: a screen in …, showing “…”, with …".
 - Matching (`matchCriteria`, only on a screen that is one of its places): an id it needs missing, or a `pending` phrase on the screen, rules that screen out; its ids and a `success` phrase make it the strongest candidate for "looks done?" (score 10). Anywhere else the rules above decide, untouched. The looks-done model still has to see it done; nothing is ticked from criteria.
 - Measured by `bun eval/criteria.ts` on 6 made-up samples (`eval/criteria-samples.json`), each with a done and a not-done screen: Apple's model, 2 done screens matched, 0 not-done screens (2026-11-13). Its first wording copied its examples into every answer ("main -> main", "Approve"), so the instructions now give none.
+
+States that say done (SCR-68):
+
+- On any screen after a task was made (outside Claude), a line with a ticked box or a switch turned on (`[x] …`, `[on] …`) or a notice (`⟦Notice: …⟧`) that names the task makes that screen a strong candidate for "looks done?" (score 9), with the line shown to the model (`doneState` in `looksdone.ts`). Names the task: one of its ids and one of its words, or two of its words and at least 60% of them; "[on] Public" alone names nothing.
+- A box that names the task but is not ticked (`[ ] …`, `[off] …`) rules the screen out, even where the task is done.
+- Never a tick by itself: the looks-done model still has to say done, and then it is a suggestion as usual. With no model, nothing happens.
+- Extracted steps lose a leading state (`1. [ ] Create the bucket` is "Create the bucket"), so a Claude reply rendered with checkboxes makes the same tasks as before.
 
 Teaching the model (SCR-24):
 

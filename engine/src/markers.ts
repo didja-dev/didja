@@ -56,6 +56,14 @@ const SERVICES: { name: string; pattern: RegExp; hosts: string[] }[] = [
   { name: 'slack', pattern: /\bslack\b/i, hosts: ['slack.com'] },
 ];
 
+/**
+ * Text with the link targets capture writes after a link's words (" ⟨https://…⟩") taken out:
+ * where a link points is not something you saw, nor something you were asked to do (SCR-68).
+ */
+export function withoutLinkTargets(text: string): string {
+  return text.replace(/ ?⟨https?:\/\/[^⟩\s]*⟩/g, '');
+}
+
 const ENV_VAR = /\b[A-Z][A-Z0-9]+(?:_[A-Z0-9]+)+\b/g;
 const URL = /https?:\/\/[^\s"'`<>)\]”’]+/g;
 const FILE =

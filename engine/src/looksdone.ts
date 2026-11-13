@@ -220,3 +220,48 @@ export function lookCandidate(src: LookSource, o: Observation, taught: boolean):
   if (next) score += 1 + (1 - since / NEXT_MINUTES);
   return { snippet, score };
 }
+
+// --- States that say "done" (SCR-68) --------------------------------------------------------------
+
+/** A ticked box or a switch turned on, as capture writes it: "[x] Approve 4410", "[on] Public". */
+const CHECKED = /^\s*(?:[-*•]\s+|\d+[.)]\s+)?\[(?:x|X|on)\]\s+(.+)$/;
+/** A box not ticked, or a switch off: "[ ] Approve 4410", "[off] Public". */
+const UNCHECKED = /^\s*(?:[-*•]\s+|\d+[.)]\s+)?\[(?: |off)\]\s+(.+)$/;
+/** A short notice the app announced: "⟦Notice: Pull request #42 merged⟧". */
+const NOTICE = /^⟦Notice: (.+)⟧$/;
+
+/**
+ * Whether a line names the task: two of its words, at least 60% of them, or one of its ids with one
+ * of its words. A box or notice that only shares a word ("[x] Public") says nothing about this task.
+ */
+export function namesTask(title: string, line: string): boolean {
+  const lower = line.toLowerCase();
+  const words = keywords(title);
+  const found = words.filter((w) => lower.includes(w)).length;
+  const ids = strongTokens(title).filter((t) => hasToken({ text: line, windowTitle: '', url: null }, t)).length;
+  if (ids > 0 && found >= 1) return true;
+  return words.length >= 2 && found >= 2 && found >= Math.ceil(words.length * 0.6);
+}
+
+export type DoneState =
+  /** A ticked box, a switch on, or a notice, that names the task. */
+  | { kind: 'checked'; line: string }
+  /** Only a box not ticked (or a switch off) names it: not done yet. */
+  | { kind: 'unchecked'; line: string }
+  | { kind: 'none' };
+
+/**
+ * What the states on a screen say about a task. Only ever a reason to show the screen to the
+ * looks-done model, or to leave it out: a ticked box is never a tick by itself.
+ */
+export function doneState(title: string, text: string): DoneState {
+  let unchecked: string | null = null;
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim();
+    const label = CHECKED.exec(line)?.[1] ?? NOTICE.exec(line)?.[1];
+    if (label && namesTask(title, label)) return { kind: 'checked', line };
+    const open = UNCHECKED.exec(line)?.[1];
+    if (open && unchecked === null && namesTask(title, open)) unchecked = line;
+  }
+  return unchecked === null ? { kind: 'none' } : { kind: 'unchecked', line: unchecked };
+}

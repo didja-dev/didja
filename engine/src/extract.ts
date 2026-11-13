@@ -232,8 +232,11 @@ export function looksLikeAction(title: string): boolean {
   return ACTION_VERBS.has(first) || ACTION_VERBS.has(first.replace(/^re-?/, ''));
 }
 
+/** The state capture writes before a checkbox or switch's label (SCR-68): "[ ] ", "[x] ", "[on] ". */
+const STATE_PREFIX = /^\s*\[(?:x|X| |-|on|off)\]\s+/;
+
 function cleanTitle(raw: string): string {
-  return raw.replace(/\s+/g, ' ').trim().slice(0, MAX_TITLE_LENGTH).trim();
+  return raw.replace(STATE_PREFIX, '').replace(/\s+/g, ' ').trim().slice(0, MAX_TITLE_LENGTH).trim();
 }
 
 function isPlausibleTitle(title: string): boolean {
