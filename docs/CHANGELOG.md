@@ -6,6 +6,10 @@ Each entry says what changed, and what was **not verified** where that applies: 
 
 ## 2026-11-13
 
+### Didja Missed This always offers the app the task came from (SCR-54)
+- A screen with no web address (Outlook for Mac, Finder, Notes) was already a place of its own, named by its app; what hid Outlook was the 8-place limit, lifted the day before. One gap was left: with more than 16 apps used since the task, the task's own app could still be cut. It now always keeps a place, still in order of when you were last there (a Claude step's own app still goes last). Picking a place only lets its screens be shown to the model; nothing ticks more loosely.
+- Tests: an email from Outlook (no address), then 20 other native apps, still offers Outlook with its Sent screen, and only one other app makes way for it. **Not verified** in the live window.
+
 ### The repository is public
 - `didja-dev/didja` is public, with one first commit (the history before it stays private). `main` is protected by a ruleset: pull requests with a code owner's review and passing checks (`check`, `engine`, `app`, `dco`), no force pushes or deletion; repository admins and deploy keys may push past it. Secret scanning with push protection, private vulnerability reporting (SECURITY.md now points to it), approval before first-time contributors' workflows run, and Dependabot alerts are on.
 - The release workflow pushes its appcast commit with a deploy key (`APPCAST_DEPLOY_KEY`), since a ruleset cannot let GitHub Actions itself through. **Not verified** until the next release runs.

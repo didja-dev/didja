@@ -4,6 +4,7 @@ Choices made while building ScrolledAway, with the reason, so they are not re-ar
 
 ## 2026-11-13
 
+- **The task's own app always keeps a place in Didja Missed This** (SCR-54). An email or chat is most often done where it came from, so that app is never one of the places cut at 16; it costs at most one other app's place. A native app's place stays its app name (no address to group by), which the issue asked for and `siteOf` already did.
 - **`main` is protected by a ruleset that admins and deploy keys may bypass** (going public). The autopilot commits to `main` as the maintainer, and the release workflow commits the appcast; GitHub does not let a repository ruleset exempt GitHub Actions, so the workflow pushes with a deploy key that can write to this repository only.
 
 ## 2026-11-12

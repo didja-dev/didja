@@ -159,6 +159,27 @@ test('every app you were in is offered, and an email\'s own app keeps its place'
   store.close();
 });
 
+test('an email\'s own native app, with no address, is offered however many other apps you used', () => {
+  const store = new Store(':memory:');
+  const at = (m: number, app: string, url: string | null, text: string, windowTitle = app) =>
+    store.insertObservation({ ts: later(m).toISOString(), bundleId: `com.example.${app.replace(/\W/g, '')}`, app, windowTitle, url, source: 'ax', text });
+  const mail = at(0, 'Microsoft Outlook', null, 'From: Sam Carter\nPlease approve purchase order 5520', 'Inbox - Outlook');
+  const id = store.upsertTask({ distinct: 'po2', title: 'Approve purchase order 5520', sourceKind: 'email', sourceRef: 'Microsoft Outlook — Sam Carter',
+    confidence: 1, position: null, ts: NOW.toISOString(), observationId: mail, markers: [], criteria: { service: null, hosts: [] } }).id;
+  at(1, 'Microsoft Outlook', null, 'Purchase order 5520\nApproved', 'Sent Items - Outlook');
+  // More native apps than the picker holds, all used after Outlook.
+  for (let i = 0; i < 20; i++) at(2 + i, `Acme Tool ${i}`, null, `tool ${i}`);
+  const r = missedReport(store, id, later(30))!;
+  expect(r.places.length).toBe(16);
+  const outlook = r.places.find((p) => p.app === 'Microsoft Outlook');
+  expect(outlook?.site).toBe('microsoft outlook');
+  expect(outlook?.recent.map((s) => s.window)).toContain('Sent Items - Outlook');
+  // It keeps its place by time (oldest here), and only one other app made way for it.
+  expect(r.places.at(-1)!.app).toBe('Microsoft Outlook');
+  expect(r.places.filter((p) => p.app.startsWith('Acme Tool')).length).toBe(15);
+  store.close();
+});
+
 test('a Claude step\'s own app is still offered, last, however many places come before it', () => {
   const store = new Store(':memory:');
   const at = (m: number, app: string, url: string | null, text: string) =>

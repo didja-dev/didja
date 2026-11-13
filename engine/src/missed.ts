@@ -125,13 +125,17 @@ export function missedReport(store: Store, id: number, now: Date = new Date()): 
   // The likeliest first: where you were most recently. A step from a conversation with Claude is
   // done somewhere else, so that app goes last; an email or a chat ask is often done right where
   // it came from (approved, answered, signed in Outlook itself), so its app keeps its place.
-  const fromApp = task.sourceKind === 'email' || task.sourceKind === 'chat' ? '' : (context?.app ?? '').toLowerCase();
+  const sourceApp = (context?.app ?? task.sourceRef.split(' — ')[0] ?? '').toLowerCase();
+  const fromApp = task.sourceKind === 'email' || task.sourceKind === 'chat' ? '' : sourceApp;
   const sorted = [...bySite.values()]
     .sort((a, b) => Number(a.app.toLowerCase() === fromApp) - Number(b.app.toLowerCase() === fromApp) || b.last.localeCompare(a.last));
   // Every app you were in is offered: its latest place before a second site of the same app,
-  // so many browser sites never push an app off the list. Shown in the order above.
+  // so many browser sites never push an app off the list. The app the task came from is kept
+  // first of all, however many other apps you used (a native app has no address: its place is
+  // the app itself, `siteOf`). Shown in the order above.
   const firstOfApp = sorted.filter((p, i) => sorted.findIndex((q) => q.app === p.app) === i);
-  const kept = new Set([...firstOfApp, ...sorted.filter((p) => !firstOfApp.includes(p))].slice(0, MAX_PLACES));
+  const own = firstOfApp.filter((p) => p.app.toLowerCase() === sourceApp);
+  const kept = new Set([...new Set([...own, ...firstOfApp, ...sorted])].slice(0, MAX_PLACES));
   const places = sorted.filter((p) => kept.has(p));
   const watching = [
     `Screens whose app or site names one of: ${keywords(task.capturedTitle).join(', ') || '(no words to go by)'}.`,
