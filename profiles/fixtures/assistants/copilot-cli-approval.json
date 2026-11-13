@@ -1,0 +1,18 @@
+{
+  "about": "Copilot CLI asking to run a command.",
+  "profile": "copilot-cli",
+  "window": {
+    "app": "iTerm2",
+    "bundle": "com.googlecode.iterm2",
+    "title": "zsh"
+  },
+  "lines": [
+    "Do you want to run this command?",
+    "  npm test",
+    "❯ 1. Yes",
+    "  2. No, and tell Copilot what to do differently (Esc)"
+  ],
+  "expect": {
+    "assistant": "copilot-cli"
+  }
+}

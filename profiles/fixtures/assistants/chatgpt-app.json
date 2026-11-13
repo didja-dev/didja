@@ -1,0 +1,18 @@
+{
+  "about": "The ChatGPT app labels both turns.",
+  "profile": "chatgpt",
+  "window": {
+    "app": "ChatGPT",
+    "bundle": "com.openai.chat",
+    "title": "Setup"
+  },
+  "lines": [
+    "⟦Message 2⟧",
+    "ChatGPT said:",
+    "1. Install the CLI",
+    "2. Log in"
+  ],
+  "expect": {
+    "assistant": "chatgpt"
+  }
+}

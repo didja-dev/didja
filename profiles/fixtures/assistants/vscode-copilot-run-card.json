@@ -1,0 +1,19 @@
+{
+  "about": "Copilot's agent in VS Code asking to run a command.",
+  "profile": "vscode-copilot",
+  "window": {
+    "app": "Code",
+    "bundle": "com.microsoft.VSCode",
+    "title": "acme-web"
+  },
+  "lines": [
+    "⟦Chat⟧",
+    "Run zsh command?",
+    "npm run build",
+    "Allow",
+    "Skip"
+  ],
+  "expect": {
+    "assistant": "vscode-copilot"
+  }
+}

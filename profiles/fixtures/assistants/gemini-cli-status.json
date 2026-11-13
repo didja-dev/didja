@@ -1,0 +1,17 @@
+{
+  "about": "Gemini CLI by its status line.",
+  "profile": "gemini-cli",
+  "window": {
+    "app": "Warp",
+    "bundle": "dev.warp.Warp-Stable",
+    "title": "zsh"
+  },
+  "lines": [
+    "✦ I'll add the route.",
+    "⠏ Thinking (esc to cancel, 4s)",
+    "~/acme-web   no sandbox   gemini-0.0"
+  ],
+  "expect": {
+    "assistant": "gemini-cli"
+  }
+}

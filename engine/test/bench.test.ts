@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'bun:test';
-import { byFamily, FAMILIES, familyTable, loadScenarios, runScenario, SCENARIOS, table, totals } from '../bench/run.ts';
+import { byFamily, FAMILIES, FAMILY_TOOLS, familyTable, loadScenarios, recognition, runScenario, SCENARIOS, table, totals } from '../bench/run.ts';
 import type { Scenario } from '../bench/run.ts';
 
 const scenarios = loadScenarios();
@@ -65,6 +65,16 @@ test('every AI tool the corpus covers has scenarios, with at least one that must
   expect(Math.max(...scenarios.filter((s) => s.family === 'first-day').map((s) => s.expect.tasks.length))).toBeGreaterThanOrEqual(6);
   // Near-misses at a done target: labelled tasks that were never done, with the target page on screen.
   expect(scenarios.filter((s) => s.family === 'done-target' && s.expect.tasks.some((t) => t.done === null)).length).toBeGreaterThanOrEqual(3);
+});
+
+test('every AI tool family is recognised in every one of its scenarios (SCR-83)', () => {
+  const results = scenarios.map((s) => runScenario(s));
+  for (const family of Object.keys(FAMILY_TOOLS) as (keyof typeof FAMILY_TOOLS)[]) {
+    const r = recognition(family, results)!;
+    expect({ family, ...r }).toEqual({ family, seen: r.of, of: r.of });
+  }
+  // A plain document or app is never taken for an AI tool.
+  for (const r of results.filter((x) => x.family === 'editor' || x.family === 'notes')) expect(r.recognised).toEqual([]);
 });
 
 test('the report has one row per tool family, and its totals add up to the whole', () => {

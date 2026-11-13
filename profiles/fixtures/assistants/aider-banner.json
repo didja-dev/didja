@@ -1,0 +1,18 @@
+{
+  "about": "Aider by its banner and token report.",
+  "profile": "aider",
+  "window": {
+    "app": "Terminal",
+    "bundle": "com.apple.Terminal",
+    "title": "zsh"
+  },
+  "lines": [
+    "Aider v0.0.0",
+    "Model: example-model",
+    "> add an index",
+    "Tokens: 2.1k sent, 300 received."
+  ],
+  "expect": {
+    "assistant": "aider"
+  }
+}

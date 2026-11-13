@@ -1,0 +1,13 @@
+{
+  "$schema": "../schema/assistant.schema.json",
+  "id": "devin",
+  "name": "Devin",
+  "kind": "chat",
+  "about": "A Devin session at app.devin.ai.",
+  "match": {
+    "hosts": [
+      "app.devin.ai"
+    ]
+  },
+  "status": "builtIn"
+}

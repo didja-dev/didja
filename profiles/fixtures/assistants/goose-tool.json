@@ -1,0 +1,17 @@
+{
+  "about": "Goose by its tool rule.",
+  "profile": "goose",
+  "window": {
+    "app": "iTerm2",
+    "bundle": "com.googlecode.iterm2",
+    "title": "zsh"
+  },
+  "lines": [
+    "─── shell | developer ──────────",
+    "command: bun run build",
+    "Build completed."
+  ],
+  "expect": {
+    "assistant": "goose"
+  }
+}

@@ -4,7 +4,8 @@ import { accountOf, baseSubject, responseAction, isAutomatic, isMine, isRecent, 
 import type { MailIdentity, MailReader } from './email.ts';
 import { chatApp, chatKey, asksForAcknowledgement, chatTaskTitle, isEmojiOnly, isPositiveEmoji, isReaction, lineHash, plainReactions, reactedTo, namesMe, chatSourceRef, chatTime, isMine as isMyMessage, mayAskOfMe, parseChatMessages, plainlyDefers, sentBefore } from './chat.ts';
 import type { ChatMessage, ChatReader, ReplyJudge } from './chat.ts';
-import { assemble, classifySource, doneByClaude, EDITORS, extractCommands, extractChecklists, replyAround, sourceRef, splitClaudeCode, stepLine, TERMINALS } from './extract.ts';
+import { agentWork, assistantFor, hasTurns } from './assistants.ts';
+import { assemble, doneByClaude, EDITORS, extractCommands, extractChecklists, replyAround, sourceRef, splitClaudeCode, stepLine, TERMINALS } from './extract.ts';
 import { rewordPlacesOnce } from './missed.ts';
 import { localModelOf } from './localmodel.ts';
 import { cleanCriteria, groundCriteria, matchCriteria, matchedWords } from './donecriteria.ts';
@@ -322,8 +323,9 @@ function pass(store: Store, now: Date, options: PollOptions): PollStats {
       stats.suggested += chat.suggested;
       continue;
     }
-    const kind = classifySource(latest, text);
-    if (!kind) {
+    const assistant = assistantFor(latest, text);
+    const kind = assistant?.sourceKind ?? null;
+    if (!assistant || !kind) {
       drop(TERMINALS.has(latest.bundleId) ? 'terminal' : 'other', 'read');
       continue;
     }
@@ -331,15 +333,18 @@ function pass(store: Store, now: Date, options: PollOptions): PollStats {
     stats.claudeWindows++;
     claudeWindows.add(windowKey(latest));
 
-    const chat = kind !== 'claude-code';
+    const chat = assistant.kind === 'chat';
     // A Claude reply has no date, so "only new messages" never leaves one out: a list you scroll
     // back to see, or one that arrived while you were in another window, is still yours.
     // In Claude Code only Claude's replies hold steps for you: not its tool calls and their output
     // (a file it read, `cat` of a doc), nor what you typed (SCR-65).
-    const transcript = chat ? null : splitClaudeCode(text);
+    const transcript = kind === 'claude-code' ? splitClaudeCode(text) : null;
     // Where a link in a reply points is not a step's words, nor a marker to tick it by (SCR-68).
     const source = withoutLinkTargets(transcript?.replies ?? text);
-    const lists = extractChecklists(source, { claudeOnly: chat, joinWrapped: !chat, includeAssistant: true });
+    // A chat keeps only the assistant's messages. One whose text shows no turns at all is ignored
+    // (Claude: a document preview) or read whole (a site with no labels, such as Gemini), by its profile.
+    const claudeOnly = chat && (assistant.turns.whenUnlabelled === 'ignore' || hasTurns(assistant, source));
+    const lists = extractChecklists(source, { claudeOnly, joinWrapped: !chat, includeAssistant: true });
     // Commands Claude tells you to run, outside any list (a list's own commands are already in it).
     const listed = lists.flatMap((l) => l.items.flatMap(function all(i: ChecklistItem): string[] {
       return [i.title, ...i.fragments, ...i.children.flatMap(all)];
@@ -351,6 +356,9 @@ function pass(store: Store, now: Date, options: PollOptions): PollStats {
     if (lists.length === 0) drop(kind, 'no-list');
     for (const list of lists) {
       drop(kind, 'seen');
+      // A list under the agent's own plan or todo heading ("Planned for 3 steps", "# Todos"), by its
+      // profile (SCR-83), is the agent's work, not steps for you.
+      if (list.actor !== 'assistant' && list.title && agentWork(assistant, list.title) === 'todo') list.actor = 'assistant';
       if (list.actor === 'assistant') {
         drop(kind, 'claude-own');
         // Claude's own plan. It may have been taken as yours before the telling line arrived: take it back.

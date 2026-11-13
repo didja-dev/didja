@@ -1,0 +1,17 @@
+{
+  "about": "A prompt theme with ❯ and a status tool printing ● lines, but not both from an agent: one alone never counts.",
+  "profile": null,
+  "window": {
+    "app": "Ghostty",
+    "bundle": "com.mitchellh.ghostty",
+    "title": "zsh"
+  },
+  "lines": [
+    "~/acme-web main",
+    "❯ git log --oneline -1",
+    "a1b2c3d Fix the build"
+  ],
+  "expect": {
+    "assistant": null
+  }
+}

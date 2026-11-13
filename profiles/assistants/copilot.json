@@ -1,0 +1,24 @@
+{
+  "$schema": "../schema/assistant.schema.json",
+  "id": "copilot",
+  "name": "Copilot",
+  "kind": "chat",
+  "about": "Microsoft Copilot at copilot.microsoft.com and its Mac app. Replies are plain markdown; the app labels them \"Copilot said:\".",
+  "match": {
+    "bundleIds": [
+      "com.microsoft.copilot"
+    ],
+    "hosts": [
+      "copilot.microsoft.com"
+    ]
+  },
+  "turns": {
+    "user": [
+      "^\\s*You said:"
+    ],
+    "assistant": [
+      "^\\s*Copilot said:"
+    ]
+  },
+  "status": "builtIn"
+}

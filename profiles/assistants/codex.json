@@ -1,0 +1,55 @@
+{
+  "$schema": "../schema/assistant.schema.json",
+  "id": "codex",
+  "name": "Codex",
+  "kind": "terminal",
+  "about": "OpenAI's Codex CLI. Its banner is \">_ OpenAI Codex\"; it marks its own work with \"• Ran\", \"• Updated Plan\" (✔ done, □ to do) and asks \"Would you like to run the following command?\".",
+  "match": {
+    "terminal": {
+      "titles": [
+        "(?i)^codex\\b"
+      ],
+      "signatures": [
+        ">_ OpenAI Codex",
+        "\\bcontext left\\b",
+        "^\\s*• Updated Plan",
+        "Would you like to run the following command\\?",
+        "tell Codex what to do differently"
+      ],
+      "together": [
+        [
+          "^\\s*• Ran ",
+          "^\\s*└ "
+        ],
+        [
+          "^\\s*• Worked for \\d",
+          "^\\s*› "
+        ]
+      ]
+    }
+  },
+  "turns": {
+    "userPrompt": [
+      "^\\s*› "
+    ],
+    "reply": [
+      "^\\s*• "
+    ]
+  },
+  "agentWork": {
+    "approval": [
+      "Would you like to run the following command\\?",
+      "^\\s*› 1\\. Yes",
+      "^\\s*\\d\\. No, and tell Codex"
+    ],
+    "ran": [
+      "^\\s*• Ran ",
+      "^\\s*✓ • \\d",
+      "^\\s*✗ \\(\\d+\\)"
+    ],
+    "todo": [
+      "^\\s*(?:└\\s+)?[✔□]\\s"
+    ]
+  },
+  "status": "builtIn"
+}

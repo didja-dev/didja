@@ -1,0 +1,30 @@
+{
+  "$schema": "../schema/assistant.schema.json",
+  "id": "windsurf",
+  "name": "Windsurf",
+  "kind": "editor",
+  "about": "Windsurf's Cascade panel. It says \"Ran background terminal command\" and shows its own plan as \"Planned for N steps\".",
+  "match": {
+    "editor": {
+      "signatures": [
+        "^\\s*Ran (?:background )?terminal command\\b",
+        "^\\s*Planned for \\d+ steps"
+      ],
+      "together": [
+        [
+          "^⟦Chat⟧$",
+          "^\\s*Cascade\\s*$"
+        ]
+      ]
+    }
+  },
+  "agentWork": {
+    "ran": [
+      "^\\s*Ran (?:background )?terminal command\\b"
+    ],
+    "todo": [
+      "^\\s*Planned for \\d+ steps"
+    ]
+  },
+  "status": "builtIn"
+}

@@ -1,0 +1,26 @@
+{
+  "$schema": "../schema/assistant.schema.json",
+  "id": "goose",
+  "name": "Goose",
+  "kind": "terminal",
+  "about": "Block's Goose. Its banner is a goose (\"__( O)>\"), its tab title may be 🪿, and each tool call is a rule like \"─── shell | developer ───\".",
+  "match": {
+    "terminal": {
+      "titles": [
+        "🪿",
+        "(?i)^goose\\b"
+      ],
+      "signatures": [
+        "__\\( O\\)>",
+        "^\\s*─── \\w+ \\| \\w+ ──"
+      ]
+    }
+  },
+  "agentWork": {
+    "ran": [
+      "^\\s*─── \\w+ \\| \\w+ ──",
+      "^\\s*command: "
+    ]
+  },
+  "status": "builtIn"
+}

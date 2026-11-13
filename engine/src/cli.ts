@@ -1,5 +1,6 @@
 #!/usr/bin/env bun
 import { doctorReport, formatDoctor } from './doctor.ts';
+import { assistants, assistantsDir } from './assistants.ts';
 import { profiles, profilesDir } from './profiles.ts';
 import { canvasMarkdown, canvasText, parseCanvasLine } from './canvas.ts';
 import { doneAt, missedReport, rewordPlacesOnce, wordForPlace } from './missed.ts';
@@ -33,7 +34,7 @@ const USAGE = `didja <command>
                       show open tasks (--all includes done/dismissed)
   status              is capture running, and when did it last see something
   doctor [--json]     troubleshooting report: why Didja reads nothing or makes no tasks (counts only)
-  profiles [--json]   the app profiles: how each chat and email app is read
+  profiles [--json]   the app profiles (how each chat and email app is read) and the AI tools (profiles/assistants)
   mcp                 serve your own Claude over MCP (stdio), when turned on; see docs/AGENTS.md
   mcp on|off|status|log [--json]
                       let your Claude read Didja (masked), or not; and what it has asked
@@ -428,12 +429,19 @@ async function main(argv: string[]): Promise<number> {
       case 'profiles': {
         const list = profiles();
         if (args.includes('--json')) {
-          console.log(JSON.stringify(list, null, 2));
+          console.log(JSON.stringify({ apps: list, assistants: assistants().map((a) => a.file) }, null, 2));
         } else {
           console.log(`From ${profilesDir() ?? 'nowhere: no profiles were found'}`);
           for (const p of list) {
             const where = [...(p.match.bundleIds ?? []), ...(p.match.urlPrefixes ?? []), ...(p.match.hosts ?? [])].join(', ');
             console.log(`  ${p.id.padEnd(14)} ${p.kind.padEnd(6)} ${p.name}${p.status && p.status !== 'builtIn' ? ` (${p.status})` : ''} — ${where}`);
+          }
+          // AI tools (SCR-83): which windows are which assistant.
+          console.log(`AI tools, from ${assistantsDir() ?? 'nowhere: no assistant profiles were found'}`);
+          for (const a of assistants()) {
+            const m = a.match;
+            const where = [...m.bundleIds, ...m.hosts, ...(m.terminal ? ['in a terminal'] : []), ...(m.editor ? ['in an editor'] : [])].join(', ');
+            console.log(`  ${a.id.padEnd(14)} ${a.kind.padEnd(8)} ${a.name}${a.status !== 'builtIn' ? ` (${a.status})` : ''} — ${where}`);
           }
         }
         return 0;

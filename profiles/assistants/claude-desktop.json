@@ -1,0 +1,24 @@
+{
+  "$schema": "../schema/assistant.schema.json",
+  "id": "claude-desktop",
+  "name": "Claude",
+  "kind": "chat",
+  "order": 0,
+  "sourceKind": "claude-desktop",
+  "about": "The Claude app for Mac. Capture starts each message with a ⟦Message N⟧ section; yours carry \"You said:\", Claude's \"Claude responded:\".",
+  "match": {
+    "bundleIds": [
+      "com.anthropic.claudefordesktop"
+    ]
+  },
+  "turns": {
+    "user": [
+      "^\\s*You said:"
+    ],
+    "assistant": [
+      "^\\s*Claude responded:"
+    ],
+    "whenUnlabelled": "ignore"
+  },
+  "status": "builtIn"
+}

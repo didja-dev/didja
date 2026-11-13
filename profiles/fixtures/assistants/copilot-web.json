@@ -1,0 +1,18 @@
+{
+  "about": "copilot.microsoft.com.",
+  "profile": "copilot",
+  "window": {
+    "app": "Google Chrome",
+    "bundle": "com.google.Chrome",
+    "title": "Microsoft Copilot",
+    "url": "https://copilot.microsoft.com/chats/000"
+  },
+  "lines": [
+    "### Steps",
+    "- Register the app",
+    "- Copy the tenant ID"
+  ],
+  "expect": {
+    "assistant": "copilot"
+  }
+}

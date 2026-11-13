@@ -1,0 +1,18 @@
+{
+  "about": "gemini.google.com: no labels, ## headings.",
+  "profile": "gemini",
+  "window": {
+    "app": "Google Chrome",
+    "bundle": "com.google.Chrome",
+    "title": "Gemini",
+    "url": "https://gemini.google.com/app/000"
+  },
+  "lines": [
+    "## Set up",
+    "1. Create the OAuth client",
+    "2. Copy the client ID"
+  ],
+  "expect": {
+    "assistant": "gemini"
+  }
+}

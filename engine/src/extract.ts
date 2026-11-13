@@ -7,9 +7,11 @@
  */
 
 import type { Observation } from './store.ts';
+import { assistantByKind, assistantFor, assistants } from './assistants.ts';
 import { stableTitle } from './window.ts';
 
-export type SourceKind = 'claude-desktop' | 'claude-web' | 'claude-code';
+/** The tool a task came from: an assistant profile's source kind ('claude-desktop', 'claude-web', 'claude-code', 'chatgpt', 'codex'…). */
+export type SourceKind = string;
 
 export const OUTLOOK = 'com.microsoft.Outlook';
 
@@ -59,42 +61,15 @@ function askedText(lines: string[]): string | null {
   return words === '' ? null : words;
 }
 
-const CLAUDE_DESKTOP = 'com.anthropic.claudefordesktop';
-export const TERMINALS = new Set([
-  'com.apple.Terminal', 'com.googlecode.iterm2', 'com.mitchellh.ghostty', 'dev.warp.Warp-Stable',
-  'net.kovidgoyal.kitty', 'org.alacritty', 'com.github.wez.wezterm', 'co.zeit.hyper',
-]);
-export const EDITORS = new Set([
-  'com.microsoft.VSCode', 'com.todesktop.230313mzl4w4u92', 'dev.zed.Zed', 'com.exafunction.windsurf',
-]);
-/** Text that only shows up in the Claude Code terminal UI. */
-const CLAUDE_CODE_SIGNATURES = /esc to interrupt|\? for shortcuts|shift\+tab to cycle|Claude Code|⏺/;
-/**
- * Newer Claude Code (SCR-80): replies start with "●", the prompt is "❯", the tab title may be just
- * the terminal's, and after each reply a status line says how long it worked: "✻ Baked for 4s ·
- * done 13:13", "* Cogitated for 1m 2s". That status line is Claude Code's own; "●" and "❯" are
- * each common elsewhere (prompt themes, status output), so they count only together.
- */
-const CLAUDE_CODE_STATUS = /^\s*[*✻✳✶✢✽·]\s+\p{Lu}\p{Ll}+(?:ed|ing)\s+for\s+(?:\d+h\s*)?(?:\d+m\s*)?\d+s\b/mu;
-const CLAUDE_CODE_TURNS = (text: string) => /^\s*❯ \S/m.test(text) && /^\s*● \S/m.test(text);
-/** Claude Code's own interface (its prompt box's hints), never words a document could hold. */
-const CLAUDE_CODE_UI = /esc to interrupt|\? for shortcuts|shift\+tab to cycle|accept edits on|bypass permissions on|plan mode on/i;
+// Terminals and editors, and which windows are which AI tool, live with the assistant profiles (SCR-83).
+export { EDITORS, TERMINALS } from './assistants.ts';
 
-/** Which Claude surface a window shows, or null if it is not a Claude window. */
+/** Which AI tool a window shows (its assistant profile's source kind), or null if it is not one. */
 export function classifySource(
   window: Pick<Observation, 'bundleId' | 'windowTitle' | 'url'>,
   text: string,
 ): SourceKind | null {
-  if (window.bundleId === CLAUDE_DESKTOP) return 'claude-desktop';
-  if (window.url && /^https?:\/\/([^/]+\.)?claude\.ai(\/|$)/i.test(window.url)) return 'claude-web';
-  if (TERMINALS.has(window.bundleId)) {
-    if (/claude/i.test(window.windowTitle) || /^\s*✳/.test(window.windowTitle)) return 'claude-code';
-    if (CLAUDE_CODE_SIGNATURES.test(text) || CLAUDE_CODE_STATUS.test(text) || CLAUDE_CODE_TURNS(text)) return 'claude-code';
-  }
-  // An editor shows documents: a file named CLAUDE.md, or a doc about Claude Code, is not Claude
-  // Code. Only the panel's own interface says it is there (SCR-65).
-  if (EDITORS.has(window.bundleId) && CLAUDE_CODE_UI.test(text)) return 'claude-code';
-  return null;
+  return assistantFor(window, text)?.sourceKind ?? null;
 }
 
 /**
@@ -115,6 +90,14 @@ export function sourceRef(window: Pick<Observation, 'app' | 'windowTitle'>, kind
     // A browser tab reads "Stripe webhooks - Claude".
     title = title.replace(/\s+[-–—|]\s+Claude$/i, '').replace(/^Claude$/i, '');
     return title ? `Claude — ${title}` : 'Claude';
+  }
+  // Another AI tool (SCR-83): its name first, as for Claude; a terminal or editor named at the end.
+  const tool = kind && !kind.startsWith('claude-') ? assistantByKind(kind) : null;
+  if (tool) {
+    const same = (x: string) => x.toLowerCase() === tool.name.toLowerCase() || x.toLowerCase() === tool.id || x === window.app;
+    title = title.replace(new RegExp(`\\s+[-–—|·]\\s+${tool.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i'), '');
+    const named = title && !same(title) ? `${tool.name} — ${title}` : tool.name;
+    return tool.kind === 'chat' || window.app === tool.name ? named : `${named} (${window.app})`;
   }
   return title && title !== window.app ? `${window.app} — ${title}` : window.app;
 }
@@ -186,6 +169,23 @@ function addLine(lines: string[], line: string, firstOfBatch: boolean): void {
   }
 }
 const CLAUDE_LABEL = /^\s*Claude responded:/;
+
+/**
+ * Turn labels from the assistant profiles (SCR-83): "You said:", "ChatGPT said:", "Copilot said:".
+ * Claude's own two are always known, so a missing profiles folder changes nothing for Claude.
+ */
+let labelCache: { from: unknown; user: RegExp[]; assistant: RegExp[] } | null = null;
+function turnLabels(): { user: RegExp[]; assistant: RegExp[] } {
+  const all = assistants();
+  if (labelCache?.from !== all) {
+    labelCache = { from: all, user: [USER_LABEL, ...all.flatMap((a) => a.turns.user)], assistant: [CLAUDE_LABEL, ...all.flatMap((a) => a.turns.assistant)] };
+  }
+  return labelCache;
+}
+const isUserLabel = (line: string) => turnLabels().user.some((r) => r.test(line));
+const isAssistantLabel = (line: string) => turnLabels().assistant.some((r) => r.test(line));
+/** A line's turn label removed: "ChatGPT said: Here's how" → " Here's how". */
+const withoutLabel = (line: string) => line.replace(/^\s*[^:]{1,40}:/, '');
 /** Non-empty lines allowed between two items (wrapped text, sub-bullets, code). */
 const MAX_GAP_LINES = 8;
 const MIN_ITEMS = 2;
@@ -285,11 +285,11 @@ export function replyAround(text: string, firstStep: string, max = 2000): string
   const lines = text.split(/\r?\n/);
   const at = lines.findIndex((l) => l.includes(firstStep));
   if (at === -1) return '';
-  const boundary = (l: string) => SECTION_LINE.test(l) || USER_LABEL.test(l);
+  const boundary = (l: string) => SECTION_LINE.test(l) || isUserLabel(l);
   let start = at;
-  while (start > 0 && !boundary(lines[start - 1]!) && !CLAUDE_LABEL.test(lines[start]!)) start--;
+  while (start > 0 && !boundary(lines[start - 1]!) && !isAssistantLabel(lines[start]!)) start--;
   let end = at + 1;
-  while (end < lines.length && !boundary(lines[end]!) && !CLAUDE_LABEL.test(lines[end]!)) end++;
+  while (end < lines.length && !boundary(lines[end]!) && !isAssistantLabel(lines[end]!)) end++;
   let reply = lines.slice(start, end).map((l) => l.trimEnd()).filter((l) => l.trim() !== '').join('\n');
   if (reply.length > max) {
     const offset = reply.indexOf(firstStep);
@@ -484,7 +484,7 @@ export function extractChecklists(text: string, opts: ExtractOptions = {}): Chec
     if (!SECTION_LINE.test(lines[i]!)) continue;
     let end = i + 1;
     while (end < lines.length && !SECTION_LINE.test(lines[end]!)) end++;
-    if (lines.slice(i + 1, end).some((l) => USER_LABEL.test(l))) yours.add(lines[i]!);
+    if (lines.slice(i + 1, end).some(isUserLabel)) yours.add(lines[i]!);
   }
   /** Set while inside a message whose author is known from its section. */
   let sectionOwner: Author = null;
@@ -535,11 +535,12 @@ export function extractChecklists(text: string, opts: ExtractOptions = {}): Chec
       lastProse = null;
       continue;
     }
-    if (USER_LABEL.test(line) || CLAUDE_LABEL.test(line)) {
+    if (isUserLabel(line) || isAssistantLabel(line)) {
       close();
-      if (!sectionOwner) author = USER_LABEL.test(line) ? 'user' : 'claude';
-      if (!sectionOwner && USER_LABEL.test(line)) asked = askedText([line]) ?? asked;
-      messageSummary = groupTitle(line.replace(/^\s*(You said|Claude responded):/, ''));
+      const user = isUserLabel(line);
+      if (!sectionOwner) author = user ? 'user' : 'claude';
+      if (!sectionOwner && user) asked = askedText([line]) ?? asked;
+      messageSummary = groupTitle(withoutLabel(line));
       lastProse = null;
       continue;
     }
@@ -630,7 +631,7 @@ export function extractChecklists(text: string, opts: ExtractOptions = {}): Chec
     // I'll start" shows the list was Claude's plan even when its heading did not.
     for (let i = end + 1; i < lines.length && list.after.length < 6; i++) {
       const line = lines[i]!;
-      if (SECTION_LINE.test(line) || USER_LABEL.test(line) || CLAUDE_LABEL.test(line)) break;
+      if (SECTION_LINE.test(line) || isUserLabel(line) || isAssistantLabel(line)) break;
       if (line.trim() !== '' && !NUMBERED_LINE.test(line) && !BULLET_LINE.test(line)) list.after.push(line.trim().slice(0, 240));
     }
     if (list.actor === null) list.actor = followUpActor(list.after);
@@ -674,7 +675,7 @@ export function extractCommands(text: string): Checklist[] {
   let asked: string | null = null;
   const flush = (end: number) => {
     const body = lines.slice(start, end);
-    if (body.some((l) => USER_LABEL.test(l))) {
+    if (body.some(isUserLabel)) {
       asked = askedText(body) ?? asked; // your own message: what the next reply answers
       return;
     }
@@ -687,7 +688,7 @@ export function extractCommands(text: string): Checklist[] {
       for (let j = i - 1; j >= Math.max(0, i - 2); j--) {
         const l = body[j]!.trim();
         if (!l || commandLine(l) || /^\d+ lines?$/i.test(l)) continue;
-        lead = l.replace(CLAUDE_LABEL, '').trim();
+        lead = (isAssistantLabel(l) ? withoutLabel(l) : l).trim();
         break;
       }
       const hinted = body.slice(i + 1, i + 3).some((l) => TERMINAL_HINT.test(l)) || TERMINAL_HINT.test(lead);

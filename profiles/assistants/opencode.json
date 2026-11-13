@@ -1,0 +1,38 @@
+{
+  "$schema": "../schema/assistant.schema.json",
+  "id": "opencode",
+  "name": "OpenCode",
+  "kind": "terminal",
+  "about": "OpenCode. Its own todo list is \"# Todos\" with [✓] and [ ] boxes, it asks \"Permission required\" before a tool, and its status says \"esc interrupt\".",
+  "match": {
+    "terminal": {
+      "titles": [
+        "(?i)^opencode\\b"
+      ],
+      "signatures": [
+        "\\besc interrupt\\b"
+      ],
+      "together": [
+        [
+          "^\\s*# Todos\\s*$",
+          "^\\s*\\[[✓• ]\\] "
+        ],
+        [
+          "^\\s*Permission required\\s*$",
+          "Allow once"
+        ]
+      ]
+    }
+  },
+  "agentWork": {
+    "approval": [
+      "^\\s*Permission required\\s*$",
+      "Allow once\\s+Allow always"
+    ],
+    "todo": [
+      "^\\s*# Todos\\s*$",
+      "^\\s*\\[[✓• ]\\] "
+    ]
+  },
+  "status": "builtIn"
+}

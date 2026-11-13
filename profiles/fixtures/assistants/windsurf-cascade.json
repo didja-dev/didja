@@ -1,0 +1,17 @@
+{
+  "about": "Windsurf's Cascade panel.",
+  "profile": "windsurf",
+  "window": {
+    "app": "Windsurf",
+    "bundle": "com.exafunction.windsurf",
+    "title": "acme-web"
+  },
+  "lines": [
+    "⟦Chat⟧",
+    "Cascade",
+    "Planned for 3 steps"
+  ],
+  "expect": {
+    "assistant": "windsurf"
+  }
+}

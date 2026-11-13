@@ -1,0 +1,17 @@
+{
+  "about": "Claude Code's panel in Cursor: its prompt box's hints.",
+  "profile": "claude-code",
+  "window": {
+    "app": "Cursor",
+    "bundle": "com.todesktop.230313mzl4w4u92",
+    "title": "acme-web"
+  },
+  "lines": [
+    "● Done. On your side:",
+    "  1. Set STRIPE_KEY in Vercel",
+    "⏵⏵ accept edits on (shift+tab to cycle)"
+  ],
+  "expect": {
+    "assistant": "claude-code"
+  }
+}

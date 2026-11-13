@@ -1,0 +1,15 @@
+{
+  "about": "Goose by its tab title.",
+  "profile": "goose",
+  "window": {
+    "app": "iTerm2",
+    "bundle": "com.googlecode.iterm2",
+    "title": "🪿 goose"
+  },
+  "lines": [
+    "Hello! How can I help?"
+  ],
+  "expect": {
+    "assistant": "goose"
+  }
+}

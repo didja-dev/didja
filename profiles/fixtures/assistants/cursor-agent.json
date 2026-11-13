@@ -1,0 +1,18 @@
+{
+  "about": "Cursor's agent after running a command.",
+  "profile": "cursor",
+  "window": {
+    "app": "Cursor",
+    "bundle": "com.todesktop.230313mzl4w4u92",
+    "title": "acme-web"
+  },
+  "lines": [
+    "⟦Chat⟧",
+    "Ran terminal command: bun test",
+    "Next steps for you:",
+    "1. Set RESEND_API_KEY in Vercel"
+  ],
+  "expect": {
+    "assistant": "cursor"
+  }
+}

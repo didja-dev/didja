@@ -1,0 +1,20 @@
+{
+  "about": "The Claude app: your message and Claude's reply under their labels.",
+  "profile": "claude-desktop",
+  "window": {
+    "app": "Claude",
+    "bundle": "com.anthropic.claudefordesktop",
+    "title": "Deploy"
+  },
+  "lines": [
+    "⟦Message 1⟧",
+    "You said: how do I deploy?",
+    "⟦Message 2⟧",
+    "Claude responded: Two steps:",
+    "1. Set DATABASE_URL in Vercel",
+    "2. Run the migration"
+  ],
+  "expect": {
+    "assistant": "claude-desktop"
+  }
+}

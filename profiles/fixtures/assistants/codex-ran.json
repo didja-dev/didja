@@ -1,0 +1,17 @@
+{
+  "about": "Codex CLI by its \"• Ran\" line and the output under it.",
+  "profile": "codex",
+  "window": {
+    "app": "iTerm2",
+    "bundle": "com.googlecode.iterm2",
+    "title": "zsh"
+  },
+  "lines": [
+    "• Ran npm test",
+    "  └ 31 passing",
+    "    ✓ • 5ms"
+  ],
+  "expect": {
+    "assistant": "codex"
+  }
+}

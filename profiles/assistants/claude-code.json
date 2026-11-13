@@ -1,0 +1,64 @@
+{
+  "$schema": "../schema/assistant.schema.json",
+  "id": "claude-code",
+  "name": "Claude Code",
+  "kind": "terminal",
+  "order": 0,
+  "sourceKind": "claude-code",
+  "about": "Claude Code in a terminal, or its panel in an editor. Older versions start replies with ⏺, newer ones with ● and the prompt with ❯, and after each reply say how long they worked (\"✻ Baked for 4s · done\"). In an editor only the panel's own hints count, never a document's words (SCR-65).",
+  "match": {
+    "terminal": {
+      "titles": [
+        "(?i)claude",
+        "^\\s*✳"
+      ],
+      "signatures": [
+        "esc to interrupt",
+        "\\? for shortcuts",
+        "shift\\+tab to cycle",
+        "Claude Code",
+        "⏺",
+        "^\\s*[*✻✳✶✢✽·]\\s+\\p{Lu}\\p{Ll}+(?:ed|ing)\\s+for\\s+(?:\\d+h\\s*)?(?:\\d+m\\s*)?\\d+s\\b"
+      ],
+      "together": [
+        [
+          "^\\s*❯ \\S",
+          "^\\s*● \\S"
+        ]
+      ]
+    },
+    "editor": {
+      "signatures": [
+        "(?i)esc to interrupt|\\? for shortcuts|shift\\+tab to cycle|accept edits on|bypass permissions on|plan mode on"
+      ]
+    }
+  },
+  "turns": {
+    "userPrompt": [
+      "^\\s*> ",
+      "^\\s*❯ "
+    ],
+    "reply": [
+      "^\\s*⏺ ",
+      "^\\s*● "
+    ]
+  },
+  "agentWork": {
+    "approval": [
+      "^\\s*Do you want to (?:proceed|make this edit|create)",
+      "^\\s*❯ 1\\. Yes"
+    ],
+    "ran": [
+      "^\\s*[⏺●] (?:Bash|Update|Write|Edit|Read|MultiEdit)\\(",
+      "^\\s*⎿ "
+    ],
+    "todo": [
+      "^\\s*[☐☒]\\s",
+      "^\\s*⎿\\s+[☐☒]\\s"
+    ]
+  },
+  "steps": [
+    "nameThenCommand"
+  ],
+  "status": "builtIn"
+}

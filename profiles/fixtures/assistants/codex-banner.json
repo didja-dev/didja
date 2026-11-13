@@ -1,0 +1,19 @@
+{
+  "about": "Codex CLI in iTerm, its banner and plan, in a tab titled zsh.",
+  "profile": "codex",
+  "window": {
+    "app": "iTerm2",
+    "bundle": "com.googlecode.iterm2",
+    "title": "zsh"
+  },
+  "lines": [
+    ">_ OpenAI Codex (v0.0.0)",
+    "• Updated Plan",
+    "  └ ✔ Read the module",
+    "    □ Add the endpoint",
+    "100% context left"
+  ],
+  "expect": {
+    "assistant": "codex"
+  }
+}

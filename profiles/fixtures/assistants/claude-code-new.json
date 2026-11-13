@@ -1,0 +1,18 @@
+{
+  "about": "Newer Claude Code: ● replies, the ❯ prompt and its status line, in a tab titled only zsh.",
+  "profile": "claude-code",
+  "window": {
+    "app": "Ghostty",
+    "bundle": "com.mitchellh.ghostty",
+    "title": "zsh"
+  },
+  "lines": [
+    "❯ add login",
+    "● Done. On your side:",
+    "  1. Add the redirect URL in Supabase",
+    "✻ Baked for 4s · done"
+  ],
+  "expect": {
+    "assistant": "claude-code"
+  }
+}

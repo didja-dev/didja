@@ -1,0 +1,18 @@
+{
+  "about": "Older Claude Code in Ghostty: ⏺ replies and the prompt box's hint.",
+  "profile": "claude-code",
+  "window": {
+    "app": "Ghostty",
+    "bundle": "com.mitchellh.ghostty",
+    "title": "zsh"
+  },
+  "lines": [
+    "> fix the build",
+    "⏺ Fixed. On your side:",
+    "  1. Set STRIPE_KEY in Vercel",
+    "? for shortcuts"
+  ],
+  "expect": {
+    "assistant": "claude-code"
+  }
+}

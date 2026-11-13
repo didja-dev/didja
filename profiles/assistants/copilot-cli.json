@@ -1,0 +1,43 @@
+{
+  "$schema": "../schema/assistant.schema.json",
+  "id": "copilot-cli",
+  "name": "Copilot CLI",
+  "kind": "terminal",
+  "about": "GitHub Copilot CLI. It asks \"Do you want to run this command?\" with \"No, and tell Copilot what to do differently\", and shows each tool as \"● … (shell)\" with its output under \"└\".",
+  "match": {
+    "terminal": {
+      "titles": [
+        "(?i)^copilot\\b"
+      ],
+      "signatures": [
+        "tell Copilot what to do differently"
+      ],
+      "together": [
+        [
+          "^\\s*● .*\\(shell\\)\\s*$",
+          "^\\s*└ "
+        ]
+      ]
+    }
+  },
+  "turns": {
+    "userPrompt": [
+      "^\\s*> "
+    ],
+    "reply": [
+      "^\\s*● "
+    ]
+  },
+  "agentWork": {
+    "approval": [
+      "^\\s*Do you want to run this command\\?",
+      "tell Copilot what to do differently",
+      "^\\s*❯ 1\\. Yes"
+    ],
+    "ran": [
+      "^\\s*● .*\\(shell\\)\\s*$",
+      "^\\s*└ "
+    ]
+  },
+  "status": "builtIn"
+}

@@ -1,0 +1,25 @@
+{
+  "$schema": "../schema/assistant.schema.json",
+  "id": "chatgpt",
+  "name": "ChatGPT",
+  "kind": "chat",
+  "about": "ChatGPT: the Mac app and chatgpt.com. The app labels turns \"You said:\" and \"ChatGPT said:\"; the site in a browser has no message sections.",
+  "match": {
+    "bundleIds": [
+      "com.openai.chat"
+    ],
+    "hosts": [
+      "chatgpt.com",
+      "chat.openai.com"
+    ]
+  },
+  "turns": {
+    "user": [
+      "^\\s*You said:"
+    ],
+    "assistant": [
+      "^\\s*ChatGPT said:"
+    ]
+  },
+  "status": "builtIn"
+}

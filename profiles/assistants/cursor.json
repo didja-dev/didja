@@ -1,0 +1,35 @@
+{
+  "$schema": "../schema/assistant.schema.json",
+  "id": "cursor",
+  "name": "Cursor",
+  "kind": "editor",
+  "about": "Cursor's agent panel. It says \"Ran terminal command\", asks \"Run command?\" with Skip and Run, and shows its own \"To-dos 3 of 5 Done\".",
+  "match": {
+    "editor": {
+      "signatures": [
+        "^\\s*Ran terminal command\\b",
+        "^\\s*To-dos \\d+ of \\d+"
+      ],
+      "together": [
+        [
+          "^⟦Chat⟧$",
+          "^\\s*Run command\\?\\s*$"
+        ]
+      ]
+    }
+  },
+  "agentWork": {
+    "approval": [
+      "^\\s*Run command\\?\\s*$",
+      "^\\s*(?:Skip|Run|Skipped)\\s*$"
+    ],
+    "ran": [
+      "^\\s*Ran terminal command\\b"
+    ],
+    "todo": [
+      "^\\s*To-dos \\d+ of \\d+",
+      "^\\s*[✓○]\\s"
+    ]
+  },
+  "status": "builtIn"
+}

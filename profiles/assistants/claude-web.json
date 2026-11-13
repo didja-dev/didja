@@ -1,0 +1,24 @@
+{
+  "$schema": "../schema/assistant.schema.json",
+  "id": "claude-web",
+  "name": "Claude",
+  "kind": "chat",
+  "order": 0,
+  "sourceKind": "claude-web",
+  "about": "claude.ai in any browser, laid out like the app.",
+  "match": {
+    "hosts": [
+      "claude.ai"
+    ]
+  },
+  "turns": {
+    "user": [
+      "^\\s*You said:"
+    ],
+    "assistant": [
+      "^\\s*Claude responded:"
+    ],
+    "whenUnlabelled": "ignore"
+  },
+  "status": "builtIn"
+}

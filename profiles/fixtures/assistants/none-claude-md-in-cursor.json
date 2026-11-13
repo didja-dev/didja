@@ -1,0 +1,17 @@
+{
+  "about": "A CLAUDE.md open in Cursor names Claude Code but shows none of its panel.",
+  "profile": null,
+  "window": {
+    "app": "Cursor",
+    "bundle": "com.todesktop.230313mzl4w4u92",
+    "title": "CLAUDE.md — acme-web"
+  },
+  "lines": [
+    "# Notes for Claude Code",
+    "1. Run the tests before committing",
+    "2. Keep commits small"
+  ],
+  "expect": {
+    "assistant": null
+  }
+}

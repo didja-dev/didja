@@ -20,6 +20,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { findChatReader, findCriteriaWriter, findJudge, findLooker, findMailReader, findReplyJudge, findTitler } from '../src/cli.ts';
+import { assistantFor } from '../src/assistants.ts';
 import { pollOnce } from '../src/engine.ts';
 import type { PollOptions } from '../src/engine.ts';
 import { SPEED_KINDS, SPEED_TARGET_MS, percentiles, seconds, speedKind } from '../src/quality.ts';
@@ -72,6 +73,8 @@ export interface Scenario {
 export interface ScenarioResult {
   id: string;
   family: Family;
+  /** The AI tools (assistant profile ids) recognised in the scenario's windows (SCR-83). */
+  recognised: string[];
   expected: number;
   captured: number;
   matched: number;
@@ -179,7 +182,7 @@ export function runScenario(s: Scenario, opts: PollOptions = {}, model: ModelCho
     .map((t) => ({ what: speedKind(t), ms: Math.max(0, Date.parse(t.shownAt) - Date.parse(t.seenAt!)) }));
   store.close();
   const result: ScenarioResult = {
-    id: s.id, family: s.family, expected: s.expect.tasks.length, captured: tasks.length, matched: 0, unwanted: [],
+    id: s.id, family: s.family, recognised: recognisedIn(s), expected: s.expect.tasks.length, captured: tasks.length, matched: 0, unwanted: [],
     ticked: 0, suggested: 0, missed: 0, wrongTicks: [], wrongSuggestions: [], latencies: [], titles: tasks.map((t) => t.title), speeds,
   };
   const taken = new Set<number>();
@@ -217,6 +220,28 @@ export function runScenario(s: Scenario, opts: PollOptions = {}, model: ModelCho
     }
   }
   return result;
+}
+
+/** Which assistant profiles a tool family's windows should be recognised as; families of no one tool have none. */
+export const FAMILY_TOOLS: Partial<Record<Family, string[]>> = {
+  'claude-app': ['claude-desktop', 'claude-web'], chatgpt: ['chatgpt'], gemini: ['gemini'], copilot: ['copilot'], 'claude-code': ['claude-code'],
+  codex: ['codex'], 'gemini-cli': ['gemini-cli'], 'copilot-cli': ['copilot-cli'], aider: ['aider'], opencode: ['opencode'], goose: ['goose'],
+  'vscode-copilot': ['vscode-copilot'], cursor: ['cursor'], windsurf: ['windsurf'], devin: ['devin'],
+};
+
+/** The assistant profiles that recognise any of a scenario's windows, each judged on its own step's lines. */
+export function recognisedIn(s: Scenario): string[] {
+  const ids = s.steps.map((step) => assistantFor({ bundleId: step.bundle, windowTitle: step.title, url: step.url ?? null }, step.text.join('\n'))?.id)
+    .filter((id): id is string => !!id);
+  return [...new Set(ids)];
+}
+
+/** Of a family's scenarios, how many had a window recognised as that family's tool; null for a family of no one tool. */
+export function recognition(family: Family, results: ScenarioResult[]): { seen: number; of: number } | null {
+  const tools = FAMILY_TOOLS[family];
+  if (!tools) return null;
+  const own = results.filter((r) => r.family === family);
+  return { seen: own.filter((r) => r.recognised.some((id) => tools.includes(id))).length, of: own.length };
 }
 
 export const SCENARIOS = join(import.meta.dir, 'scenarios');
@@ -270,17 +295,18 @@ export function totals(results: ScenarioResult[], scenarios: Scenario[]): Totals
 const pct = (x: number | null) => (x === null ? '—' : `${Math.round(x * 100)}%`);
 
 /** The totals per tool family (SCR-82), in `FAMILIES` order, only the families that have scenarios. */
-export function byFamily(results: ScenarioResult[], scenarios: Scenario[]): { family: Family; t: Totals }[] {
+export function byFamily(results: ScenarioResult[], scenarios: Scenario[]): { family: Family; t: Totals; seen: { seen: number; of: number } | null }[] {
   return FAMILIES.map((family) => ({
     family,
     t: totals(results.filter((r) => r.family === family), scenarios.filter((s) => s.family === family)),
+    seen: recognition(family, results),
   })).filter((x) => x.t.scenarios > 0);
 }
 
 /** One row per tool family: how many tasks it should make, how many it found, and what got ticked. */
-export function familyTable(rows: { family: Family; t: Totals }[]): string {
-  const head = ['family', 'scen', 'want', 'right', 'recall', 'got', 'precision', 'unwanted', 'done', 'ticked', 'asked', 'missed', 'WRONG tick', 'wrong ask'];
-  const cells = rows.map(({ family, t }) => [family, t.scenarios, t.expected, t.matched, pct(t.recall), t.captured, pct(t.precision),
+export function familyTable(rows: { family: Family; t: Totals; seen: { seen: number; of: number } | null }[]): string {
+  const head = ['family', 'scen', 'recognised', 'want', 'right', 'recall', 'got', 'precision', 'unwanted', 'done', 'ticked', 'asked', 'missed', 'WRONG tick', 'wrong ask'];
+  const cells = rows.map(({ family, t, seen }) => [family, t.scenarios, seen ? `${seen.seen}/${seen.of}` : '—', t.expected, t.matched, pct(t.recall), t.captured, pct(t.precision),
     t.unwanted, t.done, t.ticked, t.suggested, t.missed, t.wrongTicks, t.wrongSuggestions].map(String));
   const widths = head.map((h, i) => Math.max(h.length, ...cells.map((r) => r[i]!.length)));
   const line = (c: string[]) => c.map((x, i) => (i === 0 ? x.padEnd(widths[i]!) : x.padStart(widths[i]!))).join('  ');

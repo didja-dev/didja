@@ -1,0 +1,17 @@
+{
+  "about": "A docs site in Chrome that talks about ChatGPT and Gemini.",
+  "profile": null,
+  "window": {
+    "app": "Google Chrome",
+    "bundle": "com.google.Chrome",
+    "title": "Guide",
+    "url": "https://docs.example.com/guide"
+  },
+  "lines": [
+    "Using ChatGPT and Gemini",
+    "ChatGPT said: is the label the app shows."
+  ],
+  "expect": {
+    "assistant": null
+  }
+}

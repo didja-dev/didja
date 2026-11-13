@@ -1,0 +1,13 @@
+{
+  "$schema": "../schema/assistant.schema.json",
+  "id": "gemini",
+  "name": "Gemini",
+  "kind": "chat",
+  "about": "Gemini at gemini.google.com. No turn labels are known: its replies use ## headings, numbered lists and tables.",
+  "match": {
+    "hosts": [
+      "gemini.google.com"
+    ]
+  },
+  "status": "builtIn"
+}

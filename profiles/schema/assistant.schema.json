@@ -1,0 +1,226 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://didja.dev/schema/assistant.schema.json",
+  "title": "Didja assistant profile",
+  "description": "Which windows are an AI tool, and how to read them (profiles/README.md, AI tools).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "name",
+    "kind",
+    "match"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9-]+$"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "kind": {
+      "enum": [
+        "chat",
+        "terminal",
+        "editor"
+      ]
+    },
+    "status": {
+      "enum": [
+        "builtIn",
+        "community",
+        "communityNew"
+      ]
+    },
+    "about": {
+      "type": "string"
+    },
+    "sourceKind": {
+      "type": "string",
+      "pattern": "^[a-z0-9-]+$",
+      "description": "The source kind of its tasks; the id when not given."
+    },
+    "order": {
+      "type": "number",
+      "description": "Tried lowest first (default 100), then by file name."
+    },
+    "match": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "bundleIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "hosts": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "A site and its subdomains, http or https."
+        },
+        "terminal": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "titles": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 300
+              },
+              "description": "The window title matches any of these (terminals only)."
+            },
+            "signatures": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 300
+              },
+              "description": "Any one of these in the window's text is enough."
+            },
+            "together": {
+              "type": "array",
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 300
+                }
+              },
+              "description": "Each inner list counts only when all its patterns are in the text: weak signs such as a ● reply and a ❯ prompt."
+            }
+          }
+        },
+        "editor": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "titles": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 300
+              },
+              "description": "The window title matches any of these (terminals only)."
+            },
+            "signatures": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 300
+              },
+              "description": "Any one of these in the window's text is enough."
+            },
+            "together": {
+              "type": "array",
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 300
+                }
+              },
+              "description": "Each inner list counts only when all its patterns are in the text: weak signs such as a ● reply and a ❯ prompt."
+            }
+          }
+        }
+      }
+    },
+    "turns": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "user": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          }
+        },
+        "assistant": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          }
+        },
+        "userPrompt": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          }
+        },
+        "reply": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          }
+        },
+        "whenUnlabelled": {
+          "enum": [
+            "ignore",
+            "assistant"
+          ]
+        }
+      }
+    },
+    "agentWork": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "approval": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          }
+        },
+        "ran": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          }
+        },
+        "todo": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          }
+        }
+      }
+    },
+    "steps": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "nameThenCommand"
+        ]
+      }
+    }
+  }
+}

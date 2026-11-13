@@ -1,0 +1,47 @@
+{
+  "$schema": "../schema/assistant.schema.json",
+  "id": "gemini-cli",
+  "name": "Gemini CLI",
+  "kind": "terminal",
+  "about": "Google's Gemini CLI. Replies start with ✦, its status says \"(esc to cancel, 4s)\" and \"no sandbox\", and it asks \"Allow execution of [Shell]?\".",
+  "match": {
+    "terminal": {
+      "titles": [
+        "(?i)^gemini\\b"
+      ],
+      "signatures": [
+        "\\(esc to cancel, \\d+s\\)",
+        "\\bno sandbox\\b",
+        "Allow execution of \\["
+      ],
+      "together": [
+        [
+          "^\\s*✦ ",
+          "^\\s*Todo \\d+/\\d+ completed"
+        ]
+      ]
+    }
+  },
+  "turns": {
+    "userPrompt": [
+      "^\\s*> "
+    ],
+    "reply": [
+      "^\\s*✦ "
+    ]
+  },
+  "agentWork": {
+    "approval": [
+      "Allow execution of \\[",
+      "^\\s*●? ?\\d\\. Yes, allow"
+    ],
+    "ran": [
+      "^\\s*✔ Shell "
+    ],
+    "todo": [
+      "^\\s*Todo \\d+/\\d+ completed",
+      "^\\s*[✔○]\\s"
+    ]
+  },
+  "status": "builtIn"
+}

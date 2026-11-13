@@ -1,0 +1,19 @@
+{
+  "about": "claude.ai in Chrome.",
+  "profile": "claude-web",
+  "window": {
+    "app": "Google Chrome",
+    "bundle": "com.google.Chrome",
+    "title": "Deploy - Claude",
+    "url": "https://claude.ai/chat/000"
+  },
+  "lines": [
+    "⟦Message 2⟧",
+    "Claude responded: Two steps:",
+    "1. Set DATABASE_URL in Vercel",
+    "2. Run the migration"
+  ],
+  "expect": {
+    "assistant": "claude-web"
+  }
+}

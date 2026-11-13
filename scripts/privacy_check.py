@@ -189,7 +189,7 @@ def roster() -> set[str]:
 def profile_hosts() -> set[str]:
     """The sites the profiles themselves are for: a fixture may use their addresses."""
     hosts: set[str] = set()
-    for p in (ROOT / "profiles").glob("*.json"):
+    for p in [*(ROOT / "profiles").glob("*.json"), *(ROOT / "profiles" / "assistants").glob("*.json")]:
         try:
             match = json.loads(p.read_text(encoding="utf-8")).get("match", {})
         except (ValueError, OSError):
@@ -263,7 +263,8 @@ def check_fixture(where: str, raw: str, patterns: list[tuple[str, re.Pattern[str
 
 def check_fixtures(patterns: list[tuple[str, re.Pattern[str]]], found: Findings) -> None:
     allowed, hosts = roster(), profile_hosts()
-    for path in sorted(FIXTURES.glob("*.json")):
+    # App fixtures, and the AI tools' fixtures in fixtures/assistants (SCR-83).
+    for path in sorted(FIXTURES.rglob("*.json")):
         check_fixture(str(path.relative_to(ROOT)), path.read_text(encoding="utf-8"), patterns, found, allowed, hosts)
 
 

@@ -1,0 +1,18 @@
+{
+  "about": "A Devin session.",
+  "profile": "devin",
+  "window": {
+    "app": "Google Chrome",
+    "bundle": "com.google.Chrome",
+    "title": "Devin",
+    "url": "https://app.devin.ai/sessions/000"
+  },
+  "lines": [
+    "I need you to:",
+    "1. Add the deploy key",
+    "2. Approve the pull request"
+  ],
+  "expect": {
+    "assistant": "devin"
+  }
+}
