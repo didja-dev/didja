@@ -12,7 +12,7 @@ bun bench/run.ts --only outlook-reply --verbose  # one scenario, with the tasks 
 
 It prints one row per scenario and the totals:
 
-- **Capture:** recall (labelled tasks found), precision (tasks made that were labelled), and tasks made that must not exist.
+- **Capture:** recall (labelled tasks found), precision (tasks made that were labelled), and tasks made that must not exist. Counted on what is on the list at the end: a task the engine took back (an agent ran it, a list judged the assistant's own) has left the list, so it is neither found nor unwanted; `--verbose` lists it as "taken back" (SCR-85). A task ticked and later taken back still counts as a wrong tick.
 - **Done:** of the tasks really done, how many were ticked, asked about ("looks done?") or missed; **wrong ticks** (ticked before it was done, or never done, or a task that must not exist ticked) and **wrong asks**; the median minutes from done to ticked or asked.
 
 - **Speed** (SCR-75): each new task, tick and "looks done?" timed from the observation that showed it, as `didja quality` does, on a fake clock: the runner polls every 5 s like the engine, and each model call costs its measured median (`MODEL_COST_MS`: Apple 1 s, Ollama 2.5 s). Median and 90th percentile per kind.

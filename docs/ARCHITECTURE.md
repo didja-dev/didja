@@ -344,6 +344,18 @@ Same 99 scenarios, before → after (one label fixed: ChatGPT's "Step 3 — Set 
 
 By family with no model, recall: Claude app 74% → 97%, ChatGPT 47% → 87%, Gemini 67% → 83%, Copilot 57% → 100%, Claude Code 73% → 82%, first day 78% → 100% (all 9 tasks, ≥ 6 asked for). Still missed: Aider's declined command (no lead-in hands it over), Copilot CLI's single step after its own run, a Gemini step whose words are in a heading's paragraph, the nested-bullet case below; and email and chat asks, which need a model. The ChatGPT task that must not exist is still a nested bullet under a step read as a step of its own (that is how sub-steps work for Claude too). With Apple's model the new wrong ask is a question on a page that does not show the step, never a tick.
 
+### After SCR-85: what the agent did itself
+
+`engine/src/agents.ts` reads a terminal or editor agent's own work by its profile's `agentWork`: an approval prompt's command (the first command line after the question, or, as Aider asks, the line before it), settled as ran by a later "ran" line or as declined by the profile's `declined` answer; a "ran" line that names its own command (`Bash(…)`, `• Ran …`, `✔ Shell …`, `Running …`, ``Ran `…` ``, `Ran terminal command: …`); and the agent's todo items. In the engine (`pollOnce`, terminal and editor assistants only): approval prompts, their options, answers and ran lines are blanked before lists are read, so "1. Yes / 2. No, and tell…" is not a list and does not hide the step after it; a declined command not already a step becomes one (`Run \`…\``, actor you, the command as marker); list items whose words are one of the agent's todo items are dropped; and a leaf step whose command the agent ran on a later line than the step (or than your decline) is taken back with "<agent> ran this itself" in why (`retract`, never ticked). Claude Code's file-edit rule (`doneByClaude`) is unchanged. Agent windows were already left out of tick-watching, so an agent's ✓, "Ran", approval panel or command output never ticks a task; tests now say so for Codex, Copilot CLI, Copilot in VS Code and Claude Code.
+
+The benchmark now counts what is on the list at the end (a task the engine took back has left it). Same 99 scenarios, no model (CI), under that measure, before → after:
+
+| Model | Recall | Precision | Must not exist | Ticked | Asked | Missed | Wrong ticks | Wrong asks |
+|---|---|---|---|---|---|---|---|---|
+| none (CI) | 121 → 123 of 140 (86% → 88%) | 98% → 98% (121/124 → 123/125) | 2 → 1 | 32 → 33 | 0 → 0 | 28 → 27 | 0 | 0 |
+
+(Under the old measure, which counted taken-back tasks as made, the same "before" read 121/125 and 3 that must not exist.) By family: Aider 0/1 → 1/1 (its declined command is now yours and is ticked when you run it), Copilot CLI 2/4 → 3/4 (the step after its approval prompt), Claude Code precision 90% → 100% (the step newer Claude Code ran with `● Bash(…)` is taken back). Every agent's "must not exist" is now 0; the one left is ChatGPT's nested bullet. Apple's model was not run for this change: nothing here asks a model. Still missed in the agent families: Claude Code handing over one command outside a list, and its run in the same Ghostty window (scenarios 27 and 89), and Copilot CLI's third GitHub step.
+
 ## How fast it is (SCR-75)
 
 Targets, at the 90th percentile on the maintainer's Mac, from the moment the screen showed it:

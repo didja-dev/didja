@@ -4,6 +4,14 @@ Choices made while building ScrolledAway, with the reason, so they are not re-ar
 
 ## 2026-11-13
 
+- **An agent "doing it" needs the agent to have run it, not just to have asked** (SCR-85). A prompt still waiting, or the cursor resting on "❯ 1. Yes" (where it starts), settles nothing; only a later "ran" line, or a declining answer, does. The cost: an approved run whose "ran" line was not captured leaves the step on your list (a miss).
+- **A step is the agent's only when the agent ran its command after the step was listed** (or after you declined it). A run earlier in the session is not this step, as for Claude Code (SCR-65).
+- **A taken-back step is dismissed with why, never ticked**, so it shows in Dismissed with "<agent> ran this itself" and Didja's tick counts stay yours.
+- **A declined command is kept as yours even if the agent runs it later**, then taken back on that run, so the order on screen decides and nothing is lost if the run is missed.
+- **Agent todo items are matched by their words** (letters and digits, any case), in the same window only: a step for you worded like the agent's own item is the agent's; the same words in another tool are not touched.
+- **Approval prompts and ran lines are blanked before lists are read** in terminal and editor agents only, never in chats; their line numbers are kept so step order still works.
+- **The benchmark counts what is left on the list** (SCR-85). The issue's acceptance is "agent-run steps leave the list"; a step made and then taken back two minutes later (SCR-65's case) was counted as made and as "must not exist", which no change could fix. Taken-back tasks are listed apart, and a tick before a take-back still counts as a wrong tick. The "before" numbers in ARCHITECTURE are re-measured under this rule.
+
 - **Other step shapes are rewritten into the ones the extractor reads, not read by a second extractor** (SCR-84): headings, human-steps bullets, drawn boxes, tables and code blocks become numbered lines, "[ ]" boxes and backticked commands. Who a list is for, the action-share rule, sub-steps and markers then stay in one place, and Claude's existing lists read exactly as before (a test checks text with none of these shapes is unchanged).
 - **Bullets count only under a heading or lead-in that hands them to you** ("Next steps", "You'll need to", "On your side", "To finish setup", "Steps"…); bullets elsewhere (notes, "If you want, I can:") stay prose.
 - **Drawn boxes ("☐") count only in chat windows.** In a terminal they are an agent's own todo list (Claude Code's, read by SCR-85).
