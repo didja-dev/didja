@@ -1243,11 +1243,15 @@ export class Store {
 
   // --- "looks done — confirm?"
 
-  /** Open steps with nothing exact to match and no suggestion waiting: the ones worth a look. */
-  tasksToWatch(): Task[] {
+  /**
+   * Open steps with nothing exact to match and no suggestion waiting: the ones worth a look. With
+   * `autoSince`, also steps that do have something exact to match (a command, an env var) but were
+   * made before then and are still open: their exact match was missed (SCR-69).
+   */
+  tasksToWatch(autoSince: string | null = null): Task[] {
     const rows = this.db
-      .query(`${SELECT_TASK} WHERE t.is_group = 0 AND t.status = 'open' AND t.auto = 0 AND t.suggestion IS NULL ORDER BY t.id`)
-      .all() as TaskRow[];
+      .query(`${SELECT_TASK} WHERE t.is_group = 0 AND t.status = 'open' AND (t.auto = 0 OR (?1 IS NOT NULL AND t.created_at <= ?1)) AND t.suggestion IS NULL ORDER BY t.id`)
+      .all(autoSince) as TaskRow[];
     // Replies are noticed by subject and sender, not by showing screens to the model; a chat ask is
     // settled by your reply in that chat, never by some other screen that happens to share its words.
     // Your own list (SCR-46) is ticked only by you.

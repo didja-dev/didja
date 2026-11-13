@@ -4,7 +4,7 @@ import { accountOf, baseSubject, responseAction, isAutomatic, isMine, isRecent, 
 import type { MailIdentity, MailReader } from './email.ts';
 import { chatApp, chatKey, asksForAcknowledgement, chatTaskTitle, isEmojiOnly, isPositiveEmoji, isReaction, lineHash, plainReactions, reactedTo, namesMe, chatSourceRef, chatTime, isMine as isMyMessage, mayAskOfMe, parseChatMessages, plainlyDefers, sentBefore } from './chat.ts';
 import type { ChatMessage, ChatReader, ReplyJudge } from './chat.ts';
-import { assemble, classifySource, doneByClaude, extractCommands, extractChecklists, sourceRef, splitClaudeCode, stepLine, TERMINALS } from './extract.ts';
+import { assemble, classifySource, doneByClaude, EDITORS, extractCommands, extractChecklists, sourceRef, splitClaudeCode, stepLine, TERMINALS } from './extract.ts';
 import { rewordPlacesOnce } from './missed.ts';
 import { localModelOf } from './localmodel.ts';
 import { cleanCriteria, groundCriteria, matchCriteria, matchedWords } from './donecriteria.ts';
@@ -13,6 +13,7 @@ import { doneState, hasToken, learnedWhere, lookCandidate, placeOf, relevantSnip
 import type { Looker } from './looksdone.ts';
 import { deriveCriteria, extractMarkers, withoutLinkTargets } from './markers.ts';
 import { findSightings, isComplete, RUN_WINDOW_MS } from './match.ts';
+import { splitSession, terminalLines } from './terminal.ts';
 import type { Checklist, ChecklistItem } from './extract.ts';
 import type { Job, NewNode, Observation, PendingChatAsk, Store, Task, Teaching } from './store.ts';
 import { KEPT_KIND, KEPT_LIST } from './store.ts';
@@ -78,6 +79,10 @@ const EMAILS_PER_POLL = 2;
 const CRITERIA_PER_POLL = 2;
 
 const LOOKS_PER_POLL = 2;
+/** A step with a command (or another exact marker) still open this long after it was made may be looked at too (SCR-69). */
+export const AUTO_FALLBACK_MS = 2 * 3600_000;
+/** For this long after it joins, its earlier terminal screens are looked at too, once each (the model's answer is kept). */
+const AUTO_LOOKBACK_MS = 5 * 60_000;
 /** With the local model on (it answers in about two seconds). */
 const LOOKS_PER_POLL_LOCAL = 6;
 
@@ -338,7 +343,7 @@ export function pollOnce(store: Store, now: Date = new Date(), opts: PollOptions
   const firstFresh = elsewhere.reduce<string | null>((m, o) => (m === null || o.ts < m ? o.ts : m), null);
   const terminalHistory = firstFresh === null ? [] : store
     .observationsSince(new Date(Date.parse(firstFresh) - RUN_WINDOW_MS).toISOString())
-    .filter((o) => TERMINALS.has(o.bundleId) && !claudeWindows.has(windowKey(o)));
+    .filter((o) => (TERMINALS.has(o.bundleId) || EDITORS.has(o.bundleId)) && !claudeWindows.has(windowKey(o)));
   for (const s of findSightings(watchable, elsewhere, [...terminalHistory, ...elsewhere.filter((o) => !terminalHistory.some((h) => h.id === o.id))])) {
     if (store.addSighting(s.taskId, s.marker.value, s.observationId, s.ts, s.detail)) {
       stats.sightings++;
@@ -367,6 +372,9 @@ export function pollOnce(store: Store, now: Date = new Date(), opts: PollOptions
   // for a yes is taken as a yes, labelled as ticked for you.
   if (store.looksDoneMode() === 'accept') {
     for (const task of store.tasksLookingDone()) {
+      // A step with something exact to look for (a command) that was only suggested after its
+      // exact match was missed waits for your yes (SCR-69).
+      if (task.auto) continue;
       store.acceptLooksDone(task.id, task.suggestion!, now);
       stats.completed++;
     }
@@ -875,7 +883,7 @@ export function lookAgainAt(store: Store, looker: Looker, site: string, now: Dat
 function lookForDone(store: Store, looker: Looker, observations: Observation[], now: Date): number {
   let suggested = 0;
   let asked = 0;
-  const tasks = store.tasksToWatch();
+  const tasks = store.tasksToWatch(new Date(now.getTime() - AUTO_FALLBACK_MS).toISOString());
   if (tasks.length === 0) return 0;
   const learned = store.donePlaces();
   // Every screen worth a look for every task, best first (SCR-66): a screen that shows an id from the
@@ -891,8 +899,26 @@ function lookForDone(store: Store, looker: Looker, observations: Observation[], 
       lastSeenAt: task.lastSeenAt,
     };
     const done = store.modelCriteria(task.id);
-    for (const o of observations) {
+    // A command step whose exact run was not seen (SCR-69): only a terminal where a run of the same
+    // program and subcommand ended well, for the model to judge. Never a run that failed or was only typed.
+    const command = task.auto ? task.markers.find((m) => m.kind === 'command')?.value ?? null : null;
+    let screens = observations;
+    if (command !== null) {
+      // Just joined: the terminal screens since it was made count too, not only new ones.
+      const joined = Date.parse(task.createdAt) + AUTO_FALLBACK_MS;
+      if (now.getTime() - joined <= AUTO_LOOKBACK_MS) {
+        const earlier = store.observationsSince(task.createdAt, 500)
+          .filter((h) => (TERMINALS.has(h.bundleId) || EDITORS.has(h.bundleId)) && !observations.some((o) => o.id === h.id));
+        screens = [...earlier, ...observations];
+      }
+    }
+    for (const o of screens) {
       if (o.ts <= task.createdAt) continue;
+      if (command !== null) {
+        const snippet = commandScreen(command, o);
+        if (snippet) candidates.push({ task, o, snippet, score: 6 });
+        continue;
+      }
       // What done looks like (SCR-67): a "not yet" phrase on the screen, or one of its places
       // without the ids it needs, rules the screen out; its place, ids and a done phrase make it
       // a strong candidate. The looks-done model still has to see it done.
@@ -945,6 +971,21 @@ function lookForDone(store: Store, looker: Looker, observations: Observation[], 
     }
   }
   return suggested;
+}
+
+/**
+ * The lines of a terminal screen where a run of the same program and subcommand as `command` ended
+ * well (output and no failure, or the next prompt), or null. For "looks done?" only (SCR-69).
+ */
+export function commandScreen(command: string, o: Observation): string | null {
+  const editor = EDITORS.has(o.bundleId);
+  if (!TERMINALS.has(o.bundleId) && !editor) return null;
+  const head = command.split(' ').slice(0, 2).join(' ');
+  const lines = terminalLines(o.text, editor).map((text) => ({ text, ts: o.ts, observationId: o.id }));
+  const run = splitSession(lines).find((r) => r.outcome === 'ok' && r.command.split(' ').slice(0, 2).join(' ') === head);
+  if (!run) return null;
+  const shown = [run.line.text, ...run.output.map((l) => l.text)].map((l) => l.trim().slice(0, 200)).slice(0, 14);
+  return shown.join('\n').slice(0, 900);
 }
 
 /** Ask the model what done looks like for the newest tasks that have nothing exact to look for. */

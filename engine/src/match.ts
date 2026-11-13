@@ -9,7 +9,9 @@
  * Tier 3 (model judgement) arrives in Milestone 4.
  */
 
-import { TERMINALS } from './extract.ts';
+import { EDITORS, TERMINALS } from './extract.ts';
+import { sameCommand, splitSession, terminalLines } from './terminal.ts';
+import type { TerminalLine } from './terminal.ts';
 import { requiredMarkers, withoutLinkTargets } from './markers.ts';
 import type { Marker } from './markers.ts';
 import type { Observation, Task } from './store.ts';
@@ -63,81 +65,38 @@ export function commandAtPrompt(text: string, command: string): boolean {
   return false;
 }
 
-/** How long after a command its output or the next prompt may show up and still count (SCR-61). */
-export const RUN_WINDOW_MS = 5 * 60_000;
-
-/**
- * Output that says a command failed (SCR-61). Any of these between a command and the next prompt
- * means it did not get done: no tick, no "looks done?". Shells, git, npm/bun/yarn/pnpm, gh,
- * docker, xcodebuild, wrangler, curl, test runners.
- */
-export const FAILURE_LINES: RegExp[] = [
-  /^\s*(error|fatal|err!?)\b\s*[:!\]]/i, // error: …, fatal: …, ERR! …, error] …
-  /^\s*error\s+\S/i, // yarn: error Command failed …
-  /\bnpm (ERR!|error\b)/i,
-  /\bcommand not found\b|: not found\s*$|\bno such file or directory\b|\bpermission denied\b/i,
-  /^\s*(zsh|bash|sh|fish):\s/i, // the shell itself complaining
-  /\*\* (BUILD|TEST|ARCHIVE|ANALYZE) FAILED \*\*/,
-  /\bHTTP\/[\d.]+\s+[45]\d\d\b|\(HTTP [45]\d\d\)|\bHTTP [45]\d\d\b/,
-  /^\s*curl: \(\d+\)/,
-  /\[(remote )?rejected\]|\berror: failed to push\b/i,
-  /\[ERROR\]|^\s*✘|^\s*✗/,
-  /^\s*Error\b/,
-  /\bexit(ed)? (with )?(code|status):? *[1-9]\d*\b/i,
-  /(^|\s)[1-9]\d* (fail|failed|failing|failures?|errors?)\b/i,
-  /^\s*FAIL\s/,
-  /\bTraceback \(most recent call last\)/,
-  /\bpanic:|\bSegmentation fault\b|\bAborted\b/,
-];
-
-/** A prompt that shows the last command's exit status as non-zero: ✘, ✗, [1], "exit 1". */
-const FAILED_PROMPT = /✘|✗|\[\s*[1-9]\d*\s*\]|\bexit [1-9]\d*\b/;
-
-export function failed(line: string): boolean {
-  return FAILURE_LINES.some((re) => re.test(line));
-}
-
-export interface TerminalLine { text: string; ts: string; observationId: number }
+export { failed, FAILURE_LINES, RUN_WINDOW_MS } from './terminal.ts';
+export type { TerminalLine } from './terminal.ts';
 
 /**
  * What became of a command typed at a prompt, from the lines a terminal window showed after it
- * (SCR-61): 'ran' when output or a new prompt followed within a few minutes and nothing in it
- * failed; 'failed' when it did; 'typed' when nothing followed yet (typed, not entered). A command
- * typed several times counts as ran if any one of those runs did.
+ * (SCR-61, SCR-69): 'ran' when output or a new prompt followed within a few minutes and nothing in
+ * it failed; 'failed' when it did; 'typed' when nothing followed yet (typed, not entered). The
+ * command typed may differ from the task's in the ways `sameCommand` allows (flag order, an extra
+ * flag that still does it, a right-side prompt, a comment). A command typed several times counts
+ * as ran if any one of those runs did.
  */
 export function commandOutcome(lines: TerminalLine[], command: string): { outcome: 'ran' | 'failed' | 'typed'; line: TerminalLine } | null {
   let result: { outcome: 'ran' | 'failed' | 'typed'; line: TerminalLine } | null = null;
-  for (let i = 0; i < lines.length; i++) {
-    const squashed = lines[i]!.text.replace(/\s+/g, ' ').trimEnd();
-    if (!squashed.endsWith(command)) continue;
-    const prompt = squashed.slice(0, squashed.length - command.length);
-    if (!PROMPT_BEFORE_COMMAND.test(prompt)) continue;
-    const start = Date.parse(lines[i]!.ts);
-    const after = lines.slice(i + 1).filter((l) => Date.parse(l.ts) - start <= RUN_WINDOW_MS && l.text.trim() !== '');
-    // The next prompt: a line with the same prompt in it (a status mark may come before it).
-    const promptText = prompt.trim();
-    const next = after.findIndex((l) => promptText.length >= 1 && l.text.replace(/\s+/g, ' ').includes(promptText) && PROMPT_BEFORE_COMMAND.test(promptText));
-    const output = next === -1 ? after : after.slice(0, next);
-    let outcome: 'ran' | 'failed' | 'typed';
-    if (after.length === 0) outcome = 'typed';
-    else if (output.some((l) => failed(l.text)) || (next !== -1 && FAILED_PROMPT.test(after[next]!.text))) outcome = 'failed';
-    else outcome = 'ran';
-    const evidence = after[next === -1 ? after.length - 1 : next] ?? lines[i]!;
-    if (outcome === 'ran') return { outcome, line: evidence };
-    if (!result || outcome === 'failed') result = { outcome, line: evidence };
+  for (const run of splitSession(lines)) {
+    if (!sameCommand(command, run.command)) continue;
+    if (run.outcome === 'ok') return { outcome: 'ran', line: run.evidence };
+    if (!result || run.outcome === 'failed') result = { outcome: run.outcome, line: run.evidence };
   }
   return result;
 }
 
 function seenIn(o: Observation, marker: Marker, task: Task, history: Observation[]): string | null {
   if (marker.kind === 'command') {
-    if (!TERMINALS.has(o.bundleId)) return null;
+    // A terminal app, or an editor's own terminal while it had focus (SCR-69).
+    const editor = EDITORS.has(o.bundleId);
+    if (!TERMINALS.has(o.bundleId) && !editor) return null;
     // The window's lines in order, from the command's own observation (which may be an earlier
     // one: the line is not captured again once its output appears) to this one.
     const lines = history
       .filter((h) => h.bundleId === o.bundleId && h.windowTitle === o.windowTitle && h.ts > task.createdAt && h.ts <= o.ts)
       .sort((a, b) => a.ts.localeCompare(b.ts) || a.id - b.id)
-      .flatMap((h) => h.text.split(/\r?\n/).map((text) => ({ text, ts: h.ts, observationId: h.id })));
+      .flatMap((h) => terminalLines(h.text, editor).map((text) => ({ text, ts: h.ts, observationId: h.id })));
     return commandOutcome(lines, marker.value)?.outcome === 'ran' ? `Ran \`${marker.value}\` in ${o.app}` : null;
   }
   if (marker.kind === 'env' || marker.kind === 'url') {

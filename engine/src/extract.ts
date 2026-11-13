@@ -61,7 +61,7 @@ export const TERMINALS = new Set([
   'com.apple.Terminal', 'com.googlecode.iterm2', 'com.mitchellh.ghostty', 'dev.warp.Warp-Stable',
   'net.kovidgoyal.kitty', 'org.alacritty', 'com.github.wez.wezterm', 'co.zeit.hyper',
 ]);
-const EDITORS = new Set([
+export const EDITORS = new Set([
   'com.microsoft.VSCode', 'com.todesktop.230313mzl4w4u92', 'dev.zed.Zed', 'com.exafunction.windsurf',
 ]);
 /** Text that only shows up in the Claude Code terminal UI. */
