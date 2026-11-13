@@ -6,7 +6,8 @@ import { chatApp, chatKey, asksForAcknowledgement, chatTaskTitle, isEmojiOnly, i
 import type { ChatMessage, ChatReader, ReplyJudge } from './chat.ts';
 import { assemble, classifySource, doneByClaude, extractCommands, extractChecklists, sourceRef, splitClaudeCode, stepLine, TERMINALS } from './extract.ts';
 import { rewordPlacesOnce } from './missed.ts';
-import { isWhereItIsDone, learnedWhere, placeOf, relevantSnippet, siteOf } from './looksdone.ts';
+import { localModelOf } from './localmodel.ts';
+import { learnedWhere, lookCandidate, placeOf, relevantSnippet, siteOf } from './looksdone.ts';
 import type { Looker } from './looksdone.ts';
 import { deriveCriteria, extractMarkers } from './markers.ts';
 import { findSightings, isComplete, RUN_WINDOW_MS } from './match.ts';
@@ -71,6 +72,8 @@ export interface PollOptions {
 const EMAILS_PER_POLL = 2;
 
 const LOOKS_PER_POLL = 2;
+/** With the local model on (it answers in about two seconds). */
+const LOOKS_PER_POLL_LOCAL = 6;
 
 /** What you taught the model for a job, to send with a question; nothing when you taught it nothing. */
 function taught(store: Store, job: Job): { teach?: Teaching } {
@@ -866,31 +869,46 @@ function lookForDone(store: Store, looker: Looker, observations: Observation[], 
   const tasks = store.tasksToWatch();
   if (tasks.length === 0) return 0;
   const learned = store.donePlaces();
-  // Newest screen first: it is the one most likely to show the finished state.
-  for (const o of [...observations].reverse()) {
-    for (const task of tasks) {
-      if (o.ts <= task.createdAt || task.suggestion) continue;
-      // A task is done somewhere in particular: only a screen on the site or app it names (or a site
-      // its email linked to) counts, never a page that happens to share its words (the maintainer: all tasks).
-      // Or a place you said such a step is done ("Didja Missed This…").
-      if (!isWhereItIsDone(task.capturedTitle, o, task.criteria?.links ?? [])
-        && !learnedWhere({ title: task.capturedTitle, sourceId: task.sourceId }, o, learned)) continue;
-      const snippet = relevantSnippet(task.capturedTitle, o);
-      if (!snippet) continue;
-      const place = placeOf(o);
-      if (store.rejectedPlaces(task.id).has(place)) continue;
-      const key = new Bun.CryptoHasher('sha256').update(`${task.id}\n${snippet}`).digest('hex').slice(0, 32);
-      if (store.looksDoneVerdict(key) !== null) continue;
-      if (asked >= LOOKS_PER_POLL) return suggested;
-      asked++;
-      const verdict = looker({ task: task.capturedTitle, app: o.app, page: place, text: snippet, ...taught(store, 'looks-done') });
-      if (verdict === null) return suggested; // no model: nothing to do
-      store.recordLooksDoneCheck(key, task.id, verdict, now);
-      if (verdict === 'done') {
-        store.suggestDone(task.id, place, o.id, now);
-        task.suggestion = place;
-        suggested++;
-      }
+  // Every screen worth a look for every task, best first (SCR-66): a screen that shows an id from the
+  // task beats one that only shares words; a task you looked at more recently comes before an older one;
+  // then the newest screen, the one most likely to show the finished state.
+  const candidates: { task: Task; o: Observation; snippet: string; score: number }[] = [];
+  for (const task of tasks) {
+    const kept = store.context(task.id);
+    const source = {
+      title: task.capturedTitle,
+      context: kept ? [kept.window, kept.url ?? '', ...kept.lines.map((l) => l.text)].join('\n') : '',
+      links: task.criteria?.links ?? [],
+      lastSeenAt: task.lastSeenAt,
+    };
+    for (const o of observations) {
+      if (o.ts <= task.createdAt) continue;
+      // A task is done somewhere in particular: a site or app it or its source names, a site its email
+      // linked to, or a place you said such a step is done ("Didja Missed This…"); never a page that
+      // only happens to share its words (the maintainer: all tasks).
+      const taughtHere = learnedWhere({ title: task.capturedTitle, sourceId: task.sourceId }, o, learned);
+      const found = lookCandidate(source, o, taughtHere);
+      if (found) candidates.push({ task, o, ...found });
+    }
+  }
+  candidates.sort((a, b) => b.score - a.score || b.task.lastSeenAt.localeCompare(a.task.lastSeenAt) || b.o.id - a.o.id);
+  // The local model answers in about two seconds, Apple's in several: it gets more looks.
+  const budget = localModelOf(store) ? LOOKS_PER_POLL_LOCAL : LOOKS_PER_POLL;
+  for (const { task, o, snippet } of candidates) {
+    if (task.suggestion) continue;
+    const place = placeOf(o);
+    if (store.rejectedPlaces(task.id).has(place)) continue;
+    const key = new Bun.CryptoHasher('sha256').update(`${task.id}\n${snippet}`).digest('hex').slice(0, 32);
+    if (store.looksDoneVerdict(key) !== null) continue;
+    if (asked >= budget) return suggested;
+    asked++;
+    const verdict = looker({ task: task.capturedTitle, app: o.app, page: place, text: snippet, ...taught(store, 'looks-done') });
+    if (verdict === null) return suggested; // no model: nothing to do
+    store.recordLooksDoneCheck(key, task.id, verdict, now);
+    if (verdict === 'done') {
+      store.suggestDone(task.id, place, o.id, now);
+      task.suggestion = place;
+      suggested++;
     }
   }
   return suggested;

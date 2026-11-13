@@ -99,11 +99,12 @@ How the tree is built:
 Looks done — confirm? (tier 3, for tasks with nothing exact to match):
 
 - Applies to open steps that cannot tick themselves ("Check the login flow works", "Add the redirect URL in Supabase auth settings").
-- A later screen outside Claude is worth a look only if at least two of the task's telling words appear on it. The lines around those words, at most about 900 characters, are shown to the on-device model with the app and page, and it answers done, not done or unsure. "Done" means the screen shows the outcome (a success message, the new thing being there), not a mention, documentation, code, an unused form or an error.
-- Which screens: two of the task's keywords on it, and only a screen that is where it gets done: a site or app the task names, or the site of a link its email gave (`isWhereItIsDone`). A task that names no site or app is not checked this way. Chat tasks are never checked this way; your reply in the chat settles them.
+- A later screen outside Claude is worth a look only if at least two of the task's telling words appear on it, or one strong token (SCR-66). The lines around those words, at most about 900 characters, are shown to the on-device model with the app and page, and it answers done, not done or unsure. "Done" means the screen shows the outcome (a success message, the new thing being there), not a mention, documentation, code, an unused form or an error.
+- Which screens (`lookCandidate`, SCR-66): only a screen that is where it gets done: a site or app the task names, a site or app its source names (a capitalised name in the lines kept around it, such as "GitHub" in "Last steps on GitHub:"; not a word that only starts a sentence), the site of a link its email gave (`isWhereItIsDone`), or a place you taught. A page elsewhere that only shares words never counts. One exception: a screen with an id from the task (a number of three or more digits that is not a year, `#42` / "pull request 42" / "order 4410", an `owner/repo`) within 15 minutes after the task was last seen where it came from. On top of the place, the screen must show the task: two of its keywords, or one strong token (`strongTokens`: those ids, and a quoted name). Chat tasks are never checked this way; your reply in the chat settles them.
+- Order: every candidate screen for every task is scored (4 per strong token on it, 3 for a taught place, 2 for a named site, 2 for a site its source names, up to 2 more for being soon after you last saw the source, the sooner the more), then by the task last seen most recently, then the newest screen. The best are asked first.
 - The model's "done" never ticks anything. The task is marked "looks done", with where it was seen, and waits: **Yes, done** ticks it, **Not yet** keeps it open and stops asking from that place.
 - Unless you choose **Looks Done: Accept Automatically** in the panel's menu (off by default). The app writes `meta.looks_done = accept`; the engine then takes every waiting suggestion as a yes, ticks the task, keeps the place in `tasks.accepted_from` (schema 012) and notes it in `why`; the row is labelled "auto-accepted". Reopening such a task records the place as rejected, exactly like **Not yet**, so it is never ticked from there again.
-- The same lines are never shown to the model twice for the same task (a hash is kept, not the lines), and at most two questions are asked per pass.
+- The same lines are never shown to the model twice for the same task (a hash is kept, not the lines), and at most two questions are asked per pass (six with the local model on, which answers in about two seconds).
 - What is stored is where it looked done ("Google Chrome — supabase.com/dashboard/…", no query string), never the screen text.
 - Measured on 14 made-up but realistic cases: 12 right, one wrong "done" (a Publish button still waiting to be pressed). A wrong suggestion costs one click on "Not yet".
 
@@ -245,6 +246,8 @@ After SCR-65 (Claude Code's tool output and docs in editors are not yours; steps
 | Apple on-device | 19/25 (76%) | 19/20 (95%) | 1 | 9 | 2 | 5 | 0 | 0 |
 
 The one task that must not exist is the step Claude then ran itself: it is taken back two minutes later, and the benchmark still counts it as made.
+
+After SCR-66 (which screens are shown for "looks done?"), with two scenarios added for it (32 scenarios, 28 labelled tasks, 18 really done), Apple on-device, before → after: asked 2 → 3 (a GitHub visibility change, now shown because the conversation names GitHub), missed 7 → 6, ticked 9 → 9, wrong asks 0 → 0, wrong ticks 0 → 0. No model: unchanged (12 missed, 0 wrong), since nothing is looked at without one. The approval done in a portal the email did not link is still missed: Apple's model reads "Please approve purchase order 4410" as needing a reply, and a reply task is settled by your reply, not by screens.
 
 ## Updates (SCR-33)
 

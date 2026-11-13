@@ -1,0 +1,52 @@
+{
+  "id": "outlook-approval-portal-no-link",
+  "about": "An email asks you to approve purchase order 4410 without a link; you approve it in the company portal a few minutes later.",
+  "start": "2026-11-11T09:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "Microsoft Outlook",
+      "bundle": "com.microsoft.Outlook",
+      "title": "Inbox • me@example.com",
+      "text": [
+        "Inbox",
+        "⟦Email⟧",
+        "Subject: PO 4410 needs your approval",
+        "From: Dana Levi, dana@acme.com",
+        "Date: Today at 9:00",
+        "To: me@example.com",
+        "Hi Mike,",
+        "Please approve purchase order 4410 for the offsite catering in the portal.",
+        "Thanks,",
+        "Dana"
+      ]
+    },
+    {
+      "at": 6,
+      "app": "Google Chrome",
+      "bundle": "com.google.Chrome",
+      "title": "Purchase orders",
+      "url": "https://erp.example.org/po/view",
+      "text": [
+        "Purchase order 4410",
+        "Offsite catering",
+        "Status: Approved",
+        "Approved by you just now"
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [
+      {
+        "words": [
+          "4410"
+        ],
+        "done": {
+          "at": 6,
+          "where": "erp.example.org"
+        }
+      }
+    ],
+    "none": []
+  }
+}

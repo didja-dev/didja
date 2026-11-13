@@ -6,6 +6,12 @@ Each entry says what changed, and what was **not verified** where that applies: 
 
 ## 2026-11-13
 
+### "Looks done?" looks at the screens where a task was likely done (SCR-66)
+- A task with nothing exact to look for was shown to the model only on a site whose name held one of its words, with two of its words on screen, two looks a pass, newest screen first. Now its source counts too: a site the conversation or email names ("Last steps on GitHub:"), and, within 15 minutes after you last looked at the source, a page showing an id from the task (`4410`, `#42`, `acme/widgets`). One such id on a screen is enough instead of two words. Links and taught places count as before; a page that only shares words still never does.
+- Candidate screens for all tasks are scored and the best asked first (an id on screen above shared words; the task you looked at most recently first). With the local model on, six looks a pass instead of two.
+- What a "done" answer does is unchanged: a suggestion, or a tick only with Accept Automatically on.
+- Tests: the portal screen with the order's id and "Approved" is shown right after the email was read; the same id 40 minutes later, and a news page sharing one word, are not; a GitHub visibility screen is shown for "Set the repo to Public" when the conversation names GitHub, and not when it does not; ids rank above shared words; two looks a pass, six with the local model. Two new benchmark scenarios. Benchmark, Apple on-device, before → after on the same 32: asked 2 → 3, missed 7 → 6, wrong asks 0 → 0, wrong ticks 0 → 0. **Not verified** on live screens; Ollama's six-look budget not run with Ollama.
+
 ### Claude Code: steps Claude runs itself, tool output, and docs in an editor are not your tasks (SCR-65)
 - An editor counted as Claude Code when its window title held "claude" (a CLAUDE.md) or its text said "Claude Code" or "⏺", so numbered rules in any open doc became tasks. Now an editor counts only when Claude Code's own panel is in it (its prompt hints: "? for shortcuts", "esc to interrupt", "shift+tab to cycle", the accept-edits and plan-mode lines). Terminals are unchanged.
 - In Claude Code, the transcript is split: what you typed (`> …`), Claude's replies (`⏺ …`), and its tool calls with their output (`⏺ Bash(…)`, `⎿ …`). Only lists and commands in Claude's replies become tasks, so `cat` of a doc or a file Claude read makes none.
