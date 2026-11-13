@@ -684,6 +684,8 @@ struct PopoverView: View {
     var openExcludeList: () -> Void = {}
     var openPrivacy: () -> Void = {}
     var reportProblem: () -> Void = {}
+    /// Help › Troubleshooting Report… (SCR-79), offered here when Didja reads nothing.
+    var troubleshoot: () -> Void = {}
     var openCanvas: (Int?) -> Void = { _ in }
     /// Opens the "…" menu (a native menu, see MoreMenu).
     var openMore: () -> Void = {}
@@ -783,6 +785,15 @@ struct PopoverView: View {
                     Button("Grant Accessibility Access…") { capture.openAccessibilitySettings() }
                         .buttonStyle(DidjaLinkStyle())
                         .font(.callout)
+                }
+                // Reading nothing (SCR-79): looked at again every 30 seconds, so the two minutes pass.
+                TimelineView(.periodic(from: .now, by: 30)) { context in
+                    if TroubleshootingReport.shouldOffer(status: capture.status, observations: capture.observationCount,
+                                                         capturingFor: capture.capturingSince.map { context.date.timeIntervalSince($0) } ?? 0) {
+                        Button(TroubleshootingReport.offerTitle, action: troubleshoot)
+                            .buttonStyle(DidjaLinkStyle())
+                            .font(.callout)
+                    }
                 }
                 Text(command.isHeld ? KeyboardHints.command : KeyboardHints.popover)
                     .font(.caption2)

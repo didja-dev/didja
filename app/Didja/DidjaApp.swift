@@ -136,6 +136,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var diagnosticsWindow: NSWindow?
     private var missedWindow: NSWindow?
     private var bugReportWindow: NSWindow?
+    private var troubleshootingWindow: NSWindow?
     let canvasWindows = CanvasWindows()
     private var brainWindow: NSWindow?
     private var brainModel: BrainModel?
@@ -236,6 +237,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             reportProblem: { [weak self] in
                 self?.panel?.close()
                 self?.showDiagnostics()
+            },
+            troubleshoot: { [weak self] in
+                self?.panel?.close()
+                self?.showTroubleshooting()
             },
             openCanvas: { [weak self] id in self?.openCanvas(id) },
             openMore: { [weak self] in self?.showMoreMenu() },
@@ -343,6 +348,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             .action("How Didja Works…", close { [weak self] in self?.showWelcome() }),
             .action("How It Decides…", close { [weak self] in self?.showBrain() }),
             .separator,
+            .action("Troubleshooting Report…", close { [weak self] in self?.showTroubleshooting() }),
             .action("Report a Bug…", close { [weak self] in self?.showBugReport() }),
             .action("Suggest a Feature…", close { [weak self] in self?.showBugReport(.feature) }),
             .action("Check for Updates…", enabled: Updates.shared.canCheck) { Updates.shared.checkNow() },
@@ -546,6 +552,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 openAccessibilitySettings: { [capture] in capture.openAccessibilitySettings() },
                 editExcludeList: { [weak self] in self?.showExcludeList() },
                 openPrivacy: { [weak self] in self?.showPrivacy() },
+                troubleshoot: { [weak self] in self?.showTroubleshooting() },
                 done: { [weak self] in self?.welcomeWindow?.close() })))
             window.contentViewController = controller
             window.setContentSize(NSSize(width: WelcomeView.width, height: 640))
@@ -755,6 +762,62 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let mine = tasks.filter { $0.source == r.app || $0.source.hasPrefix(r.app + " — ") }.prefix(20)
         let explained = mine.map { DiagnosticsReport.Task(title: "[\($0.status.rawValue)] \($0.title)", why: EngineRunner.output(["why", String($0.id)]) ?? "") }
         return DiagnosticsReport.build(about: about, outline: r.outline, captured: r.lines, kept: r.kept, tasks: Array(explained))
+    }
+
+    /// Help › Troubleshooting Report… (SCR-79): why Didja reads nothing or makes no tasks, from
+    /// `didja doctor`, after the app has written what it knows. Didja sends nothing; you choose.
+    func showTroubleshooting() {
+        capture.writeAppFacts { [weak self] in
+            DispatchQueue.global(qos: .userInitiated).async {
+                let report = TroubleshootingReport.fromEngine()
+                DispatchQueue.main.async { self?.presentTroubleshooting(report) }
+            }
+        }
+    }
+
+    private func presentTroubleshooting(_ report: TroubleshootingReport?) {
+        guard let report else {
+            let alert = AppIcon.alert()
+            alert.messageText = "The report could not be made"
+            alert.informativeText = "Didja's engine did not answer. Quit and reopen Didja, then try again."
+            NSApplication.shared.activate(ignoringOtherApps: true)
+            alert.runModal()
+            return
+        }
+        let copy: (String) -> Void = { text in
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(text, forType: .string)
+        }
+        let view = TroubleshootingView(
+            report: report,
+            copy: copy,
+            save: { text in
+                let panel = NSSavePanel()
+                panel.nameFieldStringValue = report.fileName()
+                panel.allowedContentTypes = [.plainText]
+                if panel.runModal() == .OK, let url = panel.url { try? text.write(to: url, atomically: true, encoding: .utf8) }
+            },
+            email: {
+                if let url = report.mailLink { NSWorkspace.shared.open(url) } else { NSSound.beep() }
+            },
+            openIssue: {
+                guard let link = report.issueLink else { NSSound.beep(); return }
+                if link.mustPaste { copy("```\n\(report.text)```\n") }
+                NSWorkspace.shared.open(link.url)
+            })
+        troubleshootingWindow?.close()
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: TroubleshootingView.width, height: 620),
+                              styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
+        window.title = "Troubleshooting Report"
+        window.isReleasedWhenClosed = false
+        window.contentViewController = NSHostingController(rootView: view)
+        window.setContentSize(NSSize(width: TroubleshootingView.width, height: 620))
+        window.contentMinSize = NSSize(width: TroubleshootingView.width, height: 420)
+        window.contentMaxSize = NSSize(width: TroubleshootingView.width, height: 2000)
+        window.center()
+        troubleshootingWindow = window
+        NSApplication.shared.activate(ignoringOtherApps: true)
+        window.makeKeyAndOrderFront(nil)
     }
 
     /// Report a Bug… (SCR-51) and Suggest a Feature… (SCR-52): a form that opens a new GitHub

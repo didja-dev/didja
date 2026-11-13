@@ -13,6 +13,8 @@ struct WelcomeView: View {
     var requestScreenRecording: () -> Void = { OCRCapture.requestPermission() }
     var editExcludeList: () -> Void = {}
     var openPrivacy: () -> Void = {}
+    /// Help › Troubleshooting Report… (SCR-79).
+    var troubleshoot: () -> Void = {}
     var done: () -> Void = {}
 
     var body: some View {
@@ -60,6 +62,11 @@ struct WelcomeView: View {
                 }
                 line("Click the Didja mark in the menu bar for the same \(ViewNames.quick), and Pause there to stop reading at any time. \(ViewNames.full) in its header opens everything, with Settings.")
             }
+
+            Button("Didja isn't reading anything? Troubleshoot…", action: troubleshoot)
+                .buttonStyle(DidjaLinkStyle())
+                .font(.callout)
+                .help("Help › Troubleshooting Report…: why Didja reads nothing or makes no tasks")
 
             HStack {
                 Button("Privacy in Detail…", action: openPrivacy).buttonStyle(DidjaButtonStyle.secondary)

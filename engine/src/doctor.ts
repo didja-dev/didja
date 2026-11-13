@@ -186,7 +186,7 @@ export function findings(r: DoctorReport): string[] {
     const latest = a.outcomes[0];
     if (!latest) continue;
     const tries = a.outcomes.filter((o) => o.result === latest.result).reduce((n, o) => n + o.n, 0);
-    switch (latest.result) {
+    switch (latest.result.split(' ')[0]) {
       case 'ax-tree-empty':
       case 'electron-switch-failed':
         out.push(`${a.app} has given no text in ${tries} ${tries === 1 ? 'try' : 'tries'}: its accessibility tree is empty. ${latest.result === 'electron-switch-failed' ? 'It did not switch its accessibility on when Didja asked; quit and reopen it while Didja runs.' : 'Quitting and reopening it while Didja runs can help; turning on the OCR fallback (Screen Recording) lets Didja read it from the screen.'}`);

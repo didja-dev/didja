@@ -196,6 +196,8 @@ final class CaptureCoordinator: ObservableObject {
     /// Notices heard from the app in front and not yet written (SCR-68): in memory, a few seconds at most.
     private var heardNotices: [HeardNotice] = []
     private var preparedPIDs = Set<pid_t>()
+    /// Which running apps are built on Electron, looked up once each (SCR-79).
+    private var electronApps: [pid_t: Bool] = [:]
     private var lastOCR = Date.distantPast
     /// The last app other than Didja that was in front: what Report a Problem describes.
     private(set) var lastApp: NSRunningApplication?
@@ -336,6 +338,23 @@ final class CaptureCoordinator: ObservableObject {
         }
     }
 
+    /// What the app knows that the engine can't, for `didja doctor` (SCR-79): versions, permissions,
+    /// whether Apple's model can run here. Written at launch, when the status changes and before the
+    /// troubleshooting report is built. `then` runs on the main thread once it is written.
+    func writeAppFacts(then: @escaping () -> Void = {}) {
+        let list = (try? ExcludeList.load(from: supportDirectory.appendingPathComponent(ExcludeList.fileName))) ?? ExcludeList()
+        let facts = AppFacts.current(
+            excluded: .init(apps: list.bundleIds.count, titles: list.windowPatterns.count, sites: list.urlPatterns.count),
+            screenRecording: OCRCapture.isPermitted && OCRCapture.isEnabled, modelStatus: Judge.modelStatus)
+        queue.async {
+            try? self.store?.setMeta("app_facts", facts.json)
+            DispatchQueue.main.async(execute: then)
+        }
+    }
+
+    /// When capture last started capturing, for the Quick View's "isn't reading anything yet" (SCR-79).
+    @Published private(set) var capturingSince: Date?
+
     func forgetCapturedText() {
         queue.async {
             _ = try? self.store?.deleteObservations(olderThan: .distantFuture)
@@ -358,6 +377,8 @@ final class CaptureCoordinator: ObservableObject {
         else { new = .capturing }
         guard new != status else { return }
         status = new
+        if new == .capturing { capturingSince = Date() } else if new != .starting { capturingSince = nil }
+        writeAppFacts()
         // Leave a note in the database so `didja status` can say why nothing is arriving.
         let now = ISO8601DateFormatter().string(from: Date())
         let note = "\(new.label) (since \(now), app at \(Bundle.main.bundlePath))"
@@ -399,7 +420,16 @@ final class CaptureCoordinator: ObservableObject {
             guard let self else { return }
             self.capturePending = false
             self.refreshStatus()
-            guard self.status == .capturing, let app = NSWorkspace.shared.frontmostApplication else { return }
+            guard let app = NSWorkspace.shared.frontmostApplication else { return }
+            guard self.status == .capturing else {
+                // Why nothing is read from the app in front, for the troubleshooting report (SCR-79).
+                let outcome: CaptureOutcome? = self.status == .paused ? .paused : self.status == .needsAccessibility ? .notTrusted : nil
+                if let outcome, let bundleID = app.bundleIdentifier, bundleID != Bundle.main.bundleIdentifier {
+                    let name = app.localizedName ?? bundleID
+                    self.queue.async { self.note(outcome, bundleID: bundleID, app: name) }
+                }
+                return
+            }
             if app.processIdentifier != ProcessInfo.processInfo.processIdentifier { self.lastApp = app }
             self.observe(app)
             let target = Target(pid: app.processIdentifier, bundleID: app.bundleIdentifier,
@@ -521,25 +551,28 @@ final class CaptureCoordinator: ObservableObject {
         heardNotices.removeAll()
         guard let policy, let store else { return }
         // An app with no bundle ID can't be checked against the denylist, so it is never read.
-        guard let bundleID = target.bundleID,
-              bundleID != Bundle.main.bundleIdentifier,
-              policy.allowsApp(bundleID: bundleID)
-        else { return }
+        guard let bundleID = target.bundleID, bundleID != Bundle.main.bundleIdentifier else { return }
+        guard policy.allowsApp(bundleID: bundleID) else { return note(.excluded, bundleID: bundleID, app: target.name) }
 
         if preparedPIDs.insert(target.pid).inserted {
             AXCapture.prepare(pid: target.pid, bundleID: bundleID)
         }
         // Check the window's title before reading anything inside it.
-        guard let window = AXCapture.focusedWindow(pid: target.pid),
-              policy.allowsWindow(title: window.title)
-        else { return }
+        guard let window = AXCapture.focusedWindow(pid: target.pid) else {
+            var value: AnyObject?
+            let error = AXUIElementCopyAttributeValue(AXUIElementCreateApplication(target.pid), "AXFocusedWindow" as CFString, &value)
+            return note(.noWindow(error), bundleID: bundleID, app: target.name)
+        }
+        guard policy.allowsWindow(title: window.title) else { return note(.excluded, bundleID: bundleID, app: target.name) }
 
         // What you are typing right now is a draft, not something to keep; a terminal is the exception.
         var limits = AXCapture.Limits()
         limits.skipFocusedInput = !PrivacyPolicy.terminalBundleIDs.contains(bundleID)
         limits.app = bundleID
         let text = AXCapture.read(window: window.element, title: window.title, appName: target.name, limits: limits)
-        guard policy.allowsWindow(title: text.windowTitle), policy.allowsURL(text.url) else { return }
+        guard policy.allowsWindow(title: text.windowTitle), policy.allowsURL(text.url) else {
+            return note(.excluded, bundleID: bundleID, app: target.name)
+        }
 
         var lines = text.lines
         var source = ObservationStore.Source.ax
@@ -554,6 +587,15 @@ final class CaptureCoordinator: ObservableObject {
                 source = .ocr
             }
         }
+
+        let electron = electronApps[target.pid] ?? {
+            let found = CaptureOutcome.isElectron(NSRunningApplication(processIdentifier: target.pid)?.bundleURL)
+            electronApps[target.pid] = found
+            return found
+        }()
+        note(.afterRead(lines: lines.count, chars: lines.reduce(0) { $0 + $1.count }, usedOCR: source == .ocr, isElectron: electron,
+                        ocrEnabled: OCRCapture.isEnabled, ocrPermitted: OCRCapture.isPermitted),
+             bundleID: bundleID, app: target.name)
 
         let key = Differ.windowKey(bundleID: bundleID, title: text.windowTitle, url: text.url)
         // An email archived just now is noted for the engine, whether or not anything else is new.
@@ -594,6 +636,12 @@ final class CaptureCoordinator: ObservableObject {
                 self.refreshStatus()
             }
         }
+    }
+
+    /// Keep what capture did with an app, for the troubleshooting report (SCR-79): a code and a line
+    /// count, never the text. On the capture queue.
+    private func note(_ outcome: CaptureOutcome, bundleID: String, app: String) {
+        try? store?.recordCaptureOutcome(bundleID: bundleID, app: app, result: outcome.code, lines: outcome.lines)
     }
 
     private static func runOCR(pid: pid_t, windowTitle: String, allows: @escaping (String) -> Bool) -> [String] {

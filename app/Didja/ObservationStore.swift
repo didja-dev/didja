@@ -259,6 +259,54 @@ final class ObservationStore {
         guard sqlite3_step(statement) == SQLITE_DONE else { throw lastError("meta") }
     }
 
+    /// What capture did when it tried an app (SCR-79): a result code and how many lines it read,
+    /// never the lines or the window's title. A repeat of the app's last result moves that row on
+    /// instead of adding one; kept 24 hours and at most 500 rows (schema 28).
+    func recordCaptureOutcome(bundleID: String, app: String, result: String, lines: Int, at date: Date = Date()) throws {
+        let ts = ObservationStore.timestamp.string(from: date)
+        func run(_ sql: String, _ values: [Any]) throws {
+            var statement: OpaquePointer?
+            guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK else { throw lastError("prepare") }
+            defer { sqlite3_finalize(statement) }
+            for (i, value) in values.enumerated() {
+                if let n = value as? Int { sqlite3_bind_int64(statement, Int32(i + 1), Int64(n)) }
+                else { sqlite3_bind_text(statement, Int32(i + 1), "\(value)", -1, transient) }
+            }
+            guard sqlite3_step(statement) == SQLITE_DONE else { throw lastError("outcome") }
+        }
+        var statement: OpaquePointer?
+        let last = "SELECT id, result FROM capture_outcomes WHERE bundle_id = ? ORDER BY id DESC LIMIT 1"
+        guard sqlite3_prepare_v2(db, last, -1, &statement, nil) == SQLITE_OK else { throw lastError("prepare") }
+        sqlite3_bind_text(statement, 1, bundleID, -1, transient)
+        var repeatID: Int64?
+        if sqlite3_step(statement) == SQLITE_ROW, let code = sqlite3_column_text(statement, 1), String(cString: code) == result {
+            repeatID = sqlite3_column_int64(statement, 0)
+        }
+        sqlite3_finalize(statement)
+        if let repeatID {
+            try run("UPDATE capture_outcomes SET last_ts = ?, lines = ?, n = n + 1 WHERE id = ?", [ts, lines, Int(repeatID)])
+            return
+        }
+        try run("INSERT INTO capture_outcomes (ts, last_ts, bundle_id, app, result, lines, n) VALUES (?, ?, ?, ?, ?, ?, 1)",
+                [ts, ts, bundleID, app, result, lines])
+        try run("DELETE FROM capture_outcomes WHERE last_ts < ? OR id <= (SELECT MAX(id) FROM capture_outcomes) - 500",
+                [ObservationStore.timestamp.string(from: date.addingTimeInterval(-24 * 3600))])
+    }
+
+    /// Every column of every capture outcome, as text: what the privacy test checks holds no screen text.
+    func captureOutcomeRows() throws -> [[String]] {
+        var statement: OpaquePointer?
+        guard sqlite3_prepare_v2(db, "SELECT * FROM capture_outcomes ORDER BY id", -1, &statement, nil) == SQLITE_OK else { throw lastError("prepare") }
+        defer { sqlite3_finalize(statement) }
+        var rows: [[String]] = []
+        while sqlite3_step(statement) == SQLITE_ROW {
+            rows.append((0..<sqlite3_column_count(statement)).map { i in
+                sqlite3_column_text(statement, i).map { String(cString: $0) } ?? ""
+            })
+        }
+        return rows
+    }
+
     func observationCount() throws -> Int {
         try scalar("SELECT COUNT(*) FROM observations")
     }
