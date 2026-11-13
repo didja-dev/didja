@@ -1,0 +1,28 @@
+{
+  "about": "Copilot in VS Code asks to run the build, then says Ran.",
+  "profile": "vscode-copilot",
+  "window": {
+    "app": "Code",
+    "bundle": "com.microsoft.VSCode",
+    "title": "acme-web"
+  },
+  "lines": [
+    "⟦Chat⟧",
+    "Run zsh command?",
+    "npm run build",
+    "Allow",
+    "Skip",
+    "Ran `npm run build`",
+    "Build succeeded."
+  ],
+  "expect": {
+    "assistant": "vscode-copilot",
+    "agent": {
+      "ran": [
+        "npm run build"
+      ],
+      "declined": [],
+      "todos": []
+    }
+  }
+}

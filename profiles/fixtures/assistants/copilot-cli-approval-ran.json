@@ -1,0 +1,27 @@
+{
+  "about": "Copilot CLI asks to run the tests, then runs them as a shell tool.",
+  "profile": "copilot-cli",
+  "window": {
+    "app": "iTerm2",
+    "bundle": "com.googlecode.iterm2",
+    "title": "copilot"
+  },
+  "lines": [
+    "Do you want to run this command?",
+    "  npm test",
+    "❯ 1. Yes",
+    "  2. No, and tell Copilot what to do differently (Esc)",
+    "● Run tests (shell)",
+    "  └ 12 passed"
+  ],
+  "expect": {
+    "assistant": "copilot-cli",
+    "agent": {
+      "ran": [
+        "npm test"
+      ],
+      "declined": [],
+      "todos": []
+    }
+  }
+}

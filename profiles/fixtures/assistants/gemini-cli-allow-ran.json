@@ -1,0 +1,35 @@
+{
+  "about": "Gemini CLI asks to run a shell command, you allow it, and it runs; its todo list is its own.",
+  "profile": "gemini-cli",
+  "window": {
+    "app": "Warp",
+    "bundle": "dev.warp.Warp-Stable",
+    "title": "gemini"
+  },
+  "lines": [
+    "✦ I'll install the dependencies.",
+    "Todo 1/2 completed",
+    "✔ Add the schema",
+    "○ Wire up the route",
+    "Allow execution of [Shell]?",
+    "  npm install zod",
+    "● 1. Yes, allow once",
+    "  2. Yes, allow always",
+    "  3. No (esc)",
+    "✔ Shell npm install zod",
+    "  added 1 package in 2s"
+  ],
+  "expect": {
+    "assistant": "gemini-cli",
+    "agent": {
+      "ran": [
+        "npm install zod"
+      ],
+      "declined": [],
+      "todos": [
+        "add the schema",
+        "wire up the route"
+      ]
+    }
+  }
+}

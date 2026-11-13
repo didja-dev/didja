@@ -32,6 +32,9 @@
     "todo": [
       "^\\s*# Todos\\s*$",
       "^\\s*\\[[✓• ]\\] "
+    ],
+    "declined": [
+      "^\\s*Rejected\\s*$"
     ]
   },
   "status": "builtIn"

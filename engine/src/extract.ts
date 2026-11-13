@@ -654,6 +654,13 @@ const SHELL_START =
   /^(?:sudo\s+)?(?:\.{0,2}\/|~\/)?(?:brew|npm|npx|pnpm|yarn|bun|bunx|deno|pip3?|pipx|python3?|node|git|gh|curl|wget|cd|ls|cat|echo|export|unset|mkdir|rm|cp|mv|chmod|chown|defaults|killall|open|launchctl|xcode-select|xcrun|xcodebuild|swift|docker|kubectl|ssh|scp|rsync|supabase|vercel|netlify|firebase|make|cargo|go|ping|dig|nslookup|traceroute|networksetup|ifconfig|ipconfig|scutil|lsof|ps|kill|pkill|df|du|softwareupdate|sw_vers|system_profiler|diskutil|mdfind|mdutil|tail|head|grep|find|sed|awk|tar|unzip|zip|ln|touch|source|tccutil|security|codesign|spctl|plutil|csrutil|pmset|caffeinate|say|uname|whoami|which|env|printenv|nvm|rbenv|pyenv|conda|uv|poetry)\b/;
 
 /** A line that is only a shell command in backticks: "`curl ipinfo.io`", "  `brew install jq`". */
+/** Whether a bare line (no backticks) is a shell command: `npm run migrate`, `$ git push`. */
+export function shellCommand(line: string): string | null {
+  const code = line.trim().replace(/^\$\s+/, '');
+  if (code.length < 2 || code.length > 300 || code.includes('`')) return null;
+  return SHELL_START.test(code) ? code : null;
+}
+
 export function commandLine(line: string): string | null {
   const m = line.trim().replace(/^[-•*·]\s+/, '').match(/^`([^`]{2,300})`$/);
   if (!m) return null;
@@ -781,7 +788,7 @@ const FILE_TOKEN = /(?:^|[\s`'"(])((?:[\w.-]+\/)*[\w-]*\.[A-Za-z][\w]{0,9})(?=$|
 const SHELL_SPLIT = /\s*(?:&&|\|\||;)\s*/;
 
 /** The commands a step hands you, in backticks. */
-function stepCommands(item: { title: string; fragments: string[] }): string[] {
+export function stepCommands(item: { title: string; fragments: string[] }): string[] {
   return [item.title, ...item.fragments].flatMap((t) => [...t.matchAll(/`([^`]+)`/g)].map((m) => m[1]!.trim()))
     .filter((c) => commandLine(`\`${c}\``) !== null);
 }

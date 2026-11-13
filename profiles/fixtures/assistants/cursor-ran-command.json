@@ -1,0 +1,30 @@
+{
+  "about": "Cursor names the command it ran after \"Ran terminal command:\".",
+  "profile": "cursor",
+  "window": {
+    "app": "Cursor",
+    "bundle": "com.todesktop.230313mzl4w4u92",
+    "title": "acme-web"
+  },
+  "lines": [
+    "⟦Chat⟧",
+    "Ran terminal command: bun test",
+    "42 pass",
+    "To-dos 2 of 3 Done",
+    "✓ Add the route",
+    "○ Update the README"
+  ],
+  "expect": {
+    "assistant": "cursor",
+    "agent": {
+      "ran": [
+        "bun test"
+      ],
+      "declined": [],
+      "todos": [
+        "add the route",
+        "update the readme"
+      ]
+    }
+  }
+}

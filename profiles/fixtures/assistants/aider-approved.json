@@ -1,0 +1,26 @@
+{
+  "about": "Aider asks to run the linter, you answer y, and it runs it.",
+  "profile": "aider",
+  "window": {
+    "app": "Terminal",
+    "bundle": "com.apple.Terminal",
+    "title": "aider"
+  },
+  "lines": [
+    "aider> run the linter",
+    "npm run lint",
+    "Run shell command? (Y)es/(N)o/(D)on't ask again [Yes]: y",
+    "Running npm run lint",
+    "✔ No ESLint warnings or errors"
+  ],
+  "expect": {
+    "assistant": "aider",
+    "agent": {
+      "ran": [
+        "npm run lint"
+      ],
+      "declined": [],
+      "todos": []
+    }
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "about": "Aider asks to run the migration and you answer n.",
+  "profile": "aider",
+  "window": {
+    "app": "Terminal",
+    "bundle": "com.apple.Terminal",
+    "title": "aider"
+  },
+  "lines": [
+    "aider> add an index on orders.user_id",
+    "Applied edit to migrations/0008_orders_index.sql",
+    "npm run migrate",
+    "Run shell command? (Y)es/(N)o/(D)on't ask again [Yes]: n"
+  ],
+  "expect": {
+    "assistant": "aider",
+    "agent": {
+      "ran": [],
+      "declined": [
+        "npm run migrate"
+      ],
+      "todos": []
+    }
+  }
+}

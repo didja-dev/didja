@@ -8,8 +8,9 @@
  *     editor, the text only that tool shows (`terminal` / `editor`: `titles`, `signatures` that are
  *     enough alone, and `together`: weak signs, such as a "●" or "❯" glyph, that count only all at once);
  *   - `turns`: how your turn is told from the assistant's (labels such as "You said:");
- *   - `agentWork`: the lines that are the agent's own work (approval prompts, "ran" lines, its todo
- *     list), for the rules that keep those from becoming, or ticking, your tasks;
+ *   - `agentWork`: the lines that are the agent's own work (approval prompts, "ran" lines, the answer
+ *     that declines a prompt, its todo list), for the rules that keep those from becoming, or
+ *     ticking, your tasks (SCR-85, `agents.ts`);
  *   - `steps`: step shapes only that tool writes.
  *
  * Profiles hold patterns as data. They can only say which window is which tool; what is read, and
@@ -57,7 +58,7 @@ export interface AssistantProfileFile {
      */
     whenUnlabelled?: 'ignore' | 'assistant';
   };
-  agentWork?: { approval?: string[]; ran?: string[]; todo?: string[] };
+  agentWork?: { approval?: string[]; ran?: string[]; declined?: string[]; todo?: string[] };
   steps?: string[];
 }
 
@@ -77,7 +78,7 @@ export interface Assistant {
     editor: CompiledText | null;
   };
   turns: { user: RegExp[]; assistant: RegExp[]; userPrompt: RegExp[]; reply: RegExp[]; whenUnlabelled: 'ignore' | 'assistant' };
-  agentWork: { approval: RegExp[]; ran: RegExp[]; todo: RegExp[] };
+  agentWork: { approval: RegExp[]; ran: RegExp[]; declined: RegExp[]; todo: RegExp[] };
   steps: string[];
 }
 
@@ -142,7 +143,7 @@ export function compileAssistant(f: AssistantProfileFile): Assistant {
     },
     agentWork: {
       approval: list(f.agentWork?.approval).map(compilePattern), ran: list(f.agentWork?.ran).map(compilePattern),
-      todo: list(f.agentWork?.todo).map(compilePattern),
+      declined: list(f.agentWork?.declined).map(compilePattern), todo: list(f.agentWork?.todo).map(compilePattern),
     },
     steps: list(f.steps),
   };
@@ -248,7 +249,9 @@ export function hasTurns(a: Assistant, text: string): boolean {
 }
 
 /** What part of the agent's own work a line is, by its profile, or null (SCR-83; used by SCR-85). */
-export function agentWork(a: Assistant, line: string): 'approval' | 'ran' | 'todo' | null {
+export function agentWork(a: Assistant, line: string): 'approval' | 'ran' | 'declined' | 'todo' | null {
+  // Declining is checked first: its answer ("Skipped", "› 2. No, and tell…") can look like an option.
+  if (a.agentWork.declined.some((r) => r.test(line))) return 'declined';
   if (a.agentWork.approval.some((r) => r.test(line))) return 'approval';
   if (a.agentWork.ran.some((r) => r.test(line))) return 'ran';
   if (a.agentWork.todo.some((r) => r.test(line))) return 'todo';

@@ -28,6 +28,9 @@
     ],
     "ran": [
       "^\\s*Running "
+    ],
+    "declined": [
+      "(?i)\\(Y\\)es/\\(N\\)o.*\\]:\\s*no?\\s*$"
     ]
   },
   "status": "builtIn"

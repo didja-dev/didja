@@ -1,0 +1,28 @@
+{
+  "about": "OpenCode's own todo list, and a permission prompt still waiting: neither is yours.",
+  "profile": "opencode",
+  "window": {
+    "app": "Ghostty",
+    "bundle": "com.mitchellh.ghostty",
+    "title": "opencode"
+  },
+  "lines": [
+    "# Todos",
+    "[✓] Add the invoices table",
+    "[ ] Add tests for the renderer",
+    "Permission required",
+    "$ bun test",
+    "Allow once   Allow always   Reject"
+  ],
+  "expect": {
+    "assistant": "opencode",
+    "agent": {
+      "ran": [],
+      "declined": [],
+      "todos": [
+        "add the invoices table",
+        "add tests for the renderer"
+      ]
+    }
+  }
+}

@@ -5,8 +5,9 @@ import type { MailIdentity, MailReader } from './email.ts';
 import { chatApp, chatKey, asksForAcknowledgement, chatTaskTitle, isEmojiOnly, isPositiveEmoji, isReaction, lineHash, plainReactions, reactedTo, namesMe, chatSourceRef, chatTime, isMine as isMyMessage, mayAskOfMe, parseChatMessages, plainlyDefers, sentBefore } from './chat.ts';
 import type { ChatMessage, ChatReader, ReplyJudge } from './chat.ts';
 import { agentWork, assistantFor, hasTurns } from './assistants.ts';
+import { agentCommands, agentTodos, ranByAgent, todoKey, withoutAgentWork } from './agents.ts';
 import { normalizeSteps } from './steps.ts';
-import { assemble, doneByClaude, EDITORS, extractCommands, extractChecklists, replyAround, sourceRef, splitClaudeCode, stepLine, TERMINALS } from './extract.ts';
+import { assemble, doneByClaude, EDITORS, extractCommands, extractChecklists, replyAround, sourceRef, splitClaudeCode, stepCommands, stepLine, TERMINALS } from './extract.ts';
 import { rewordPlacesOnce } from './missed.ts';
 import { localModelOf } from './localmodel.ts';
 import { cleanCriteria, groundCriteria, matchCriteria, matchedWords } from './donecriteria.ts';
@@ -188,6 +189,8 @@ const JUDGE_PER_POLL = 2;
 export const MAYBE_CONFIDENCE = 0.2;
 const MIN_SHOWN_CONFIDENCE = 0.3;
 const CLAUDE_DID_IT = 'Claude did this itself: its own tools ran it after listing it, so it was not yours to do';
+/** Why a step an agent then ran with its own tools was taken back (SCR-85). */
+const agentRanIt = (name: string) => `${name} ran this itself: it ran the step's command after listing it, so it was not yours to do`;
 const CLAUDE_SAID_SO = 'The text around this list shows it is what Claude was going to do, not something asked of you';
 const NOT_FOR_YOU = "On-device model: this list reads as Claude's own plan or report, not something asked of you";
 
@@ -343,7 +346,11 @@ function pass(store: Store, now: Date, options: PollOptions): PollStats {
     // Where a link in a reply points is not a step's words, nor a marker to tick it by (SCR-68).
     // Steps written as headings, bullets under "Next steps:", boxes, a table or a code block are
     // read as the numbered lines and commands below already are (SCR-84).
-    const source = normalizeSteps(withoutLinkTargets(transcript?.replies ?? text), { chat });
+    // An agent's approval prompts, their options and answers, and its "ran" lines are its own work,
+    // never steps for you: blanked (line numbers kept) so "1. Yes / 2. No, and tell…" is not read
+    // as a list, nor swallows the list after it (SCR-85).
+    const read = chat ? text : withoutAgentWork(assistant, transcript?.replies ?? text);
+    const source = normalizeSteps(withoutLinkTargets(chat ? (transcript?.replies ?? text) : read), { chat });
     // A chat keeps only the assistant's messages. One whose text shows no turns at all is ignored
     // (Claude: a document preview) or read whole (a site with no labels, such as Gemini), by its profile.
     const claudeOnly = chat && (assistant.turns.whenUnlabelled === 'ignore' || hasTurns(assistant, source));
@@ -355,6 +362,24 @@ function pass(store: Store, now: Date, options: PollOptions): PollStats {
     for (const commands of extractCommands(source)) {
       commands.items = commands.items.filter((i) => !listed.includes(i.fragments[0]!));
       if (commands.items.length > 0) lists.push(commands);
+    }
+    // What an agent in a terminal or an editor did itself, by its profile (SCR-85): the commands
+    // it ran or you declined, and its own todo items.
+    const agent = assistant.kind === 'chat' ? null : { commands: agentCommands(assistant, text), todos: agentTodos(assistant, text) };
+    if (agent) {
+      // A command you declined to let the agent run is yours to run, with the command as its marker.
+      const all = lists.flatMap((l) => l.items.flatMap(function each(i: ChecklistItem): string[] {
+        return [i.title, ...i.fragments, ...i.children.flatMap(each)];
+      })).join('\n');
+      // Kept even when the agent ran it afterwards, so the step below is taken back as the agent's.
+      const declined = agent.commands.filter((d) => d.how === 'declined');
+      const items: ChecklistItem[] = [];
+      for (const d of declined) {
+        const code = `\`${d.command}\``;
+        if (all.includes(code) || items.some((i) => i.fragments[0] === code)) continue;
+        items.push({ position: items.length + 1, title: `Run ${code}`, fragments: [code], children: [] });
+      }
+      if (items.length > 0) lists.push({ title: null, items, confidence: 1, actor: 'you', after: [], asked: null });
     }
     if (lists.length === 0) drop(kind, 'no-list');
     for (const list of lists) {
@@ -384,6 +409,16 @@ function pass(store: Store, now: Date, options: PollOptions): PollStats {
       if (list.items.length === 0) {
         drop(kind, 'not-an-action');
         continue;
+      }
+      // The agent's own todo items are its work, and so is a step worded like one (SCR-85).
+      if (agent && agent.todos.size > 0) {
+        const mine = (items: ChecklistItem[]): ChecklistItem[] =>
+          items.filter((i) => !agent.todos.has(todoKey(i.title))).map((i) => ({ ...i, children: mine(i.children) }));
+        list.items = mine(list.items);
+        if (list.items.length === 0) {
+          drop(kind, 'claude-own');
+          continue;
+        }
       }
 
       const only = list.items.length === 1 ? list.items[0]! : null;
@@ -427,6 +462,21 @@ function pass(store: Store, now: Date, options: PollOptions): PollStats {
         const steps = list.items.flatMap(function all(i: ChecklistItem): ChecklistItem[] { return [i, ...i.children.flatMap(all)]; });
         const did = steps.filter((i) => i.children.length === 0 && doneByClaude(i, transcript.tools, stepLine(source, i.title)));
         stats.retracted += retract(store, did.map((i) => i.title), CLAUDE_DID_IT, now, sourceRef(latest, kind));
+      }
+      // Steps any agent then ran with its own tools, after the step was listed (or, for a command
+      // you declined, after you declined it): the agent's, taken back, never ticked (SCR-85).
+      if (agent && agent.commands.some((c) => c.how === 'ran')) {
+        const steps = list.items.flatMap(function all(i: ChecklistItem): ChecklistItem[] { return [i, ...i.children.flatMap(all)]; });
+        const did = steps.filter((i) => {
+          if (i.children.length > 0) return false;
+          let from = stepLine(text, i.title);
+          if (from < 0) {
+            const commands = stepCommands(i);
+            from = agent.commands.filter((d) => d.how === 'declined' && commands.includes(d.command)).reduce((m, d) => Math.max(m, d.line), -1);
+          }
+          return ranByAgent(i, agent.commands, from);
+        });
+        stats.retracted += retract(store, did.map((i) => i.title), agentRanIt(assistant.name), now, sourceRef(latest, kind));
       }
     }
   }

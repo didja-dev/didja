@@ -211,6 +211,14 @@
             "minLength": 1,
             "maxLength": 300
           }
+        },
+        "declined": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          }
         }
       }
     },

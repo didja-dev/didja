@@ -1,0 +1,28 @@
+{
+  "about": "Cursor asks to run a migration and you skip it.",
+  "profile": "cursor",
+  "window": {
+    "app": "Cursor",
+    "bundle": "com.todesktop.230313mzl4w4u92",
+    "title": "acme-web"
+  },
+  "lines": [
+    "⟦Chat⟧",
+    "Run command?",
+    "bun run db:migrate",
+    "Skip",
+    "Run",
+    "Skipped",
+    "No problem. You can run it yourself when ready."
+  ],
+  "expect": {
+    "assistant": "cursor",
+    "agent": {
+      "ran": [],
+      "declined": [
+        "bun run db:migrate"
+      ],
+      "todos": []
+    }
+  }
+}

@@ -37,6 +37,9 @@
     "ran": [
       "^\\s*● .*\\(shell\\)\\s*$",
       "^\\s*└ "
+    ],
+    "declined": [
+      "^\\s*❯ \\d\\. No\\b"
     ]
   },
   "status": "builtIn"

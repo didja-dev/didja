@@ -28,6 +28,9 @@
     "todo": [
       "^\\s*Todos \\(\\d+/\\d+\\)",
       "^\\s*[✓○]\\s"
+    ],
+    "declined": [
+      "^\\s*Skipped\\s*$"
     ]
   },
   "status": "builtIn"

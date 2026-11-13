@@ -49,6 +49,9 @@
     ],
     "todo": [
       "^\\s*(?:└\\s+)?[✔□]\\s"
+    ],
+    "declined": [
+      "^\\s*› \\d\\. No\\b"
     ]
   },
   "status": "builtIn"

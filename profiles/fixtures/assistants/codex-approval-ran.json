@@ -1,0 +1,34 @@
+{
+  "about": "Codex asks to run the tests, you approve, it runs them and keeps its plan.",
+  "profile": "codex",
+  "window": {
+    "app": "iTerm2",
+    "bundle": "com.googlecode.iterm2",
+    "title": "codex"
+  },
+  "lines": [
+    "• Updated Plan",
+    "  └ ✔ Add the endpoint",
+    "    □ Document the endpoint",
+    "• Would you like to run the following command?",
+    "  $ npm test",
+    "› 1. Yes, proceed",
+    "  2. No, and tell Codex what to do differently",
+    "• Ran npm test",
+    "  └ 31 passing",
+    "    ✓ • 5ms"
+  ],
+  "expect": {
+    "assistant": "codex",
+    "agent": {
+      "ran": [
+        "npm test"
+      ],
+      "declined": [],
+      "todos": [
+        "add the endpoint",
+        "document the endpoint"
+      ]
+    }
+  }
+}

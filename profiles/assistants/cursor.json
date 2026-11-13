@@ -29,6 +29,9 @@
     "todo": [
       "^\\s*To-dos \\d+ of \\d+",
       "^\\s*[✓○]\\s"
+    ],
+    "declined": [
+      "^\\s*Skipped\\s*$"
     ]
   },
   "status": "builtIn"

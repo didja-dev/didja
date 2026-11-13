@@ -78,8 +78,10 @@ export interface ScenarioResult {
   expected: number;
   captured: number;
   matched: number;
-  /** Captured tasks that match a "must not exist" label. */
+  /** Captured tasks still on the list at the end that match a "must not exist" label. */
   unwanted: string[];
+  /** Tasks the engine made and then took back (dismissed, with why), which left the list (SCR-85). */
+  takenBack: string[];
   ticked: number;
   suggested: number;
   missed: number;
@@ -177,12 +179,16 @@ export function runScenario(s: Scenario, opts: PollOptions = {}, model: ModelCho
     }
   }
 
-  const tasks = store.listTasks({ all: true }).filter((t) => !t.isGroup);
+  // What is on the list at the end: a task the engine took back (an agent ran it, a list judged the
+  // assistant's own) has left it, so it is neither found nor unwanted. Only the engine dismisses here.
+  const everything = store.listTasks({ all: true }).filter((t) => !t.isGroup);
+  const tasks = everything.filter((t) => t.status !== 'dismissed');
   const speeds = store.timingsSince('').filter((t) => t.seenAt !== null)
     .map((t) => ({ what: speedKind(t), ms: Math.max(0, Date.parse(t.shownAt) - Date.parse(t.seenAt!)) }));
   store.close();
   const result: ScenarioResult = {
     id: s.id, family: s.family, recognised: recognisedIn(s), expected: s.expect.tasks.length, captured: tasks.length, matched: 0, unwanted: [],
+    takenBack: everything.filter((t) => t.status === 'dismissed').map((t) => t.title),
     ticked: 0, suggested: 0, missed: 0, wrongTicks: [], wrongSuggestions: [], latencies: [], titles: tasks.map((t) => t.title), speeds,
   };
   const taken = new Set<number>();
@@ -213,8 +219,8 @@ export function runScenario(s: Scenario, opts: PollOptions = {}, model: ModelCho
   for (const task of tasks) {
     if (s.expect.none.some((words) => matches(task.title, words))) result.unwanted.push(task.title);
   }
-  // A task that should not exist and got ticked anyway is a wrong tick too.
-  for (const task of tasks) {
+  // A task that should not exist and got ticked anyway is a wrong tick too, even if later taken back.
+  for (const task of everything) {
     if (!taken.has(task.id) && tickedAt.has(task.id) && s.expect.none.some((words) => matches(task.title, words))) {
       result.wrongTicks.push(task.title);
     }
@@ -324,6 +330,7 @@ export function table(results: ScenarioResult[], t: Totals, verbose = false): st
     for (const r of results) {
       out.push('', `${r.id}: ${r.titles.length ? r.titles.map((x) => `“${x}”`).join(', ') : 'no tasks'}`);
       if (r.unwanted.length) out.push(`  unwanted: ${r.unwanted.join(' | ')}`);
+      if (r.takenBack.length) out.push(`  taken back: ${r.takenBack.join(' | ')}`);
       if (r.wrongTicks.length) out.push(`  WRONG TICK: ${r.wrongTicks.join(' | ')}`);
       if (r.wrongSuggestions.length) out.push(`  wrong ask: ${r.wrongSuggestions.join(' | ')}`);
     }

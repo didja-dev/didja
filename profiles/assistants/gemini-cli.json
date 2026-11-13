@@ -41,6 +41,9 @@
     "todo": [
       "^\\s*Todo \\d+/\\d+ completed",
       "^\\s*[✔○]\\s"
+    ],
+    "declined": [
+      "^\\s*● \\d\\. No\\b"
     ]
   },
   "status": "builtIn"

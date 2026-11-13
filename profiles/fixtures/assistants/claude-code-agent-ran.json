@@ -1,0 +1,29 @@
+{
+  "about": "Newer Claude Code lists a command, then runs it itself with Bash.",
+  "profile": "claude-code",
+  "window": {
+    "app": "Ghostty",
+    "bundle": "com.mitchellh.ghostty",
+    "title": "zsh"
+  },
+  "lines": [
+    "❯ set up the db",
+    "● Next steps:",
+    "  1. Run `bun run db:push`",
+    "  2. Add DATABASE_URL in Vercel",
+    "❯ go ahead",
+    "● Bash(bun run db:push)",
+    "  ⎿  Pushed schema in 1.1s",
+    "✻ Baked for 3s"
+  ],
+  "expect": {
+    "assistant": "claude-code",
+    "agent": {
+      "ran": [
+        "bun run db:push"
+      ],
+      "declined": [],
+      "todos": []
+    }
+  }
+}

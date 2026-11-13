@@ -1,0 +1,26 @@
+{
+  "about": "Codex asks to push and you choose No: the push is yours.",
+  "profile": "codex",
+  "window": {
+    "app": "iTerm2",
+    "bundle": "com.googlecode.iterm2",
+    "title": "codex"
+  },
+  "lines": [
+    "• Would you like to run the following command?",
+    "  $ git push origin main",
+    "  1. Yes, proceed",
+    "› 2. No, and tell Codex what to do differently",
+    "• Okay, I won't push. Push when you're ready."
+  ],
+  "expect": {
+    "assistant": "codex",
+    "agent": {
+      "ran": [],
+      "declined": [
+        "git push origin main"
+      ],
+      "todos": []
+    }
+  }
+}

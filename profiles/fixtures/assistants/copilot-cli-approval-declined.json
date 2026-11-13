@@ -1,0 +1,25 @@
+{
+  "about": "Copilot CLI asks to publish and you choose No.",
+  "profile": "copilot-cli",
+  "window": {
+    "app": "iTerm2",
+    "bundle": "com.googlecode.iterm2",
+    "title": "copilot"
+  },
+  "lines": [
+    "Do you want to run this command?",
+    "  npm publish",
+    "  1. Yes",
+    "❯ 2. No, and tell Copilot what to do differently (Esc)"
+  ],
+  "expect": {
+    "assistant": "copilot-cli",
+    "agent": {
+      "ran": [],
+      "declined": [
+        "npm publish"
+      ],
+      "todos": []
+    }
+  }
+}
