@@ -6,6 +6,9 @@ Each entry says what changed, and what was **not verified** where that applies: 
 
 ## 2026-11-13
 
+### Didja 0.8.0 (build 10)
+- Released from GitHub on a version tag, with SCR-79: Help › Troubleshooting Report… and `didja doctor` say why Didja reads nothing or makes no tasks (versions, permissions, capture's outcome log per app, engine and model status, drops by reason; counts and codes only), and let you copy, save, email it to Didja from your own mail app, or open a GitHub issue. Didja sends nothing itself.
+
 ### Troubleshooting report: why Didja reads nothing, or makes no tasks (SCR-79)
 - **Help › Troubleshooting Report…** and `didja doctor [--json]`: plain-language findings first (Accessibility off, and whether Didja moved since you allowed it; paused; capture failed; the engine stopped or erroring; an app that gives no text, refuses, or is excluded; Apple Intelligence unavailable and what that means; Claude read but no numbered list for you; lists seen but none made, and why), then counts and codes: versions, permissions, capture status, readings and outcomes per app, the engine's last pass and errors, Apple's model and the local model, what each source read and why it made no task, tasks per source, settings. No screen text, window titles or task words.
 - Didja sends nothing: Copy, Save…, **Email to Didja…** (a new email in your mail app) or **Open a GitHub Issue…** (filled in), each sent by you.
