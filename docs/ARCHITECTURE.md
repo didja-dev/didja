@@ -281,6 +281,30 @@ After SCR-67 (what done looks like), same 32 scenarios, Apple on-device: unchang
 
 After SCR-69 (terminals), with three scenarios added (35: a push with `-u` and a comment in an oh-my-zsh prompt, a migration run in VS Code's terminal, a dry run that must not tick), no model, before → after on the same 35: ticked 6 → 8, missed 14 → 12, wrong ticks 0 → 0. The first 32 are unchanged.
 
+## How fast it is (SCR-75)
+
+Targets, at the 90th percentile on the maintainer's Mac, from the moment the screen showed it:
+
+| What | Target |
+|---|---|
+| New task from a clear list, an email or a chat ask | ≤ 3 s |
+| Sure tick (a command run, a marker, a link followed, a reply, Sent) | ≤ 3 s |
+| Model-judged ("looks done?", a list's verdict, a tick from a screen the model read) | ≤ 10 s |
+| Chat ask | waits 10 minutes for your own reply on purpose (SCR-45); reported apart, no target |
+
+How it is measured: `timings` (schema 026) gets a row for each new step, each tick Didja makes and each "looks done?" asked, written during an engine pass (`Store.pass`, set by `pollOnce`; nothing is timed outside a pass). `seen_at` is the observation's time: for a new task its `created_at`; for a tick the newest observation its evidence points to (the last marker seen, the screen that looked done), else the newest observation the pass read. `engine_at` is the pass's time. `shown_at` is the pass's time plus the time spent in it so far, by `Store.clock`, so model calls inside the pass count. `path` is the target: `fast`, `model` (lists written by `judgePending`; ticks from a screen; accepted "looks done"; every "looks done?") or `wait` (chat asks promoted by `promotePendingChatAsks`). `didja quality` adds a speed section from `meta.timings_since`: per kind and per source, the median and 90th percentile of the whole time, the wait for the pass, and the time in it. Settings › General › How Didja Is Doing shows the overall rows.
+
+The benchmark times the same events on a fake clock: it polls every 5 s like `runLoop`, and charges each model call its measured median (`MODEL_COST_MS`: Apple 1 s, Ollama 2.5 s). Each observation is read by a pass at the moment it is written, so the benchmark measures the engine's share; capture's delay and the wait for the next pass are measured live. It fails (and so does CI) when a new task or a sure tick with no model takes over 3 s.
+
+Baseline, 38 scenarios (2026-11-13, at SCR-75), median / 90th percentile, simulated:
+
+| Model | New task | Sure tick | Model-judged | Chat ask |
+|---|---|---|---|---|
+| none (CI) | 22 × 0 s / 0 s | 10 × 0 s / 0 s | — | — |
+| Apple on-device | 11 × 0 s / 1.0 s | 13 × 0 s / 1.0 s | 19 × 11 s / 11 s (over) | 4 × 10 min / 10 min |
+
+What the baseline shows: with a model, a new task or a sure tick can wait behind a model call made earlier in the same pass (1 s here; 2.5 s with Ollama). Model-judged events are over target because an unclear list waits 6 s for the list to settle and then for the next 5 s poll before it is judged. Live numbers on this Mac start at zero from this version; the poll interval alone (5 s) means a live p90 can not be under 3 s yet. SCR-76 (event-driven engine) and SCR-77 (a long-lived judge) are the fixes.
+
 ## Updates (SCR-33)
 
 - Sparkle 2 (Swift Package Manager, pinned in `project.xcworkspace/xcshareddata/swiftpm/Package.resolved`). `Updates.swift` owns an `SPUStandardUpdaterController`, started at launch only in Release builds with a real `SUPublicEDKey` and never under tests, so a development build never replaces itself and tests make no requests. The menu's **Check for Updates…** and Settings › General's toggle call it.

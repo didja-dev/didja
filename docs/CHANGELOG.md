@@ -6,6 +6,12 @@ Each entry says what changed, and what was **not verified** where that applies: 
 
 ## 2026-11-13
 
+### How fast it is, measured (SCR-75)
+- Each new task, each tick Didja makes and each "looks done?" is timed: when the screen showed it, when the engine's pass began, and when the task or tick was written (schema 026 `timings`; times only, no text). Nothing is timed for your own changes.
+- `didja quality` has a **How fast** section: median and 90th percentile per kind (new task, sure tick, model-judged, chat ask) and per source, split into the wait for the engine and the time in it. Settings › General › How Didja Is Doing shows the overall rows, with the 90% in orange when over target.
+- The benchmark times the same events on a fake clock (polls every 5 s like the engine; each model call costs 1 s for Apple's model, 2.5 s for Ollama) and fails when a new task or sure tick with no model takes over 3 s. Targets and baseline in ARCHITECTURE.md › How fast it is: no model 0 s; Apple's model, new tasks and sure ticks 1.0 s at p90, model-judged 11 s (over the 10 s target).
+- Tests: engine 8 new (`speed.test.ts`), app 1 new (the speed JSON, over target, the old JSON without it; looked at `quality.png` light and dark). Not verified: live numbers on this Mac (capture needs Accessibility again, and they start at zero); the benchmark with Ollama.
+
 ### Didja 0.6.0 (build 7)
 - Released from GitHub on a version tag. In it since 0.5.0: commands count only when run and not failed (SCR-61); Hebrew and other non-Latin titles keep their own keys (SCR-62); a new "Done"/"Sent" line is kept when the same words are elsewhere on screen (SCR-63); the end-to-end benchmark (SCR-64); Claude Code's own steps and docs in editors are not your tasks (SCR-65); the model is shown the screens where a task was likely done (SCR-66); done criteria written at capture (SCR-67); checkboxes, toggles and notices captured (SCR-68); terminals read command, output and outcome (SCR-69); unclear lists held until judged, and the local model for the list judge (SCR-70); feedback that teaches (SCR-71); one window identity (SCR-72); `didja quality` (SCR-73); and SCR-50, 51, 52, 57, 58, 59.
 

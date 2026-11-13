@@ -4,6 +4,12 @@ Choices made while building ScrolledAway, with the reason, so they are not re-ar
 
 ## 2026-11-13
 
+- **Speed is timed inside the engine's pass, not by capture** (SCR-75). `seen_at` is the observation's own time, so capture's delay is included; `engine_at` and `shown_at` are taken from the pass. `shown_at` is the pass's time plus the clock time spent in it, rather than a second wall-clock reading, so the benchmark's fake clock and tests give exact numbers and live reads the same.
+- **A tick's "seen" is the newest observation its evidence points to**; a tick whose evidence has no observation (a chat reply, an email response) falls back to the newest observation the pass read. That can make such a tick look a little faster than it was, never slower.
+- **The target is chosen by the path, not by whether a model ran.** A list judged by the model, a tick from a screen the model read, an accepted "looks done" and every "looks done?" are held to 10 s; everything else to 3 s, even when a model read the email first, because the issue's target for email tasks is 3 s. Chat asks promoted after their 10-minute wait are reported apart with no target.
+- **The benchmark measures the engine's share only**: each observation is read the moment it is written, and polls follow every 5 s. Capture and the wait for the next pass are in the live numbers. Model costs are fixed medians (Apple 1 s, Ollama 2.5 s, from eval/lists.ts), not the real time of the call, so runs compare.
+- **The benchmark now polls every 5 s, not every 30 s**, to match the engine's loop; with no model every count is unchanged.
+
 - **"How Didja is doing" counts from a log of outcomes, recorded from now on** (SCR-73), rather than being worked out from tasks and their evidence. The store did not say whether a tick was Didja's or yours, and reopening erased `done_at`, so wrong ticks could not be found after the fact; reading it from evidence wording would also break whenever a sentence changed. The report says from when it counts, and steps made are counted from the same moment so the numbers compare.
 - **Counted per step, per event.** Ticking a checklist counts each step it changed; a task asked "looks done?" in two places counts two asks. "No answer" is asks minus yes and not yet, so it includes asks still waiting and ones settled another way.
 - **A tick on a task waiting on "looks done?" is a yes**, whichever button made it; any other tick in the list is "by you". A reopening is a wrong tick only when the step's last outcome was one of Didja's ticks.
