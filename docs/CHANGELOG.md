@@ -6,6 +6,16 @@ Each entry says what changed, and what was **not verified** where that applies: 
 
 ## 2026-11-13
 
+### Tick When Didja Is Sure (SCR-74)
+- "When a task looks done" has three choices: Ask Me, **Tick When Didja Is Sure** (now the default), Accept Automatically. Installs on Ask Me moved to the new default once; Accept Automatically is kept.
+- Sure means:
+  - **Two signs on the same screen**: the model sees it done, and either what done looks like matched or a ticked box or notice names the task.
+  - **Or a place where you said yes five times** since the last "not yet" or reopened tick, in 30 days. A place is the site or app · source kind · first word, kept in schema 027 `trust_events` (no titles, no screen text).
+  - The model alone only asks. A step with a command always asks.
+- The tick is labelled "ticked for you" (it said "auto-accepted"), with why. Reopening it, or Not Done, suspends that place until five more yes. `didja quality` counts these as "looked done, and Didja was sure".
+- Benchmark: with no model, unchanged (0 wrong ticks). With Apple's model, the 38 earlier scenarios are unchanged (13 ticked, 3 asked, 0 wrong): none of the three asked had a second sign, and a fresh run has no answers to trust. New scenario 39 (GitHub's merged notice): ticked when sure, 0 wrong ticks; it also shows one wrong *ask* ("Tell Noa…" asked on the merge page), an older looks rule.
+- Tests: engine 11 new (`autotick.test.ts`): two signs tick and are labelled; Ask Me only asks; the model not seeing it done never ticks; the model alone only asks; one yes is not enough, five are, and only for that key; a not yet blocks until five more; old answers expire; your answers earn trust; a reopened tick demotes the place; a command step never; the one-time move. Two older tests pinned to Ask Me. App 3 new (the choices and the one-time move). Looked at `popover.png` ("ticked for you"). Not verified: the live app; a first-time "Didja ticked this for you — Undo" note (not built).
+
 ### An unclear list shows at once as "checking…" (SCR-78)
 - A list whose lead-in does not say whose it is ("Next steps:") now appears in the fast lane's pass, greyed with a **checking…** tag, instead of after the model's verdict. It is not counted in "N open" and never nudges. "Yours" makes it a normal list; "Claude's" takes back what is still open (Dismissed view, with why); with no model it becomes "maybe", as before.
 - Ticking a step while it is checking keeps the tick and settles the list as yours: the model is not asked (the verdict is saved as yours).

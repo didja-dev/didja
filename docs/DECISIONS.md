@@ -4,6 +4,13 @@ Choices made while building ScrolledAway, with the reason, so they are not re-ar
 
 ## 2026-11-13
 
+- **Tick When Didja Is Sure is the default, for new and existing installs** (SCR-74, the maintainer). An install on Ask Me moves once (`meta.looks_done_sure_once`; the app's own flag the same); one on Accept Automatically keeps it. Ask Me stays available.
+- **No "both models say done" signal** (the maintainer): asking two models on every look doubles the time and the memory. The second signs are what done looks like matched there, or a ticked box or notice naming the task, each with the model's "done"; or earned trust.
+- **Trust key: site or app · source kind · first verb**, not the page path, which would earn trust too slowly (the maintainer). Trust is 5 yes after the last no within 30 days, so a wrong tick (reopened) or a "not yet" suspends the key until 5 more yes.
+- **Trust is a table of answers (`trust_events`), not read from evidence wording**, for the same reason as SCR-73's outcomes: a sentence change must not change what is trusted. Earlier confirmations (SCR-71) are not back-filled; trust starts from this version.
+- **A step with something exact to look for never sure-ticks** (SCR-69 already made it wait for your yes in Accept Automatically).
+- **The first-time "Didja ticked this for you — Undo" note is not built yet**: the row's "ticked for you" label, its why and Not Done are the undo for now. Left for a follow-up.
+
 - **An unclear list is shown as "checking…" instead of held** (SCR-78, the maintainer's call: speed counts as much as being right). It replaces SCR-70's "no task until the verdict". It is kept honest by not counting it as open, never nudging it, and taking back only what you left open when the verdict is Claude's.
 - **"Checking" is a confidence (0.1), like "maybe" (0.2)**, not a new column: no schema step, and the app already reads confidence. Every list judged or clear is 0.3 or more.
 - **A tick while checking is taken as "yours" for the whole list**: the verdict is saved with model "you", so neither lane asks the model about that list again. A "Claude's" verdict that arrives in the same moment from the other lane still leaves your tick alone.
