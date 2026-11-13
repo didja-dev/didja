@@ -367,8 +367,9 @@ The benchmark lists Didja-added follow-ups apart (they are not captured). Same 9
 | Model | Recall | Precision | Must not exist | Ticked | Asked | Missed | Wrong ticks | Wrong asks |
 |---|---|---|---|---|---|---|---|---|
 | none (CI) | 123/140 (88%) → 123/140 (88%) | 98% → 98% | 1 → 1 | 33 → 33 | 0 → 9 | 27 → 18 | 0 | 0 |
+| Apple on-device, after (one run; before is SCR-84's run) | 120/140 (86%) | 98% | 1 | 38 → 46 | 11 → 4 | 11 → 10 | 0 | 5 → 5 |
 
-Done detection with no model, ticked or asked of the 60 really done: 33 (55%) → 42 (70%). The new asks are GitHub's visibility (3 scenarios), Google's Authorized redirect URIs (2), Vercel's Domains (2), Supabase's Redirect URLs (1) and a Vercel env row whose step does not name Vercel itself, only its conversation (1): steps with no exact marker to tick on. No marker tick was lost to the stricter rule on catalogued sites.
+Done detection with no model, ticked or asked of the 60 really done: 33 (55%) → 42 (70%). The new asks are GitHub's visibility (3 scenarios), Google's Authorized redirect URIs (2), Vercel's Domains (2), Supabase's Redirect URLs (1) and a Vercel env row whose step does not name Vercel itself, only its conversation (1): steps with no exact marker to tick on. No marker tick was lost to the stricter rule on catalogued sites. With Apple's model more of the asks become sure ticks (the listing is the second sign); its capture recall moved 92% → 86% between runs, which is the list judge's run-to-run variance (nothing here changes what is captured). Its 5 wrong asks are questions, as before; the one checked (a Supabase Site URL step) is the model's, not a catalogue listing, which needs the exact URL.
 
 ## How fast it is (SCR-75)
 
