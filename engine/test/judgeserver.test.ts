@@ -103,3 +103,18 @@ test('the local model is warmed once when it is first used, and again only when 
     judge.stop();
   }
 });
+
+test('a one-off command that asked the server still exits, and the server stops with it', () => {
+  const fake = script('lingering', server());
+  const asker = join(dir, 'asker.ts');
+  writeFileSync(asker, `import { JudgeServer } from ${JSON.stringify(join(import.meta.dir, '../src/judgeserver.ts'))};
+const judge = new JudgeServer([${JSON.stringify(fake)}]);
+console.log(JSON.stringify(judge.ask('judge', {}, 3000)));\n`);
+  const started = performance.now();
+  const run = Bun.spawnSync([process.execPath, asker], { timeout: 10_000 });
+  expect(run.stdout.toString()).toContain('"available":true');
+  expect(performance.now() - started).toBeLessThan(5000);
+  // Its input closed when the command exited: no server is left running.
+  Bun.sleepSync(300);
+  expect(Bun.spawnSync(['pgrep', '-f', fake]).stdout.toString().trim()).toBe('');
+});
