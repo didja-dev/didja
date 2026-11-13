@@ -45,10 +45,20 @@ struct TaskItem: Identifiable, Equatable {
     var asker: String? = nil
     /// Kept while no model could say whether its list is yours or Claude's own plan (SCR-70).
     var maybe = false
+    /// Shown while the model decides whether its list is yours (SCR-78): greyed, not counted.
+    var checking = false
 
     /// The confidence the engine writes on a "maybe" list (engine `MAYBE_CONFIDENCE`); every other
     /// list is stored above `maybeLimit`.
     static let maybeLimit = 0.25
+    /// The confidence of a list being checked (engine `CHECKING_CONFIDENCE`, 0.1), below "maybe".
+    static let checkingLimit = 0.15
+
+    /// "maybe" and "checking" from the confidence the engine stored.
+    static func doubt(confidence: Double?) -> (maybe: Bool, checking: Bool) {
+        guard let confidence else { return (false, false) }
+        return (confidence <= maybeLimit && confidence > checkingLimit, confidence <= checkingLimit)
+    }
 
     /// The asker from what the engine keeps: a chat's sender, or the name in an email's
     /// "From an email: <name> — “<subject>”" note. Nil for yourself and for anything else.
@@ -414,7 +424,8 @@ struct TaskBoard: Equatable {
     var openStepCount: Int {
         let byID = Dictionary(tasks.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         return tasks.filter { item in
-            guard !item.isGroup, item.status == .open, inFocus(item) else { return false }
+            // A list still being checked is not yours yet: not counted (SCR-78).
+            guard !item.isGroup, item.status == .open, !item.checking, inFocus(item) else { return false }
             // Every parent above it must be open too.
             var parent = item.parentID.flatMap { byID[$0] }
             while let current = parent {

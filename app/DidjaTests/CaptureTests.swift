@@ -902,6 +902,19 @@ final class TaskBoardTests: XCTestCase {
         XCTAssertEqual(Self.sample.openStepCount, 2)
     }
 
+    /// SCR-78: a list the model is still checking is shown but not counted as open.
+    func testAListBeingCheckedIsShownButNotCounted() {
+        var board = Self.sample
+        board.tasks += [
+            Self.item(10, "Next steps", group: true, source: "Claude — Launch"),
+            Self.item(11, "Add the redirect URL in the Supabase dashboard", parent: 10, source: "Claude — Launch"),
+        ]
+        XCTAssertEqual(board.openStepCount, 3)
+        for index in board.tasks.indices where [10, 11].contains(board.tasks[index].id) { board.tasks[index].checking = true }
+        XCTAssertEqual(board.openStepCount, 2)
+        XCTAssertTrue(board.sections(.pending).contains { $0.source == "Claude — Launch" }, "still shown")
+    }
+
     func testAConversationCanBeTickedOnlyWhileSomethingInItIsOpen() {
         let pending = Self.sample.sections(.pending)
         XCTAssertEqual(pending.map { $0.tickAllHandle?.id }, [4, 5])
@@ -1011,7 +1024,12 @@ final class TaskBoardTests: XCTestCase {
         navigator.selected = 2
         // Captured at different times, so every form of the note is drawn.
         var board = Self.sample
-        let ages: [Int: TimeInterval] = [4: 5 * 60, 5: 2 * 3600 + 15 * 60, 8: 3 * 24 * 3600]
+        board.tasks += [
+            Self.item(10, "Next steps", group: true, source: "Claude — Launch"),
+            Self.item(11, "Add the redirect URL in the Supabase dashboard", parent: 10, source: "Claude — Launch"),
+            Self.item(12, "Run the smoke test", parent: 10, source: "Claude — Launch"),
+        ]
+        let ages: [Int: TimeInterval] = [4: 5 * 60, 5: 2 * 3600 + 15 * 60, 8: 3 * 24 * 3600, 10: 20]
         for index in board.tasks.indices {
             board.tasks[index].capturedAt = ages[board.tasks[index].id].map { Date().addingTimeInterval(-$0) }
             // Ticked for you because it looked done: drawn with its label.
@@ -1020,6 +1038,8 @@ final class TaskBoardTests: XCTestCase {
             if board.tasks[index].id == 3 { board.tasks[index].asker = "Jordan Lee via Docusign" }
             // Kept while no model could judge it (SCR-70): drawn quiet, with its tag.
             if board.tasks[index].id == 5 { board.tasks[index].maybe = true }
+            // Being checked by the model (SCR-78): drawn quiet, with its tag.
+            if [10, 11, 12].contains(board.tasks[index].id) { board.tasks[index].checking = true }
             if board.tasks[index].id == 2 {
                 board.tasks[index].mergeWith = 99
                 board.tasks[index].mergeWithTitle = "Sign the loan agreement Sam is sending"

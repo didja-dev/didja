@@ -242,7 +242,8 @@ final class ObservationStore {
                 mergeWithSource: text(19),
                 alsoFrom: text(20).map { $0.split(separator: "\n").map(String.init) } ?? [],
                 asker: TaskItem.asker(chatFrom: text(21), origin: text(22)),
-                maybe: sqlite3_column_type(statement, 23) != SQLITE_NULL && sqlite3_column_double(statement, 23) <= TaskItem.maybeLimit))
+                maybe: TaskItem.doubt(confidence: sqlite3_column_type(statement, 23) == SQLITE_NULL ? nil : sqlite3_column_double(statement, 23)).maybe,
+                checking: TaskItem.doubt(confidence: sqlite3_column_type(statement, 23) == SQLITE_NULL ? nil : sqlite3_column_double(statement, 23)).checking))
         }
         return rows
     }

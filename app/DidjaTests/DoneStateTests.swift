@@ -192,11 +192,17 @@ final class MaybeTaskTests: XCTestCase {
             INSERT INTO sources (id, kind, ref) VALUES (1, 'claude', 'Claude — Demo');
             INSERT INTO tasks (id, title, source, confidence, dedupe_key, created_at, last_seen_at)
             VALUES (1, 'Maybe one', 1, 0.2, 'one', '2026-11-10T12:00:00.000Z', '2026-11-10T12:00:00.000Z'),
-                   (2, 'Sure one', 1, 0.3, 'two', '2026-11-10T12:00:00.000Z', '2026-11-10T12:00:00.000Z');
+                   (2, 'Sure one', 1, 0.3, 'two', '2026-11-10T12:00:00.000Z', '2026-11-10T12:00:00.000Z'),
+                   (3, 'Checking one', 1, 0.1, 'three', '2026-11-10T12:00:00.000Z', '2026-11-10T12:00:00.000Z');
             """, nil, nil, nil), SQLITE_OK)
         sqlite3_close(db)
         let tasks = try store.tasks()
         XCTAssertEqual(tasks.first { $0.id == 1 }?.maybe, true)
         XCTAssertEqual(tasks.first { $0.id == 2 }?.maybe, false)
+        // SCR-78: below "maybe" is a list the model is still checking.
+        XCTAssertEqual(tasks.first { $0.id == 3 }?.checking, true)
+        XCTAssertEqual(tasks.first { $0.id == 3 }?.maybe, false)
+        XCTAssertEqual(tasks.first { $0.id == 1 }?.checking, false)
+        XCTAssertEqual(tasks.first { $0.id == 2 }?.checking, false)
     }
 }
