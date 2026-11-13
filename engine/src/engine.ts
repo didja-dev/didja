@@ -5,6 +5,7 @@ import type { MailIdentity, MailReader } from './email.ts';
 import { chatApp, chatKey, asksForAcknowledgement, chatTaskTitle, isEmojiOnly, isPositiveEmoji, isReaction, lineHash, plainReactions, reactedTo, namesMe, chatSourceRef, chatTime, isMine as isMyMessage, mayAskOfMe, parseChatMessages, plainlyDefers, sentBefore } from './chat.ts';
 import type { ChatMessage, ChatReader, ReplyJudge } from './chat.ts';
 import { agentWork, assistantFor, hasTurns } from './assistants.ts';
+import { normalizeSteps } from './steps.ts';
 import { assemble, doneByClaude, EDITORS, extractCommands, extractChecklists, replyAround, sourceRef, splitClaudeCode, stepLine, TERMINALS } from './extract.ts';
 import { rewordPlacesOnce } from './missed.ts';
 import { localModelOf } from './localmodel.ts';
@@ -340,7 +341,9 @@ function pass(store: Store, now: Date, options: PollOptions): PollStats {
     // (a file it read, `cat` of a doc), nor what you typed (SCR-65).
     const transcript = kind === 'claude-code' ? splitClaudeCode(text) : null;
     // Where a link in a reply points is not a step's words, nor a marker to tick it by (SCR-68).
-    const source = withoutLinkTargets(transcript?.replies ?? text);
+    // Steps written as headings, bullets under "Next steps:", boxes, a table or a code block are
+    // read as the numbered lines and commands below already are (SCR-84).
+    const source = normalizeSteps(withoutLinkTargets(transcript?.replies ?? text), { chat });
     // A chat keeps only the assistant's messages. One whose text shows no turns at all is ignored
     // (Claude: a document preview) or read whole (a site with no labels, such as Gemini), by its profile.
     const claudeOnly = chat && (assistant.turns.whenUnlabelled === 'ignore' || hasTurns(assistant, source));

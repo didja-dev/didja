@@ -73,7 +73,8 @@
       },
       {
         "words": [
-          "google_client_secret"
+          "secret",
+          "vercel"
         ],
         "done": {
           "at": 11,

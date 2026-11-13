@@ -8,6 +8,7 @@
 
 import type { Observation } from './store.ts';
 import { assistantByKind, assistantFor, assistants } from './assistants.ts';
+import { stepTarget } from './steps.ts';
 import { stableTitle } from './window.ts';
 
 /** The tool a task came from: an assistant profile's source kind ('claude-desktop', 'claude-web', 'claude-code', 'chatgpt', 'codex'…). */
@@ -358,7 +359,10 @@ function settle(item: ChecklistItem): boolean {
     return keep;
   });
   item.children.forEach((child, i) => { child.position = i + 1; });
-  return item.command === true || (!item.headingOnly && looksLikeAction(item.title)) || item.children.length > 0;
+  // A step that names what it acts on (an env name, a URL, a service, a command) is one even
+  // without a known verb at its start (SCR-84).
+  return item.command === true || (!item.headingOnly && (looksLikeAction(item.title) || stepTarget(item.title) !== null))
+    || item.children.length > 0;
 }
 
 /**
@@ -490,7 +494,9 @@ export function extractChecklists(text: string, opts: ExtractOptions = {}): Chec
   let sectionOwner: Author = null;
 
   const close = () => {
-    if (run.length >= MIN_ITEMS && !(opts.claudeOnly && runAuthor !== 'claude')) {
+    // One step is a list too when its lead-in hands it to you ("The only thing left for you:"), SCR-84.
+    const enough = run.length >= MIN_ITEMS || (run.length === 1 && runActor === 'you');
+    if (enough && !(opts.claudeOnly && runAuthor !== 'claude')) {
       // Only steps that tell you to do something are tasks. "After that, the
       // rest of Milestone 3" or "The cache was stale" are statements.
       const actions = run.filter(settle);
