@@ -19,6 +19,11 @@ struct Differ {
 
     /// Lines of `lines` that were not in this window's previous snapshot, in
     /// order and without repeats. Updates the snapshot.
+    ///
+    /// A line is the same line only within its section and only as the same
+    /// occurrence (SCR-63): the second "Done" in a window, or "Done" under a new
+    /// chat message, is new even though "Done" is already on screen, and a
+    /// command typed again after its output (a re-run) is new too.
     mutating func newLines(windowKey: String, lines: [String]) -> [String] {
         var hasher = Hasher()
         lines.forEach { hasher.combine($0) }
@@ -28,7 +33,9 @@ struct Differ {
         let previous = snapshots[windowKey]
         if let previous, previous.hash == hash { return [] }
 
-        var seen = Set<String>()
+        var keys = Set<String>()
+        var counts: [String: Int] = [:]
+        var reported = Set<String>()
         var fresh: [String] = []
         // A new line is reported together with the section line it sits under
         // (see AXCapture.sectionLine), even if that section was seen before, so
@@ -39,18 +46,28 @@ struct Differ {
             if line.first == AXCapture.sectionOpen {
                 section = line
                 sectionReported = false
-                seen.insert(line)
                 continue
             }
-            guard seen.insert(line).inserted, previous?.lines.contains(line) != true else { continue }
+            let unit = Self.unit(section: section, line: line)
+            let occurrence = (counts[unit] ?? 0) + 1
+            counts[unit] = occurrence
+            let key = "\(unit)\u{1F}\(occurrence)"
+            keys.insert(key)
+            // Already seen as this occurrence, or already reported in this batch: not news.
+            guard previous?.lines.contains(key) != true, reported.insert(unit).inserted else { continue }
             if let section, !sectionReported {
                 fresh.append(section)
                 sectionReported = true
             }
             fresh.append(line)
         }
-        snapshots[windowKey] = Snapshot(hash: hash, lines: seen)
+        snapshots[windowKey] = Snapshot(hash: hash, lines: keys)
         return fresh
+    }
+
+    /// What makes a line the same line: its text, under the section it sits in.
+    private static func unit(section: String?, line: String) -> String {
+        "\(section ?? "")\u{1F}\(line)"
     }
 
     private mutating func touch(_ key: String) {

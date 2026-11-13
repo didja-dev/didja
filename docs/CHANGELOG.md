@@ -6,6 +6,11 @@ Each entry says what changed, and what was **not verified** where that applies: 
 
 ## 2026-11-13
 
+### A new "Done" or "Sent" is captured even when the same words are already in the window (SCR-63)
+- Capture compared each line with the whole window, so a new chat reply "Done", "Sent", "Approved" or "👍" was dropped whenever an older message in the window said the same, and a command run again in a terminal was dropped because it was already on screen. The commonest completion words were the ones lost, so replies and re-runs never reached the engine.
+- A line is now the same line only under the same section (the chat message or email it belongs to) and as the same occurrence: "Done" under a new message is new, a second "Done" under the same message heading is new, and a command typed again after its output is new, with its new output. A window seen again unchanged, or one that only scrolls older lines away, still adds nothing.
+- Tests: Swift `DifferTests` for a new "Done" under a new message with an older "Done" on screen, a second identical line in the same section, a terminal re-run of `bun test`, and the same snapshot twice; engine tests that your reply "Done" ticks the ask it follows with an older "Done" of yours in the chat, and that the older "Done" before the ask never ticks it. **Not verified** on a live chat or terminal.
+
 ### Hebrew (and every non-Latin) task has a key of its own (SCR-62)
 - The key that tells one task from another kept only a–z and 0–9, so every Hebrew title had an empty key. One "Not an Action" on a Hebrew chat task then silently dropped every later Hebrew task, and different Hebrew steps of a list merged into one. The key now keeps letters and digits of any script (lowercased, accents and points dropped). A title with no letters or digits at all (an emoji) is known by its exact wording and never matches another; no lesson is stored or matched under an empty key.
 - Once, at start: lessons stored under an empty key by earlier versions are dropped (`empty_lessons_dropped`), so the "Not an Action" that blocked every Hebrew task stops doing so. Hebrew tasks already merged into one stay as they are.

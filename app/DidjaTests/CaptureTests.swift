@@ -127,6 +127,41 @@ final class DifferTests: XCTestCase {
         XCTAssertEqual(differ.newLines(windowKey: "w", lines: ["⟦Message 1⟧", "hello", "⟦Message 2⟧", "1. Run it", "2. Check it", "⟦Message 3⟧"]), [])
     }
 
+    /// SCR-63: "Done" under a new message is new, though an older message says "Done" too.
+    func testANewDoneUnderANewSectionIsReportedWhenAnOlderMessageSaysDone() {
+        var differ = Differ()
+        let before = ["⟦Chat message: Sam (direct) — from me — 9:55⟧", "Done",
+                      "⟦Chat message: Sam (direct) — from Sam — 10:05⟧", "Can you send the deck?"]
+        XCTAssertEqual(differ.newLines(windowKey: "w", lines: before), before)
+        // The same snapshot twice: nothing.
+        XCTAssertEqual(differ.newLines(windowKey: "w", lines: before), [])
+        let after = before + ["⟦Chat message: Sam (direct) — from me — 10:20⟧", "Done"]
+        XCTAssertEqual(differ.newLines(windowKey: "w", lines: after),
+                       ["⟦Chat message: Sam (direct) — from me — 10:20⟧", "Done"])
+        XCTAssertEqual(differ.newLines(windowKey: "w", lines: after), [])
+        // The older message scrolls away: nothing new.
+        XCTAssertEqual(differ.newLines(windowKey: "w", lines: Array(after.dropFirst(2))), [])
+    }
+
+    /// SCR-63: two messages in the same minute under the same section name: the second "Sent" is new.
+    func testASecondIdenticalLineInTheSameSectionIsNew() {
+        var differ = Differ()
+        let one = ["⟦Chat message: Sam (direct) — from me — 10:20⟧", "Sent"]
+        XCTAssertEqual(differ.newLines(windowKey: "w", lines: one), one)
+        XCTAssertEqual(differ.newLines(windowKey: "w", lines: one + one), one)
+        XCTAssertEqual(differ.newLines(windowKey: "w", lines: one + one), [])
+    }
+
+    /// SCR-63: a command run again after its output is a new line, and so is its new output.
+    func testATerminalReRunIsReported() {
+        var differ = Differ()
+        let first = ["~/acme % bun test", " 12 pass", " 0 fail", "~/acme % "]
+        XCTAssertEqual(differ.newLines(windowKey: "t", lines: first), first)
+        let rerun = ["~/acme % bun test", " 12 pass", " 0 fail", "~/acme % bun test", " 12 pass", " 0 fail", "~/acme % "]
+        XCTAssertEqual(differ.newLines(windowKey: "t", lines: rerun), ["~/acme % bun test", " 12 pass", " 0 fail"])
+        XCTAssertEqual(differ.newLines(windowKey: "t", lines: rerun), [])
+    }
+
     func testWindowsAreTrackedSeparatelyAndOldOnesForgotten() {
         var differ = Differ(capacity: 2)
         XCTAssertEqual(differ.newLines(windowKey: "one", lines: ["x"]), ["x"])

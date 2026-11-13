@@ -157,6 +157,37 @@ test('your reply that settles it ticks the task, labelled', () => {
   store.close();
 });
 
+// SCR-63: capture now sends a new "Done" even when an older message in the window says "Done" too.
+test('your reply "Done" ticks the ask it follows, with an older "Done" of yours on screen', () => {
+  const earlier = [
+    section('Dana Levi', 'direct', 'Dana Levi', 'Today at 8:50'), 'Can you look at the draft?',
+    section('Dana Levi', 'direct', 'me', 'Today at 8:55'), 'Done',
+  ];
+  const store = seeded([...earlier, ...ASK]);
+  pollOnce(store, NOW, { chatReader: reader().read });
+  expect(store.listTasks()).toMatchObject([{ title: 'Send Dana the signed contract', status: 'open' }]);
+  // What capture now sends for the new reply: its own section and the line, though "Done" was already in the window.
+  observe(store, [section('Dana Levi', 'direct', 'me', 'Today at 9:20'), 'Done'], at(3));
+  const { j, asked } = judge('settles');
+  expect(pollOnce(store, NOW, { chatReader: reader().read, replyJudge: j }).completed).toBe(1);
+  expect(asked[0]).toMatchObject({ task: 'Send Dana the signed contract', reply: 'Done' });
+  expect(store.listTasks({ all: true })[0]).toMatchObject({ status: 'done' });
+  store.close();
+});
+
+test('an older "Done" of yours, before the ask, never ticks it', () => {
+  const earlier = [section('Dana Levi', 'direct', 'me', 'Today at 8:55'), 'Done'];
+  const store = seeded([...earlier, ...ASK]);
+  pollOnce(store, NOW, { chatReader: reader().read });
+  // The same window seen again, with nothing new after the ask.
+  observe(store, [...earlier, ...ASK], at(3));
+  const { j, asked } = judge('settles');
+  expect(pollOnce(store, NOW, { chatReader: reader().read, replyJudge: j }).completed).toBe(0);
+  expect(asked).toEqual([]);
+  expect(store.listTasks()).toMatchObject([{ status: 'open' }]);
+  store.close();
+});
+
 test('a reply that puts it off never ticks, whatever the model says', () => {
   const store = seeded(ASK);
   pollOnce(store, NOW, { chatReader: reader().read });
