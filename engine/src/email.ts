@@ -196,6 +196,17 @@ export function sameMatter(origin: string, archived: string): boolean {
   return ca === cb || (cut && cb.startsWith(ca));
 }
 
+/** The key of an email lesson (SCR-71): sender and base subject, the same when written and read. */
+export function emailLessonKey(sender: string, subject: string): string {
+  return `${sender.replace(/\s+/g, ' ').trim().toLowerCase()}\u0001${baseSubject(subject.trim().slice(0, 80))}`;
+}
+
+/** Who sent an email, from its task's origin note: "From an email: Sam Carter — “…”" (a forwarder, if forwarded). */
+export function originSender(origin: string): string {
+  const who = origin.replace(/^From an email: /, '').replace(/ — “.*”$/, '');
+  return who.replace(/^forwarded by /, '').replace(/, written by .*$/, '');
+}
+
 export function baseSubject(subject: string): string {
   let s = subject.trim();
   for (;;) {

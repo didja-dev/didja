@@ -166,6 +166,7 @@ export function doneAt(store: Store, id: number, observationId: number, now: Dat
   const site = siteOf(o);
   store.setStatus(id, 'done', now);
   store.addNote(id, 'judged', now.toISOString(), `You showed it done on ${o.app} — ${o.windowTitle} (${site})`);
+  store.recordConfirmed(id, site, now);
   store.addDonePlace(id, site, wordForPlace(store, task, site, now), now);
   return { site };
 }

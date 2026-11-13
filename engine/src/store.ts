@@ -24,12 +24,13 @@ import schema19 from '../../schema/019_canvas.sql' with { type: 'text' };
 import schema20 from '../../schema/020_canvas_levels.sql' with { type: 'text' };
 import schema21 from '../../schema/021_done_places.sql' with { type: 'text' };
 import schema22 from '../../schema/022_criteria_model.sql' with { type: 'text' };
+import schema23 from '../../schema/023_teaching_any_job.sql' with { type: 'text' };
 import { contextLines } from './context.ts';
 import { parseCriteria } from './donecriteria.ts';
 import type { DoneCriteria } from './donecriteria.ts';
 import type { ContextLine } from './context.ts';
 import { renamedSource } from './extract.ts';
-import { baseSubject, sameMatter } from './email.ts';
+import { baseSubject, emailLessonKey, originSender, sameMatter } from './email.ts';
 import { requiredMarkers } from './markers.ts';
 import type { Criteria, Marker } from './markers.ts';
 
@@ -216,14 +217,22 @@ export interface Evidence {
   taskId: number;
   observationId: number | null;
   ts: string;
-  kind: 'captured' | 'marker' | 'judged' | 'suggested' | 'rejected' | 'origin';
+  kind: 'captured' | 'marker' | 'judged' | 'suggested' | 'rejected' | 'origin' | 'confirmed';
   marker: string | null;
   detail: string | null;
 }
 
 /** Lowercased letters and digits only, so spacing and punctuation don't matter. */
 /** The on-device model's jobs that can be taught. */
-export const JOBS = ['lists', 'titles', 'emails', 'looks-done'] as const;
+/** An open task elsewhere is the same task for this long after it was last seen (SCR-71). */
+/** A task's key without the source it was kept apart by (SCR-71). */
+const plainKey = (key: string) => key.replace(/\u0000source .*$/s, '');
+
+const SAME_TASK_OPEN_MS = 3 * 24 * 3600_000;
+/** Any task elsewhere, done or not, is the same task this soon (a conversation renamed while you work). */
+const SAME_TASK_ANY_MS = 3600_000;
+
+export const JOBS = ['lists', 'titles', 'emails', 'chats', 'looks-done'] as const;
 export type Job = (typeof JOBS)[number];
 /** What the model is told for one job, besides its built-in instructions. */
 export interface Teaching {
@@ -235,7 +244,7 @@ export interface Teaching {
 export interface Lesson {
   id: number;
   job: Job;
-  kind: 'not-an-action' | 'not-done';
+  kind: 'not-an-action' | 'not-done' | 'renamed';
   key: string;
   example: string;
   createdAt: string;
@@ -389,7 +398,7 @@ export class Store {
     // The app migrates the same file. Take the write lock first so only one side runs each step.
     this.db.transaction(() => {
       const { user_version } = this.db.query('PRAGMA user_version').get() as { user_version: number };
-      [schema1, schema2, schema3, schema4, schema5, schema6, schema7, schema8, schema9, schema10, schema11, schema12, schema13, schema14, schema15, schema16, schema17, schema18, schema19, schema20, schema21, schema22].forEach((sql, i) => {
+      [schema1, schema2, schema3, schema4, schema5, schema6, schema7, schema8, schema9, schema10, schema11, schema12, schema13, schema14, schema15, schema16, schema17, schema18, schema19, schema20, schema21, schema22, schema23].forEach((sql, i) => {
         if (user_version < i + 1) this.db.exec(sql);
       });
     }).immediate();
@@ -613,11 +622,24 @@ export class Store {
     const criteria = input.criteria ? JSON.stringify(input.criteria) : null;
     const auto = requiredMarkers(input.markers ?? [], input.criteria ?? null).length > 0 ? 1 : 0;
     return this.db.transaction(() => {
-      const candidates = this.db
-        .query('SELECT id, dedupe_key, markers, parent_id FROM tasks WHERE is_group = 0')
-        .all() as { id: number; dedupe_key: string; markers: string; parent_id: number | null }[];
+      const all = this.db
+        .query(`SELECT t.id, t.dedupe_key, t.markers, t.parent_id, t.status, t.last_seen_at, s.kind AS skind, s.ref AS sref
+                FROM tasks t JOIN sources s ON s.id = t.source WHERE t.is_group = 0`)
+        .all() as { id: number; dedupe_key: string; markers: string; parent_id: number | null; status: string; last_seen_at: string; skind: string; sref: string }[];
+      // The same task is one from the same source, or one still open seen in the last 3 days, or
+      // any seen in the last hour (a conversation renamed under you). A recurring step in another
+      // conversation later is a new task, not an old done one (SCR-71). An explicit `distinct`
+      // key is matched exactly, as before.
+      const at = Date.parse(input.ts);
+      const candidates = input.distinct ? all : all.filter((c) => {
+        if (c.sref === input.sourceRef && c.skind === input.sourceKind) return true;
+        const ago = at - Date.parse(c.last_seen_at);
+        return ago <= SAME_TASK_ANY_MS || ((c.status === 'open' || c.status === 'snoozed') && ago <= SAME_TASK_OPEN_MS);
+      });
+      // Keys are unique: the same words in another conversation get a key of their own, kept per source.
+      const scoped = `${key}\u0000source ${input.sourceKind} ${input.sourceRef}`;
       const existing =
-        candidates.find((c) => c.dedupe_key === key) ??
+        candidates.find((c) => c.dedupe_key === key || (!input.distinct && c.dedupe_key === scoped)) ??
         (input.distinct ? undefined : candidates.find((c) => !c.dedupe_key.includes('\u0000') && isSameTask(c.dedupe_key, key)));
 
       if (existing) {
@@ -651,7 +673,7 @@ export class Store {
           `INSERT INTO tasks (title, source, confidence, dedupe_key, position, markers, criteria, auto, created_at, last_seen_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         )
-        .run(input.title, source, input.confidence, key, input.position, markers, criteria, auto, input.ts, input.ts);
+        .run(input.title, source, input.confidence, all.some((c) => c.dedupe_key === key) ? scoped : key, input.position, markers, criteria, auto, input.ts, input.ts);
       const id = Number(info.lastInsertRowid);
       this.db
         .query('INSERT INTO evidence (task_id, observation_id, ts) VALUES (?, ?, ?)')
@@ -816,7 +838,10 @@ export class Store {
    * `until` says when a snoozed task comes back.
    */
   setStatus(id: number, status: TaskStatus, now: Date = new Date(), until: Date | null = null): boolean {
+    const before = status === 'done' ? this.getTask(id) : null;
     const changed = this.setOwnStatus(id, status, now, until);
+    // "Yes, done" on a "looks done?": a positive lesson, kept for trust earned later (SCR-71).
+    if (changed && before?.suggestion && before.status !== 'done') this.recordConfirmed(id, before.suggestion, now);
     // Merged tasks are one thing: finishing, reopening or dismissing one does the same to the others.
     if (changed) {
       for (const other of this.mergedWith(id)) {
@@ -824,6 +849,22 @@ export class Store {
       }
     }
     return changed;
+  }
+
+  /**
+   * You confirmed a task done where it was seen (SCR-71): "Yes, done" on a "looks done?", or "This
+   * shows it done". Evidence `confirmed`: the place, the task's kind and its verb, never screen text.
+   */
+  recordConfirmed(id: number, place: string, now: Date = new Date()): void {
+    const task = this.getTask(id);
+    if (!task) return;
+    const verb = task.capturedTitle.match(/[\p{L}][\p{L}'-]*/u)?.[0]?.toLowerCase() ?? '';
+    this.addNote(id, 'confirmed', now.toISOString(), `Confirmed by you: done in ${place} · ${task.sourceKind}${verb ? ` · ${verb}` : ''}`);
+  }
+
+  /** How many times you confirmed tasks done (SCR-71), for trust earned later. */
+  confirmations(): { taskId: number; detail: string; ts: string }[] {
+    return this.db.query("SELECT task_id AS taskId, detail, ts FROM evidence WHERE kind = 'confirmed' ORDER BY id").all() as { taskId: number; detail: string; ts: string }[];
   }
 
   /** The tasks merged with this one, either way round. */
@@ -1224,7 +1265,12 @@ export class Store {
   }
 
   /** Give an item your own name, or pass null to go back to the captured one. */
-  rename(id: number, title: string | null): boolean {
+  rename(id: number, title: string | null, now: Date = new Date()): boolean {
+    // A checklist you renamed shows the titles job what a good heading is (SCR-71).
+    const before = title?.trim() ? this.getTask(id) : null;
+    if (before?.isGroup && title!.trim() !== before.capturedTitle) {
+      this.addLesson('titles', 'renamed', dedupeKey(before.capturedTitle), `A checklist introduced by "${before.capturedTitle.slice(0, 120)}" is better titled "${title!.trim().slice(0, 80)}".`, now);
+    }
     const name = title?.replace(/\s+/g, ' ').trim() || null;
     return this.db.query('UPDATE tasks SET custom_title = ? WHERE id = ?').run(name, id).changes > 0;
   }
@@ -1550,9 +1596,9 @@ export class Store {
 
   /** What the model is told for one job: your instructions if you wrote some, and your corrections as examples. */
   teaching(job: Job): Teaching {
-    const row = this.db.query('SELECT instructions FROM brain WHERE job = ?').get(job) as { instructions: string } | null;
+    const row = this.db.query('SELECT instructions FROM brain_jobs WHERE job = ?').get(job) as { instructions: string } | null;
     const examples = (this.db
-      .query('SELECT example FROM lessons WHERE job = ? ORDER BY id DESC LIMIT ?')
+      .query('SELECT example FROM lesson_notes WHERE job = ? ORDER BY id DESC LIMIT ?')
       .all(job, MAX_EXAMPLES) as { example: string }[]).map((r) => r.example).reverse();
     return { instructions: row?.instructions ?? null, examples };
   }
@@ -1561,37 +1607,37 @@ export class Store {
   setInstructions(job: Job, text: string | null, now: Date = new Date()): void {
     const clean = text?.trim() ?? '';
     if (clean === '') {
-      this.db.query('DELETE FROM brain WHERE job = ?').run(job);
+      this.db.query('DELETE FROM brain_jobs WHERE job = ?').run(job);
       return;
     }
     this.db
-      .query('INSERT INTO brain (job, instructions, updated_at) VALUES (?, ?, ?) ON CONFLICT(job) DO UPDATE SET instructions = excluded.instructions, updated_at = excluded.updated_at')
+      .query('INSERT INTO brain_jobs (job, instructions, updated_at) VALUES (?, ?, ?) ON CONFLICT(job) DO UPDATE SET instructions = excluded.instructions, updated_at = excluded.updated_at')
       .run(job, clean.slice(0, MAX_INSTRUCTIONS), now.toISOString());
   }
 
   lessons(): Lesson[] {
-    return this.db.query('SELECT id, job, kind, key, example, created_at AS createdAt FROM lessons ORDER BY id').all() as Lesson[];
+    return this.db.query('SELECT id, job, kind, key, example, created_at AS createdAt FROM lesson_notes ORDER BY id').all() as Lesson[];
   }
 
   forgetLesson(id: number): boolean {
-    return this.db.query('DELETE FROM lessons WHERE id = ?').run(id).changes > 0;
+    return this.db.query('DELETE FROM lesson_notes WHERE id = ?').run(id).changes > 0;
   }
 
   private addLesson(job: Job, kind: Lesson['kind'], key: string, example: string, now: Date): void {
     // A lesson keyed by nothing would match every task with no Latin letters (SCR-62).
     if (key === '' || key.startsWith('\u0000')) return;
-    const known = this.db.query('SELECT 1 FROM lessons WHERE job = ? AND kind = ? AND key = ?').get(job, kind, key);
+    const known = this.db.query('SELECT 1 FROM lesson_notes WHERE job = ? AND kind = ? AND key = ?').get(job, kind, key);
     if (known) return;
     this.db
-      .query('INSERT INTO lessons (job, kind, key, example, created_at) VALUES (?, ?, ?, ?, ?)')
+      .query('INSERT INTO lesson_notes (job, kind, key, example, created_at) VALUES (?, ?, ?, ?, ?)')
       .run(job, kind, key, example.slice(0, 240), now.toISOString());
   }
 
   /** True when you said a task worded like this is not something for you to do. */
-  isNotAnAction(title: string): boolean {
+  isNotAnAction(title: string, job: Job = 'lists'): boolean {
     const key = dedupeKey(title);
     if (key === '') return false;
-    return this.db.query("SELECT 1 FROM lessons WHERE kind = 'not-an-action' AND job = 'lists' AND key = ?").get(key) !== null;
+    return this.db.query("SELECT 1 FROM lesson_notes WHERE kind = 'not-an-action' AND job = ? AND key = ?").get(job, key) !== null;
   }
 
   /**
@@ -1601,13 +1647,22 @@ export class Store {
   dropEmptyLessonsOnce(): number {
     if (this.getMeta('empty_lessons_dropped') === 'yes') return 0;
     const n = this.db.query("DELETE FROM lessons WHERE key = '' OR key LIKE char(0) || '%'").run().changes;
+    this.db.query("DELETE FROM lesson_notes WHERE key = '' OR key LIKE char(0) || '%'").run();
     this.setMeta('empty_lessons_dropped', 'yes');
     return n;
   }
 
-  /** True when you said an email with this subject (once "Re:" is removed) asks nothing of you. */
-  isNotAnActionEmail(baseSubject: string): boolean {
-    return this.db.query("SELECT 1 FROM lessons WHERE kind = 'not-an-action' AND job = 'emails' AND key = ?").get(baseSubject) !== null;
+  /**
+   * True when you said an email in this conversation from this sender asks nothing of you (SCR-71:
+   * keyed on sender and base subject, read and written the same way, so "Re: Re: X" matches "X").
+   * Lessons taught before SCR-71 were keyed on the subject alone and still match any sender.
+   */
+  isNotAnActionEmail(sender: string, subject: string): boolean {
+    const key = emailLessonKey(sender, subject);
+    if (this.db.query("SELECT 1 FROM lesson_notes WHERE kind = 'not-an-action' AND job = 'emails' AND key = ?").get(key) !== null) return true;
+    const base = key.slice(key.indexOf('\u0001') + 1);
+    const legacy = this.db.query("SELECT key FROM lesson_notes WHERE kind = 'not-an-action' AND job = 'emails' AND instr(key, char(1)) = 0").all() as { key: string }[];
+    return legacy.some((l) => baseSubject(l.key) === base);
   }
 
   /**
@@ -1625,7 +1680,10 @@ export class Store {
           .query("SELECT detail FROM evidence WHERE task_id = ? AND kind = 'origin' ORDER BY id DESC LIMIT 1")
           .get(step.id) as { detail: string } | null)?.detail ?? '';
         const subject = origin.match(/— “(.*)”$/)?.[1] ?? '';
-        if (subject) this.addLesson('emails', 'not-an-action', subject.toLowerCase().replace(/^(re|fw|fwd)\s*:\s*/i, '').trim(), `An email like ${origin.replace(/^From an email: /, 'one from ')} asked nothing of me ("${step.capturedTitle}" was not a task).`, now);
+        if (subject) this.addLesson('emails', 'not-an-action', emailLessonKey(originSender(origin), subject), `An email like ${origin.replace(/^From an email: /, 'one from ')} asked nothing of me ("${step.capturedTitle}" was not a task).`, now);
+      } else if (step.criteria?.chat) {
+        // A chat ask teaches the chat job, not the list judge (SCR-71).
+        this.addLesson('chats', 'not-an-action', dedupeKey(step.capturedTitle), `In ${step.criteria.chat.app}, "${step.capturedTitle}" was not something asked of me.`, now);
       } else {
         this.addLesson('lists', 'not-an-action', dedupeKey(step.capturedTitle), `"${step.capturedTitle}" was not something for me to do.`, now);
       }
@@ -1789,19 +1847,20 @@ export class Store {
   }
 
   /** The task we hold for a title, matched the same way duplicates are. */
-  findTaskByTitle(title: string): Task | null {
+  /** A task by its title; with `sourceRef`, only one from that source (SCR-71). */
+  findTaskByTitle(title: string, sourceRef: string | null = null): Task | null {
     const key = dedupeKey(title);
     if (key === '') return null;
-    const candidates = this.db
-      .query("SELECT id, dedupe_key FROM tasks WHERE dedupe_key NOT LIKE 'group %'")
-      .all() as { id: number; dedupe_key: string }[];
+    const candidates = (this.db
+      .query("SELECT t.id, t.dedupe_key, s.ref FROM tasks t JOIN sources s ON s.id = t.source WHERE t.dedupe_key NOT LIKE 'group %'")
+      .all() as { id: number; dedupe_key: string; ref: string }[]).filter((c) => sourceRef === null || c.ref === sourceRef);
     const match =
-      candidates.find((c) => c.dedupe_key === key) ?? candidates.find((c) => isSameTask(c.dedupe_key, key));
+      candidates.find((c) => plainKey(c.dedupe_key) === key) ?? candidates.find((c) => isSameTask(plainKey(c.dedupe_key), key));
     if (match) return this.getTask(match.id);
     // A parent created as such has no matching key; find it by its captured title.
     const parent = this.db
-      .query('SELECT id FROM tasks WHERE is_group = 1 AND title = ? ORDER BY id DESC LIMIT 1')
-      .get(title) as { id: number } | null;
+      .query('SELECT t.id FROM tasks t JOIN sources s ON s.id = t.source WHERE t.is_group = 1 AND t.title = ? AND (?2 IS NULL OR s.ref = ?2) ORDER BY t.id DESC LIMIT 1')
+      .get(title, sourceRef) as { id: number } | null;
     return parent ? this.getTask(parent.id) : null;
   }
 

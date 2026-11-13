@@ -281,7 +281,7 @@ export function pollOnce(store: Store, now: Date = new Date(), opts: PollOptions
     for (const list of lists) {
       if (list.actor === 'assistant') {
         // Claude's own plan. It may have been taken as yours before the telling line arrived: take it back.
-        stats.retracted += retract(store, list.items.map((i) => i.title), CLAUDE_SAID_SO, now);
+        stats.retracted += retract(store, list.items.map((i) => i.title), CLAUDE_SAID_SO, now, sourceRef(latest, kind));
         continue;
       }
       // The wording does not say who this list is for: go by the model's verdict. Until there is one,
@@ -330,7 +330,7 @@ export function pollOnce(store: Store, now: Date = new Date(), opts: PollOptions
       if (transcript?.split) {
         const steps = list.items.flatMap(function all(i: ChecklistItem): ChecklistItem[] { return [i, ...i.children.flatMap(all)]; });
         const did = steps.filter((i) => i.children.length === 0 && doneByClaude(i, transcript.tools, stepLine(source, i.title)));
-        stats.retracted += retract(store, did.map((i) => i.title), CLAUDE_DID_IT, now);
+        stats.retracted += retract(store, did.map((i) => i.title), CLAUDE_DID_IT, now, sourceRef(latest, kind));
       }
     }
   }
@@ -502,7 +502,7 @@ function readMail(
     store.recordEmailCheck(key, verdict.need, now);
     if (verdict.need === 'none') continue;
     // You said an email in this conversation asks nothing of you.
-    if (store.isNotAnActionEmail(baseSubject(email.subject))) continue;
+    if (store.isNotAnActionEmail(email.fromName, email.subject)) continue;
     const title = mailTaskTitle(email, verdict);
     const origin = mailOrigin(email, signedName(email, verdict.asker));
     const links = mailLinks(email);
@@ -695,13 +695,14 @@ function readChat(
       .map((b: ChatMessage) => ({ from: isMyMessage(b, me) ? 'me' : b.from, text: b.body.slice(0, 300) }));
     const answer = reader({
       app, chat: m.chat, group: m.kind !== 'direct', me, from: m.from,
-      ...(m.kind !== 'direct' ? { addressed: namesMe(m, me) ? 'named' as const : 'everyone' as const } : {}), message: m.body.slice(0, 1200), before, ...taught(store, 'emails'),
+      ...(m.kind !== 'direct' ? { addressed: namesMe(m, me) ? 'named' as const : 'everyone' as const } : {}), message: m.body.slice(0, 1200), before, ...taught(store, 'chats'),
     });
     if (answer === null) break; // no model
     store.recordEmailCheck(key, answer.asks ? 'ask' : 'none', now);
     if (!answer.asks) continue;
     const title = chatTaskTitle(answer.task) ?? `Reply to ${m.from}`;
-    if (store.isNotAnAction(title)) continue;
+    // Chat lessons are the chat job's (SCR-71); ones taught before that were stored with lists.
+    if (store.isNotAnAction(title, 'chats') || store.isNotAnAction(title)) continue;
     // Worded around you ("Lena asks Mike to respond…"): the model misread who asks whom.
     if (namesMe({ body: title, mentionsMe: false }, me)) {
       store.recordEmailCheck(key, 'none', now);
@@ -1064,10 +1065,11 @@ function dismissOpen(store: Store, id: number, why: string, now: Date): number {
 }
 
 /** Take back the tasks made from a list's items, found by their titles. */
-function retract(store: Store, titles: string[], why: string, now: Date): number {
+function retract(store: Store, titles: string[], why: string, now: Date, source: string): number {
   let count = 0;
   for (const title of titles) {
-    const task = store.findTaskByTitle(title);
+    // Only in the conversation the list is in: the same words elsewhere are another task (SCR-71).
+    const task = store.findTaskByTitle(title, source);
     if (task) count += dismissOpen(store, task.id, why, now);
   }
   return count;
