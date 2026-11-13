@@ -78,3 +78,66 @@ final class LocalListJudgeTests: XCTestCase {
         XCTAssertTrue(Judge.prompt(for: request).contains("The assistant's whole reply:\n\"\"\"\nDone.\nNext steps:\n1. Run it\n\"\"\""))
     }
 }
+
+/// SCR-77: the long-lived judge's line format, and Ollama kept loaded.
+final class JudgeServerTests: XCTestCase {
+    func testARequestLineIsReadWithItsIdJobAndRequest() throws {
+        let line = #"{"id":7,"job":"judge","request":{"leadIn":"Next steps:","steps":["Run it"]}}"#
+        let request = try XCTUnwrap(JudgeServer.parse(line))
+        XCTAssertEqual(request.id, 7)
+        XCTAssertEqual(request.job, "judge")
+        let decoded = try JSONDecoder().decode(Judge.Request.self, from: request.body)
+        XCTAssertEqual(decoded.steps, ["Run it"])
+        // No request object is an empty one; no id or job, or not JSON, is not a request.
+        XCTAssertEqual(JudgeServer.parse(#"{"id":1,"job":"warm"}"#)?.body, Data("{}".utf8))
+        for bad in ["", "hello", #"{"job":"judge"}"#, #"{"id":"7","job":"judge"}"#, #"{"id":7}"#] {
+            XCTAssertNil(JudgeServer.parse(bad), bad)
+        }
+    }
+
+    func testAReplyLineCarriesTheJobsReplyAsItIs() throws {
+        let reply = Data(#"{"audience":"user","available":true}"#.utf8)
+        let line = JudgeServer.replyLine(id: 7, reply: reply)
+        XCTAssertEqual(line, #"{"id":7,"reply":{"audience":"user","available":true}}"#)
+        XCTAssertFalse(line.contains("\n"), "one reply, one line")
+        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(line.utf8)) as? [String: Any])
+        XCTAssertEqual(object["id"] as? Int, 7)
+        // An empty reply (it could not be written) still answers the question: not available.
+        let empty = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(JudgeServer.replyLine(id: 8, reply: Data()).utf8)) as? [String: Any])
+        XCTAssertEqual((empty["reply"] as? [String: Any])?["available"] as? Bool, false)
+    }
+
+    func testTheServerAnswersAsTheOneShotFlagsDo() async throws {
+        // A bad request gets the same reply as `Didja --judge` gives it; an unknown job says so.
+        let bad = await JudgeServer.answer(job: "judge", request: Data(#"{"leadIn":"x","steps":[]}"#.utf8))
+        let decoded = try XCTUnwrap(JSONSerialization.jsonObject(with: bad) as? [String: Any])
+        XCTAssertEqual(decoded["available"] as? Bool, false)
+        XCTAssertEqual(decoded["reason"] as? String, "bad request")
+        let unknown = await JudgeServer.answer(job: "nope", request: Data("{}".utf8))
+        XCTAssertEqual((try JSONSerialization.jsonObject(with: unknown) as? [String: Any])?["reason"] as? String, "unknown job")
+        for job in JudgeServer.jobs where job != "warm" {
+            let reply = await JudgeServer.answer(job: job, request: Data("{}".utf8))
+            XCTAssertEqual((try JSONSerialization.jsonObject(with: reply) as? [String: Any])?["available"] as? Bool, false, job)
+        }
+    }
+
+    func testAQuestionThatTakesTooLongIsAnsweredNotAvailable() async {
+        let started = Date()
+        let late = await JudgeServer.within(0.1) {
+            try? await Task.sleep(for: .seconds(5))
+            return Data("late".utf8)
+        }
+        XCTAssertEqual(late, JudgeServer.unavailable)
+        XCTAssertLessThan(Date().timeIntervalSince(started), 2)
+        let quick = await JudgeServer.within(5) { Data("quick".utf8) }
+        XCTAssertEqual(quick, Data("quick".utf8))
+    }
+
+    func testOllamaIsAskedToKeepTheModelLoaded() throws {
+        let body = try XCTUnwrap(JSONSerialization.jsonObject(with: LocalModel.chatBody(
+            model: "m", system: "s", prompt: "p", schema: LocalModel.lookSchema)) as? [String: Any])
+        XCTAssertEqual(body["keep_alive"] as? String, "30m")
+        let warm = try XCTUnwrap(JSONSerialization.jsonObject(with: LocalModel.warmBody(model: "qwen3.8:latest")) as? [String: Any])
+        XCTAssertEqual(warm as? [String: String], ["model": "qwen3.8:latest", "keep_alive": "30m"])
+    }
+}

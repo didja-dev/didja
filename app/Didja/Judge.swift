@@ -91,18 +91,7 @@ enum Judge {
 
     /// Entry point for `Didja --title`. Never returns.
     static func titleFromCommandLine() -> Never {
-        let input = FileHandle.standardInput.readDataToEndOfFile()
-        Task {
-            var reply = TitleReply(available: false, reason: "bad request")
-            if let request = try? JSONDecoder().decode(Request.self, from: input), !request.steps.isEmpty {
-                reply = await suggestTitle(request)
-            }
-            if let data = try? JSONEncoder().encode(reply) {
-                FileHandle.standardOutput.write(data)
-            }
-            exit(0)
-        }
-        dispatchMain()
+        JudgeServer.oneShot("title")
     }
 
     static func suggestTitle(_ request: Request) async -> TitleReply {
@@ -207,18 +196,7 @@ enum Judge {
 
     /// Entry point for `Didja --needs-reply`. Never returns.
     static func mailFromCommandLine() -> Never {
-        let input = FileHandle.standardInput.readDataToEndOfFile()
-        Task {
-            var reply = MailReply(available: false, reason: "bad request")
-            if let request = try? JSONDecoder().decode(MailRequest.self, from: input), !request.body.isEmpty {
-                reply = await needsReply(request)
-            }
-            if let data = try? JSONEncoder().encode(reply) {
-                FileHandle.standardOutput.write(data)
-            }
-            exit(0)
-        }
-        dispatchMain()
+        JudgeServer.oneShot("needs-reply")
     }
 
     static func needsReply(_ request: MailRequest) async -> MailReply {
@@ -277,18 +255,7 @@ enum Judge {
 
     /// Entry point for `Didja --looks-done`. Never returns.
     static func lookFromCommandLine() -> Never {
-        let input = FileHandle.standardInput.readDataToEndOfFile()
-        Task {
-            var reply = LookReply(available: false, reason: "bad request")
-            if let request = try? JSONDecoder().decode(LookRequest.self, from: input), !request.text.isEmpty {
-                reply = await looksDone(request)
-            }
-            if let data = try? JSONEncoder().encode(reply) {
-                FileHandle.standardOutput.write(data)
-            }
-            exit(0)
-        }
-        dispatchMain()
+        JudgeServer.oneShot("looks-done")
     }
 
     static func looksDone(_ request: LookRequest) async -> LookReply {
@@ -352,18 +319,7 @@ enum Judge {
 
     /// Entry point for `Didja --criteria`. Never returns.
     static func criteriaFromCommandLine() -> Never {
-        let input = FileHandle.standardInput.readDataToEndOfFile()
-        Task {
-            var reply = CriteriaReply(available: false, reason: "bad request")
-            if let request = try? JSONDecoder().decode(CriteriaRequest.self, from: input), !request.task.isEmpty {
-                reply = await doneCriteria(request)
-            }
-            if let data = try? JSONEncoder().encode(reply) {
-                FileHandle.standardOutput.write(data)
-            }
-            exit(0)
-        }
-        dispatchMain()
+        JudgeServer.oneShot("criteria")
     }
 
     /// Apple's on-device model only: the local model is not used for this job until it has been
@@ -414,20 +370,7 @@ enum Judge {
 
     /// Entry point for `Didja --judge`. Never returns.
     static func runFromCommandLine() -> Never {
-        let input = FileHandle.standardInput.readDataToEndOfFile()
-        Task {
-            let reply: Reply
-            if let request = try? JSONDecoder().decode(Request.self, from: input), !request.steps.isEmpty {
-                reply = await judge(request)
-            } else {
-                reply = Reply(available: false, reason: "bad request")
-            }
-            if let data = try? JSONEncoder().encode(reply) {
-                FileHandle.standardOutput.write(data)
-            }
-            exit(0)
-        }
-        dispatchMain()
+        JudgeServer.oneShot("judge")
     }
 
     static func judge(_ request: Request) async -> Reply {

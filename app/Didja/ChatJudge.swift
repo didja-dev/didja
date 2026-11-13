@@ -89,16 +89,7 @@ extension Judge {
 
     /// Entry point for `Didja --chat`. Never returns.
     static func chatFromCommandLine() -> Never {
-        let input = FileHandle.standardInput.readDataToEndOfFile()
-        Task {
-            var reply = ChatReply(available: false, reason: "bad request")
-            if let request = try? JSONDecoder().decode(ChatRequest.self, from: input), !request.message.isEmpty {
-                reply = await readChat(request)
-            }
-            if let data = try? JSONEncoder().encode(reply) { FileHandle.standardOutput.write(data) }
-            exit(0)
-        }
-        dispatchMain()
+        JudgeServer.oneShot("chat")
     }
 
     static func readChat(_ request: ChatRequest) async -> ChatReply {
@@ -151,16 +142,7 @@ extension Judge {
 
     /// Entry point for `Didja --chat-reply`. Never returns.
     static func chatReplyFromCommandLine() -> Never {
-        let input = FileHandle.standardInput.readDataToEndOfFile()
-        Task {
-            var reply = ReplyVerdict(available: false, reason: "bad request")
-            if let request = try? JSONDecoder().decode(ReplyRequest.self, from: input), !request.reply.isEmpty {
-                reply = await judgeReply(request)
-            }
-            if let data = try? JSONEncoder().encode(reply) { FileHandle.standardOutput.write(data) }
-            exit(0)
-        }
-        dispatchMain()
+        JudgeServer.oneShot("chat-reply")
     }
 
     static func judgeReply(_ request: ReplyRequest) async -> ReplyVerdict {

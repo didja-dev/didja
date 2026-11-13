@@ -15,6 +15,8 @@ enum LocalModel {
     }
 
     static let base = URL(string: "http://127.0.0.1:11434")!
+    /// How long Ollama keeps the model loaded after a question (SCR-77).
+    static let keepAlive = "30m"
 
     /// A model name as `ollama list` prints it ("qwen3.8:latest"); the engine checks the same.
     static func isModelName(_ name: String) -> Bool {
@@ -56,6 +58,8 @@ enum LocalModel {
     static func chatBody(model: String, system: String, prompt: String, schema: [String: Any]) -> Data {
         let body: [String: Any] = [
             "model": model, "stream": false, "think": false, "format": schema,
+            // Kept loaded between questions (SCR-77): a cold start took about 8 s, a warm one 2–3 s.
+            "keep_alive": keepAlive,
             "options": ["temperature": 0],
             "messages": [["role": "system", "content": system], ["role": "user", "content": prompt]],
         ]
@@ -131,6 +135,23 @@ enum LocalModel {
         guard let answer = await chat(model: model, system: Judge.compose(Judge.instructions, request.teach),
                                       prompt: Judge.prompt(for: request), schema: listSchema) else { return nil }
         return listReply(from: answer, model: model)
+    }
+
+    /// A request that only loads the model, and keeps it loaded (SCR-77): Ollama loads a model for
+    /// a generate request with no prompt. Asked when the judge server starts with a local model on.
+    static func warmBody(model: String) -> Data {
+        (try? JSONSerialization.data(withJSONObject: ["model": model, "keep_alive": keepAlive], options: [.sortedKeys])) ?? Data()
+    }
+
+    @discardableResult
+    static func warm(model: String) async -> Bool {
+        guard isModelName(model) else { return false }
+        var request = URLRequest(url: base.appendingPathComponent("api/generate"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = warmBody(model: model)
+        guard let (_, response) = try? await session.data(for: request) else { return false }
+        return (response as? HTTPURLResponse)?.statusCode == 200
     }
 
     /// The models Ollama has on this Mac, or nil when Ollama is not running. For Settings.

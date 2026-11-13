@@ -10,6 +10,10 @@ enum Main {
         // Renamed from ScrolledAway: bring its data and settings along, once.
         ObservationStore.moveFromOldName()
         ObservationStore.copyOldPreferences()
+        if CommandLine.arguments.contains("--judge-server") {
+            // The engine's model questions, one process for all of them (SCR-77).
+            JudgeServer.serve()
+        }
         if CommandLine.arguments.contains("--judge") {
             Judge.runFromCommandLine()
         }
