@@ -7,7 +7,7 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFil
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { McpDeps } from '../src/mcp.ts';
-import { callTool, mask, OFF_MESSAGE, readLog, TOOLS, UI_WORDS } from '../src/mcp.ts';
+import { callTool, INSTRUCTIONS, mask, OFF_MESSAGE, readLog, TOOLS, UI_WORDS } from '../src/mcp.ts';
 import { Store } from '../src/store.ts';
 
 const REPO = join(import.meta.dir, '..', '..');
@@ -132,4 +132,112 @@ test('the server answers over stdio', async () => {
   expect(replies.find((r) => r.id === 2).result.tools.map((t: { name: string }) => t.name)).toEqual(TOOLS.map((t) => t.name));
   const profiles = JSON.parse(replies.find((r) => r.id === 3).result.content[0].text);
   expect(profiles.map((p: { id: string }) => p.id)).toContain('whatsapp');
+});
+
+// --- draft_issue (SCR-57) ---------------------------------------------------------------------
+
+const VERSIONS = () => ({ didja: '0.5.0', macos: '26.1' });
+function outlookTask(d: McpDeps): number {
+  const t = (m: number) => new Date(Date.now() - (30 - m) * 60_000).toISOString();
+  const at = (m: number, windowTitle: string, text: string) => d.store.insertObservation({ ts: t(m), bundleId: 'com.microsoft.Outlook', app: 'Microsoft Outlook', windowTitle, url: null, source: 'ax', text });
+  const mail = at(0, 'Inbox • me@example.com', '⟦Email⟧\nSubject: Quarterly invoice 4410 for Acme\nFrom: Dana Levi, dana@acme.com\nPlease approve the quarterly invoice.');
+  const id = d.store.upsertTask({ distinct: 'inv', title: 'Approve the quarterly invoice 4410', sourceKind: 'email', sourceRef: 'Microsoft Outlook — Dana Levi',
+    confidence: 1, position: null, ts: t(0), observationId: mail, markers: [], criteria: { service: null, hosts: [] } }).id;
+  at(1, 'Sent Items • me@example.com', '⟦Email⟧\nSubject: Quarterly invoice 4410 for Acme\nFrom: Mike Rosen, me@example.com\nApproved, thanks Dana.');
+  return id;
+}
+const CLEAN = {
+  kind: 'missed-task', miss: 'place-missing-no-address',
+  what: 'An email task was done in the mail app, but the mail app was not offered as a place.',
+  cause: 'Places are grouped by site, and a native app has no web address.',
+  fix: 'Group a place by its app when there is no address, and always offer the app the task came from.',
+};
+
+test('draft_issue: a masked issue with a fingerprint and a link that fills in the form', () => {
+  const d = { ...setup(), versions: VERSIONS };
+  const id = outlookTask(d);
+  const r = callTool('draft_issue', { task: id, ...CLEAN }, d);
+  expect(text(r)).toStartWith('{');
+  expect(r.isError).toBeUndefined();
+  const draft = JSON.parse(text(r));
+  expect(draft.fingerprint).toBe('com.microsoft.Outlook:place-missing-no-address');
+  expect(draft.title).toBe('Missed task: Microsoft Outlook, place missing no address');
+  expect(draft.body).toContain('<!-- didja-fingerprint: com.microsoft.Outlook:place-missing-no-address -->');
+  expect(draft.body).toContain('Microsoft Outlook (com.microsoft.Outlook), profile `outlook`');
+  expect(draft.body).toContain('Didja 0.5.0 · macOS 26.1');
+  // Nothing of the user's: names, subject words, numbers and addresses are masked or absent.
+  for (const word of ['Dana', 'Levi', 'Mike', 'Rosen', 'Quarterly', 'invoice', '4410', 'Acme', 'acme.com', 'example.com']) expect(draft.body).not.toContain(word);
+  const kept = draft.body.split('```')[1]!;
+  expect(kept).toContain('Xxxxxxx: Xxxxxxxxx xxxxxxx 0000');
+  for (const w of kept.match(/[\p{L}]+/gu) ?? []) expect(/^[xX]+$/.test(w) || UI_WORDS.has(w.toLowerCase())).toBe(true);
+  // One click: the form, every field filled in.
+  const url = new URL(draft.url);
+  expect(`${url.origin}${url.pathname}`).toBe('https://github.com/didja-dev/didja/issues/new');
+  expect(url.searchParams.get('template')).toBe('missed-task.yml');
+  expect(url.searchParams.get('fingerprint')).toBe(draft.fingerprint);
+  expect(url.searchParams.get('cause')).toBe(CLEAN.cause);
+  expect(draft.pasteBody).toBe(false);
+  expect(new URL(draft.search).searchParams.get('q')).toBe('is:issue "com.microsoft.Outlook:place-missing-no-address"');
+});
+
+test('draft_issue refuses words from the screen, addresses, links with ids and long numbers, and a miss that is not a slug', () => {
+  const d = { ...setup(), versions: VERSIONS };
+  const id = outlookTask(d);
+  const bad = callTool('draft_issue', { task: id, ...CLEAN,
+    what: 'Dana Levi asked to approve the quarterly invoice 4410.',
+    cause: 'The reply went to dana@acme.com from https://outlook.example.com/mail/id/AAMk123.',
+    miss: 'Invoice from Dana' }, d);
+  expect(bad.isError).toBe(true);
+  const why = text(bad);
+  expect(why).toContain('what has words from the user\'s screen or tasks: dana, levi, quarterly, invoice');
+  expect(why).toContain('what has a number of three or more digits');
+  expect(why).toContain('cause has an email address');
+  expect(why).toContain('cause has a web address with a path');
+  expect(why).toContain('miss must be two to eight lowercase words');
+  // Masked quotes, sites without a path, and versions are fine.
+  const okay = callTool('draft_issue', { task: id, ...CLEAN, cause: 'The Sent line "Xxxxxxxx, xxxxxx Xxxx." is kept on mail.test, version 0.5.0.' }, d);
+  expect(okay.isError).toBeUndefined();
+});
+
+test('draft_issue: a body too long for a link is given to paste, with the bare form', () => {
+  const d = { ...setup(), versions: VERSIONS };
+  const id = outlookTask(d);
+  const long = 'mail (0), '.repeat(149);
+  const draft = JSON.parse(text(callTool('draft_issue', { task: id, ...CLEAN, what: long, cause: long, fix: long }, d)));
+  expect(draft.pasteBody).toBe(true);
+  const url = new URL(draft.url);
+  expect([...url.searchParams.keys()]).toEqual(['template', 'title']);
+  expect(draft.body).toContain(long.trim());
+});
+
+test('draft_issue on a report masks it again, whatever lines the user chose to show', () => {
+  const d = { ...setup(), versions: VERSIONS };
+  mkdirSync(d.places.shared, { recursive: true });
+  writeFileSync(join(d.places.shared, 'didja-diagnostics-acme-chat-2026-11-12.txt'),
+    'Didja diagnostics, made 2026-11-12T10:00:00Z.\nEvery letter is x…\n\n== What capture keeps ==\nMessage from Dana Levi: Lunch at noon?\n');
+  const r = callTool('draft_issue', { report: 'didja-diagnostics-acme-chat-2026-11-12.txt', app: 'Acme Chat', bundleId: 'com.example.AcmeChat', kind: 'app-support',
+    miss: 'sender-not-labelled', what: 'Messages are kept, but not who sent them.', cause: 'The profile has no sender rule.', fix: 'Add a sender rule.' }, d);
+  const draft = JSON.parse(text(r));
+  expect(draft.fingerprint).toBe('com.example.AcmeChat:sender-not-labelled');
+  expect(draft.body).toContain('Message from Xxxx Xxxx: Xxxxx at xxxx?');
+  expect(draft.body).not.toContain('Lunch');
+  expect(new URL(draft.url).searchParams.get('template')).toBe('app-support.yml');
+  const leak = callTool('draft_issue', { report: 'didja-diagnostics-acme-chat-2026-11-12.txt', app: 'Acme Chat', kind: 'app-support',
+    miss: 'sender-not-labelled', what: 'Lunch messages lose their sender.', cause: 'x', fix: 'x' }, d);
+  expect(text(leak)).toContain('lunch');
+});
+
+test('the issue templates have the fields draft_issue fills in, and Claude is told to offer one and show it first', () => {
+  const d = { ...setup(), versions: VERSIONS };
+  const id = outlookTask(d);
+  const draft = JSON.parse(text(callTool('draft_issue', { task: id, ...CLEAN }, d)));
+  const filled = [...new URL(draft.url).searchParams.keys()].filter((k) => k !== 'template' && k !== 'title');
+  for (const file of ['missed-task.yml', 'app-support.yml']) {
+    const yml = readFileSync(join(REPO, '.github/ISSUE_TEMPLATE', file), 'utf8');
+    const ids = [...yml.matchAll(/^\s+id: (\S+)$/gm)].map((m) => m[1]);
+    expect(ids).toEqual(filled);
+  }
+  expect(INSTRUCTIONS).toContain('draft_issue');
+  expect(INSTRUCTIONS).toContain('Show the user the whole draft');
+  expect(INSTRUCTIONS).toContain('fingerprint');
 });

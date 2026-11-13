@@ -160,7 +160,7 @@ struct PrivacyContent: View {
 
                 section("person.badge.key", "Your own Claude") {
                     line(facts.ownClaude.on
-                         ? "On (Settings › General): your own Claude app, if you set it up with `didja mcp`, can read the reports you give it from Report a Problem, the text Didja kept with every letter and digit masked, and the app profiles, and draft a profile in its own folder. What it reads goes to your AI provider under your account. Every call is logged: \(OwnClaude.words(facts.ownClaude))"
+                         ? "On (Settings › General): your own Claude app, if you set it up with `didja mcp`, can read the reports you give it from Report a Problem, the text Didja kept with every letter and digit masked, and the app profiles, draft a profile in its own folder, and draft a GitHub issue about a miss (masked) for you to post yourself. What it reads goes to your AI provider under your account. Every call is logged: \(OwnClaude.words(facts.ownClaude))"
                          : "Off. Turned on in Settings › General, your own Claude app (Claude Code, Claude Desktop) could help you fix how Didja reads an app, through `didja mcp`. It would see only masked text and the reports you give it.")
                 }
 

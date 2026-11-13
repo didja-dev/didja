@@ -7,7 +7,9 @@
  *   - the diagnostics files you chose to give it (Report a Problem › Give to My Claude), as you
  *     left them: masked except the lines you chose to show;
  *   - recent lines kept from an app, and a task's "why", always masked (`mask`);
- *   - the app profiles, and a way to draft one with fixtures (into a folder of its own) and test it.
+ *   - the app profiles, and a way to draft one with fixtures (into a folder of its own) and test it;
+ *   - a GitHub issue about a miss, drafted from what it knows, masked, with Claude's diagnosis
+ *     checked for anything from the screen (`draft_issue`, issue.ts). The user posts it.
  *
  * Whatever it returns goes to your AI provider, which is why it starts only on request, masks
  * screen text, and logs every call (`mcp-log.jsonl`, shown in Privacy). It makes no network calls
@@ -22,9 +24,11 @@ import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprot
 import { formatWhy } from './cli.ts';
 import type { Fixture } from './fixtures.ts';
 import { engineView, profileProblems } from './fixtures.ts';
+import type { Diagnosis, IssueFacts, IssueKind } from './issue.ts';
+import { contentWords, draftIssue, ISSUE_KINDS } from './issue.ts';
 import { missedReport } from './missed.ts';
 import type { ProfileInfo } from './profiles.ts';
-import { profiles as builtInProfiles, profilesDir, readProfiles } from './profiles.ts';
+import { profiles as builtInProfiles, matchesApp, profilesDir, readProfiles } from './profiles.ts';
 import { DEFAULT_DB_PATH, Store } from './store.ts';
 
 /** Beside the database in use ($DIDJA_DB, else the app's own). */
@@ -93,6 +97,11 @@ export const TOOLS = [
   { name: 'list_profiles', description: "The app profiles: the ones in Didja and the user's drafts.", inputSchema: { type: 'object', properties: {} } },
   { name: 'show_profile', description: 'One profile as JSON (a draft before a built-in one with the same id). The format is in profiles/README.md of the Didja repository.', inputSchema: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] } },
   { name: 'draft_profile', description: "Write a profile and its fixtures into the user's drafts folder (nowhere else), check them and run every fixture. Fixtures must use made-up text only, names from profiles/fixtures/names.txt.", inputSchema: { type: 'object', properties: { profile: { type: 'object' }, fixtures: { type: 'array', items: { type: 'object' } } }, required: ['profile'] } },
+  { name: 'draft_issue', description: "Once you have found why Didja missed or misread something, draft a GitHub issue for the user to post on the public Didja repository. Give the task (number) or the report (file name), the kind, a miss type (lowercase words joined by hyphens, e.g. place-missing-no-address) and your diagnosis in general words: what was missed, the likely cause, a suggested fix. Didja writes the rest (app, bundle id, profile, versions, what capture kept, masked) and refuses words from the user's screen, email addresses, links with paths and long numbers. Returns the title, body, a link that opens the issue filled in, a search for the same fingerprint, and whether the body must be pasted. Show the user the whole draft; nothing is posted unless they do it or say yes.", inputSchema: { type: 'object', properties: {
+    task: { type: 'number' }, report: { type: 'string' }, kind: { type: 'string', enum: ['missed-task', 'app-support'] }, miss: { type: 'string' },
+    what: { type: 'string' }, cause: { type: 'string' }, fix: { type: 'string' },
+    app: { type: 'string', description: 'for a report: the app it is about' }, bundleId: { type: 'string', description: 'for a report: that app\'s bundle id' } },
+    required: ['kind', 'miss', 'what', 'cause', 'fix'] } },
   { name: 'test_profile', description: "Run one fixture (the object, or the file name of a drafted one) through Didja's capture with the drafts in place, and through the engine: the lines kept, whether they match, and what the engine makes of them (messages and open asks, or emails).", inputSchema: { type: 'object', properties: { fixture: { description: 'a fixture object, or the file name of a drafted fixture' } }, required: ['fixture'] } },
 ] as const;
 
@@ -102,6 +111,56 @@ export interface McpDeps {
   /** Runs the app's `--profile-test`; returns its JSON output. */
   runCapture?: (fixturePath: string, profilesFolder: string) => { lines: string[]; matches?: boolean | null; problem?: string | null; profile?: string | null };
   now?: () => Date;
+  /** Didja's and macOS's versions, for an issue. */
+  versions?: () => { didja: string | null; macos: string | null };
+}
+
+/** What your Claude is told when it connects: how to use the tools, and what to do after a diagnosis. */
+export const INSTRUCTIONS = `Didja is a Mac app that captures to-dos from the screen and ticks them off when it sees them done. These tools help the user find out why Didja missed or misread something, and fix it. Everything here is masked (letters x, digits 0) except words apps use in their labels and lines the user chose to show; read docs/AGENTS.md in the Didja repository for the rules.
+
+When you have found the cause of a miss (with missed_report, read_report, why or observations), offer to report it to Didja's makers as a GitHub issue: call draft_issue with your diagnosis, phrased as a bug ("missed-task") or a request to support an app ("app-support"). Write the diagnosis in general words. Use only masked text, label words, the app's name and bundle id, and versions; never unmasked lines, names, email addresses, subjects, message text, or links with ids. Show the user the whole draft (title and body) before anything is posted. If they agree, they open the link it gives (one click); or, if GitHub is connected to you (a connector or gh), you may file it yourself after they approve that exact text. Search for its fingerprint first (the search link): if an issue with it exists, offer a thumbs-up or a comment there instead of a new issue.`;
+
+/** Didja's version from the app the engine is in, and the Mac's. */
+function defaultVersions(p: McpPlaces): { didja: string | null; macos: string | null } {
+  let didja: string | null = null;
+  try {
+    const plist = p.app ? readFileSync(join(dirname(p.app), '..', 'Info.plist'), 'utf8') : '';
+    didja = plist.match(/<key>CFBundleShortVersionString<\/key>\s*<string>([^<]+)<\/string>/)?.[1] ?? null;
+  } catch {
+    // not inside an app
+  }
+  let macos: string | null = null;
+  try {
+    macos = Bun.spawnSync(['/usr/bin/sw_vers', '-productVersion']).stdout.toString().trim() || null;
+  } catch {
+    // not a Mac
+  }
+  return { didja, macos };
+}
+
+/** The facts for an issue about a task: its app, what was kept there, and every word that could be the user's. */
+function taskFacts(deps: McpDeps, id: number, now: Date): IssueFacts | null {
+  const r = missedReport(deps.store, id, now);
+  const task = deps.store.getTask(id);
+  if (!r || !task) return null;
+  const app = r.context?.app ?? r.source.split(' — ')[0] ?? 'unknown app';
+  const seen = deps.store.latestObservations(2000).find((o) => o.app === app);
+  const bundleId = seen?.bundleId ?? null;
+  const own = r.places.find((p) => p.app === app);
+  const kept = [...(r.context?.lines ?? []), ...(own?.recent[0]?.lines ?? [])];
+  const raw = [task.title, task.capturedTitle, r.source, r.why, r.context?.window ?? '', ...(r.context?.lines ?? []),
+    ...r.places.flatMap((p) => p.recent.flatMap((s) => [s.window, ...s.lines]))].join('\n');
+  const v = (deps.versions ?? (() => defaultVersions(deps.places)))();
+  return { app, bundleId, profile: bundleId ? allProfiles(deps.places).find((p) => matchesApp(p, bundleId))?.id ?? null : null,
+    didja: v.didja, macos: v.macos, kept, privateWords: contentWords(raw) };
+}
+
+/** The facts for an issue about a report the user gave: masked again here, whatever lines they showed. */
+function reportFacts(deps: McpDeps, text: string, app: string, bundleId: string | null): IssueFacts {
+  const lines = text.split('\n').slice(2).filter((l) => l.trim() && !/^== .* ==$/.test(l));
+  const v = (deps.versions ?? (() => defaultVersions(deps.places)))();
+  return { app, bundleId, profile: bundleId ? allProfiles(deps.places).find((p) => matchesApp(p, bundleId))?.id ?? null : null,
+    didja: v.didja, macos: v.macos, kept: lines, privateWords: contentWords(text) };
 }
 
 export function enabled(store: Store): boolean {
@@ -235,6 +294,29 @@ export function callTool(name: string, args: Record<string, unknown>, deps: McpD
       return ok({ saved: join(p.drafts, `${profile.id}.json`), fixtures: results,
         next: 'Show the user every file before it leaves this Mac. To contribute: copy the profile and fixtures into a fork of the Didja repository (profiles/ and profiles/fixtures/), run its tests, and open a pull request.' });
     }
+    case 'draft_issue': {
+      const kind = String(args.kind ?? '') as IssueKind;
+      if (!ISSUE_KINDS.includes(kind)) return fail('kind must be "missed-task" or "app-support".');
+      let facts: IssueFacts | null = null;
+      if (args.task !== undefined) {
+        facts = taskFacts(deps, Number(args.task), now);
+        if (!facts) return fail('No such task.');
+      } else if (args.report !== undefined) {
+        const path = inside(p.shared, String(args.report), '.txt');
+        if (!path) return fail('No such report. list_reports names them.');
+        const bundle = typeof args.bundleId === 'string' && /^[A-Za-z0-9][A-Za-z0-9.-]{1,120}$/.test(args.bundleId) ? args.bundleId : null;
+        facts = reportFacts(deps, readFileSync(path, 'utf8'), String(args.app ?? 'unknown app').slice(0, 60), bundle);
+      } else {
+        return fail('Give the task (number) or the report (file name) the issue is about.');
+      }
+      const diagnosis: Diagnosis = { what: String(args.what ?? ''), cause: String(args.cause ?? ''), fix: String(args.fix ?? '') };
+      const draft = draftIssue(kind, String(args.miss ?? ''), diagnosis, facts);
+      if ('problems' in draft) return fail(`Not drafted. Change these and call draft_issue again:\n- ${draft.problems.join('\n- ')}`);
+      return ok({ ...draft,
+        next: draft.pasteBody
+          ? 'Show the user the title and body. The body is too long for a link: the link opens the form; they paste the body into it.'
+          : 'Show the user the title and body. If they agree, they open the link: the form is filled in. Check the search link first for the same fingerprint.' });
+    }
     case 'test_profile': {
       let fixture = args.fixture as Fixture | string;
       if (typeof fixture === 'string') {
@@ -256,7 +338,7 @@ export function callTool(name: string, args: Record<string, unknown>, deps: McpD
 
 /** Serve over stdin and stdout until the client goes away. */
 export async function serve(store: Store, p: McpPlaces = places()): Promise<void> {
-  const server = new Server({ name: 'didja', version: '1' }, { capabilities: { tools: {} } });
+  const server = new Server({ name: 'didja', version: '1' }, { capabilities: { tools: {} }, instructions: INSTRUCTIONS });
   server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: TOOLS.map((t) => ({ ...t })) }));
   server.setRequestHandler(CallToolRequestSchema, async (req) =>
     callTool(req.params.name, (req.params.arguments ?? {}) as Record<string, unknown>, { store, places: p }));

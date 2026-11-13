@@ -1,0 +1,48 @@
+name: App support (drafted by your Claude)
+description: Didja misreads an app, or does not read it yet. Usually filled in by your own Claude with didja mcp › draft_issue.
+labels: [app support]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **No real names, messages, subjects or addresses.** Screen text goes in masked (every letter x, every digit 0), as Didja's `draft_issue` writes it. Before you post, search for the fingerprint: if an issue has it, add a 👍 or a comment there instead.
+  - type: input
+    id: fingerprint
+    attributes:
+      label: Fingerprint
+      description: The app's bundle id and the kind of miss, e.g. com.example.Mail:place-missing-no-address
+    validations:
+      required: true
+  - type: input
+    id: app
+    attributes:
+      label: App and profile
+      placeholder: "Microsoft Outlook (com.microsoft.Outlook), profile outlook"
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      placeholder: "Didja 0.5.0 · macOS 26.1"
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What Didja misreads
+    validations:
+      required: true
+  - type: textarea
+    id: kept
+    attributes:
+      label: What capture kept (masked by Didja)
+      render: text
+  - type: textarea
+    id: cause
+    attributes:
+      label: Likely cause
+  - type: textarea
+    id: fix
+    attributes:
+      label: Suggested fix

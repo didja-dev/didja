@@ -6,6 +6,13 @@ Each entry says what changed, and what was **not verified** where that applies: 
 
 ## 2026-11-13
 
+### Your own Claude offers a GitHub issue after it finds a miss (SCR-57)
+- `didja mcp` has a new tool, `draft_issue`, and now gives your Claude instructions when it connects: once it has found why Didja missed or misread something, offer to report it as a GitHub issue, show you the whole draft, and post nothing without your yes.
+- Didja writes the issue: a fixed template (fingerprint, app and profile, versions, what was missed, what capture kept, likely cause, suggested fix). It knows the app, bundle id, profile and versions; what capture kept is masked by Didja, a report too (masked again, lines you chose to show included). Your Claude adds only its explanation, which Didja checks: a word from your screen or tasks, an email address, a link with a path or a number of three or more digits, and nothing is drafted.
+- It gives back the title and body, a link that opens the issue form filled in (or the bare form and the body to paste, when it is too long for a link), and a search for issues with the same fingerprint (`<bundle id>:<miss type>`, such as `com.example.Mail:place-missing-no-address`) so your Claude can add to one instead.
+- New issue forms `missed-task.yml` and `app-support.yml`, with the same fields. AGENTS.md, CLAUDE.md (the `didja mcp` exception) and Privacy say what it does.
+- Tests (made up): a clean draft has no name, subject word, number or address of the user's, only masked lines and label words; screen words, an address, a link with an id, a long number and a free-text miss type are refused; a long body is given to paste; a report's shown line is masked again; the forms' field ids match the link. **Not verified:** a real Claude Code or Claude Desktop session ending a diagnosis with the offer, and the link opening the form on GitHub (needs the forms on `main`).
+
 ### Your response to a workflow approval ticks its task (SCR-55)
 - An approval from an approval workflow (Oracle EBS and the like) stayed open after you approved it: its Approve link sends a new email to the workflow, not a reply, so nothing linked it to the task. Now an email of yours with the request's exact subject and a `Response Action: '…'` line ticks the task, in the same mail app. Approve, Reject or Forward all count. The why says which response ticked it; reopening it stops that response ticking it again.
 - Tests (made up): Approve and Reject tick. None of these tick: the workflow's own mail with the line, a colleague's response, your note with the same subject but no response line, your response to another order, your response seen in another mail app, or the same response after you reopened the task.
