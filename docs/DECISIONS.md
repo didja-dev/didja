@@ -333,3 +333,9 @@ A live back-and-forth made a task per message. Waiting before an ask becomes a t
 ## Suggest a Feature is Report a Bug's form for an idea (SCR-52, 2026-11-13)
 - One form with two kinds, not a second window: the same way to GitHub (a filled-in issue the user submits, as in SCR-51), the same public-issue cautions. An idea asks what you would like and what it would help with, and is labelled `enhancement` (GitHub's default label for one).
 - Versions are off by default for an idea: they rarely matter to one, and leaving them out puts less in a public issue. The box is there to tick.
+
+## The list's controls on a canvas task (SCR-58, 2026-11-13)
+- "All line controls" was read from the list row: its hover buttons (Copy, How it looked, Why, Snooze, Dismiss), its menu (Go to Source, Didja Missed This…, Snooze, Dismiss, Not an Action, Mark Done / Reopen) and its keys. Go to Source, which the issue names and which the list has only in its menu, is also a button on the canvas, since a canvas row has room for it.
+- Left out on purpose: Rename (the canvas already has it, on Return), Send to Canvas (it is on one), "tick conversation" and the merge buttons (a canvas holds single tasks, not their conversation), and Fold (a canvas lays its steps out itself).
+- The canvas calls the same `TaskActions` the list uses, given to it by the app, so a control does exactly what it does in the list; there is no second copy of any rule.
+- The buttons sit beside the text rather than over it as in the list: a canvas row wraps, so covering its end would hide words.

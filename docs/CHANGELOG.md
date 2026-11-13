@@ -6,6 +6,13 @@ Each entry says what changed, and what was **not verified** where that applies: 
 
 ## 2026-11-13
 
+### A task on a canvas has the list's controls (SCR-58)
+- Point at a task on a canvas (or choose it with the keys) and it shows the list's buttons: Copy, Go to Source, How it looked where it was captured, Why it is open or done, Snooze for an hour and Dismiss. Its "…" menu, and now a right-click, add Didja Missed This…, Snooze for 3 hours or until tomorrow, Not an Action, and Mark Done or Reopen, above the canvas's own Move, Indent, Rename and Take Off.
+- How it looked and Why open under the task, as in the list. A snoozed or dismissed task says so.
+- Keys on the chosen item, as in the list: ⌘C copy, S snooze, D dismiss, W why, V how it looked, X Didja missed it. Typing those letters in the line you type into still types them.
+- The canvas uses the list's own actions (the same engine commands), passed to each canvas window by the app.
+- Tests: app 1 new and 2 updated (every control reaches the task, previews and why fold open and shut, a heading or note takes none; the keys; the render now shows a chosen task with its buttons, lines and why: looked at `canvas.png`). Not verified: hovering, the menus and Go to Source in the live app.
+
 ### Suggest a Feature… (SCR-52)
 - **Suggest a Feature…** in Help, next to Report a Bug…: the same window, asking for a title, what you would like Didja to do, and optionally what it would help with. **Open on GitHub…** opens a new issue filled in with label `enhancement`, for you to submit; Didja sends nothing. The versions are off for an idea (on for a bug), and the same public-issue cautions apply.
 - Tests: app 2 new and 1 updated (an idea's sections, no third field, no versions by default, its label; the menu item; a render: looked at `feature.png`). Not verified: the window and the browser opening in the live app.
