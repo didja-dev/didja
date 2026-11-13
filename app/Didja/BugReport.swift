@@ -5,12 +5,41 @@ import SwiftUI
 /// your browser, filled in with what you wrote and, if you leave it on, Didja's and macOS's
 /// versions. You read it and submit it there; Didja sends nothing itself. For an app Didja misreads,
 /// Report a Problem with This Window… adds a masked file of how it sees the window.
+/// Suggest a Feature… (SCR-52) is the same form for an idea: what you would like, and why.
 struct BugReport: Equatable {
+    enum Kind: Equatable {
+        case bug, feature
+
+        var name: String { self == .bug ? "Report a Bug" : "Suggest a Feature" }
+        var symbol: String { self == .bug ? "ladybug" : "lightbulb" }
+        var label: String { self == .bug ? "bug" : "enhancement" }
+        /// The three fields' names in the form and in the issue; the third is not asked for an idea.
+        var sections: (first: String, second: String, third: String?) {
+            self == .bug ? ("What happened", "Steps to make it happen", "What you expected")
+                         : ("What you would like Didja to do", "What it would help with", nil)
+        }
+        var titleHint: String { self == .bug ? "The list stops updating after the Mac wakes" : "Group tasks by project" }
+        var firstHint: String { self == .bug ? "What you saw, and when." : "What it would do, as you picture it." }
+        var secondHint: String { self == .bug ? "1. …" : "When you would use it." }
+        var intro: String {
+            self == .bug
+                ? "Say what went wrong. Didja opens a new issue on GitHub in your browser, filled in with this; you read it and submit it there (you need a GitHub account). Didja sends nothing itself."
+                : "Say what you would like Didja to do. Didja opens a new issue on GitHub in your browser, filled in with this; you read it and submit it there (you need a GitHub account). Didja sends nothing itself."
+        }
+    }
+
+    var kind = Kind.bug
     var title = ""
     var happened = ""
     var steps = ""
     var expected = ""
     var includeVersions = true
+
+    init(_ kind: Kind = .bug) {
+        self.kind = kind
+        // The versions help with a bug; an idea does not need them unless you add them.
+        includeVersions = kind == .bug
+    }
 
     static let newIssue = "https://github.com/didja-dev/didja/issues/new"
     /// Longer links are cut off by browsers or refused by GitHub; past this the body goes on the
@@ -25,16 +54,17 @@ struct BugReport: Equatable {
 
     private static func trimmed(_ s: String) -> String { s.trimmingCharacters(in: .whitespacesAndNewlines) }
 
-    /// Ready to open: it has a title and says what happened.
+    /// Ready to open: it has a title and its first field (what happened, or what you would like).
     var isReady: Bool { !Self.trimmed(title).isEmpty && !Self.trimmed(happened).isEmpty }
 
     /// The issue's text, in Markdown. Sections left empty are left out.
     func body(versions: String = BugReport.versions) -> String {
-        var parts = ["**What happened**\n\(Self.trimmed(happened))"]
-        if !Self.trimmed(steps).isEmpty { parts.append("**Steps to make it happen**\n\(Self.trimmed(steps))") }
-        if !Self.trimmed(expected).isEmpty { parts.append("**What you expected**\n\(Self.trimmed(expected))") }
+        let names = kind.sections
+        var parts = ["**\(names.first)**\n\(Self.trimmed(happened))"]
+        if !Self.trimmed(steps).isEmpty { parts.append("**\(names.second)**\n\(Self.trimmed(steps))") }
+        if let third = names.third, !Self.trimmed(expected).isEmpty { parts.append("**\(third)**\n\(Self.trimmed(expected))") }
         if includeVersions { parts.append("**Version**\n\(versions)") }
-        parts.append("_Sent from Report a Bug… in Didja. The repository is public._")
+        parts.append("_Sent from \(kind.name)… in Didja. The repository is public._")
         return parts.joined(separator: "\n\n") + "\n"
     }
 
@@ -51,7 +81,7 @@ struct BugReport: Equatable {
         var c = URLComponents(string: Self.newIssue)
         c?.queryItems = [
             URLQueryItem(name: "title", value: Self.trimmed(title)),
-            URLQueryItem(name: "labels", value: "bug"),
+            URLQueryItem(name: "labels", value: kind.label),
             URLQueryItem(name: "body", value: body),
         ]
         return c?.url
@@ -76,7 +106,7 @@ struct BugReport: Equatable {
 
 struct BugReportView: View {
     static let width: CGFloat = 560
-    @State var report = BugReport()
+    @State var report: BugReport
     var open: (BugReport) -> Void = { _ in }
     var copy: (String) -> Void = { _ in }
     var reportWindow: () -> Void = {}
@@ -102,18 +132,20 @@ struct BugReportView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
-                Image(systemName: "ladybug").font(.system(size: 18)).foregroundStyle(Palette.accent)
-                Text("Report a Bug").font(.title3.weight(.semibold))
+                Image(systemName: report.kind.symbol).font(.system(size: 18)).foregroundStyle(Palette.accent)
+                Text(report.kind.name).font(.title3.weight(.semibold))
             }
-            Text("Say what went wrong. Didja opens a new issue on GitHub in your browser, filled in with this; you read it and submit it there (you need a GitHub account). Didja sends nothing itself.")
+            Text(report.kind.intro)
                 .foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             VStack(alignment: .leading, spacing: 4) {
                 Text("Title").font(.callout.weight(.medium))
-                TextField("The list stops updating after the Mac wakes", text: $report.title).textFieldStyle(.roundedBorder)
+                TextField(report.kind.titleHint, text: $report.title).textFieldStyle(.roundedBorder)
             }
-            field("What happened", "What you saw, and when.", $report.happened, height: 90)
-            field("Steps to make it happen (optional)", "1. …", $report.steps, height: 64)
-            field("What you expected (optional)", "", $report.expected, height: 44)
+            field(report.kind.sections.first, report.kind.firstHint, $report.happened, height: 90)
+            field("\(report.kind.sections.second) (optional)", report.kind.secondHint, $report.steps, height: 64)
+            if let third = report.kind.sections.third {
+                field("\(third) (optional)", "", $report.expected, height: 44)
+            }
             Toggle("Include Didja's and macOS's versions (\(BugReport.versions))", isOn: $report.includeVersions)
             Label("The issue is public. Use made-up examples: no real names, messages, email subjects or addresses.",
                   systemImage: "eye")
@@ -124,8 +156,10 @@ struct BugReportView: View {
                     .font(.callout).foregroundStyle(Palette.attention).fixedSize(horizontal: false, vertical: true)
             }
             HStack(spacing: 8) {
-                Button("Didja Misreads an App?", action: reportWindow).buttonStyle(.link)
-                    .help("Report a Problem with This Window… adds a masked file of how Didja sees that window")
+                if report.kind == .bug {
+                    Button("Didja Misreads an App?", action: reportWindow).buttonStyle(.link)
+                        .help("Report a Problem with This Window… adds a masked file of how Didja sees that window")
+                }
                 Spacer()
                 Button("Copy") { copy("# \(report.title)\n\n" + report.body()) }.buttonStyle(DidjaButtonStyle.secondary)
                     .disabled(!report.isReady)

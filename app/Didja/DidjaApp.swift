@@ -338,6 +338,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             .action("How It Decides…", close { [weak self] in self?.showBrain() }),
             .separator,
             .action("Report a Bug…", close { [weak self] in self?.showBugReport() }),
+            .action("Suggest a Feature…", close { [weak self] in self?.showBugReport(.feature) }),
             .action("Check for Updates…", enabled: Updates.shared.canCheck) { Updates.shared.checkNow() },
         ]
         return top + [
@@ -750,14 +751,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return DiagnosticsReport.build(about: about, outline: r.outline, captured: r.lines, kept: r.kept, tasks: Array(explained))
     }
 
-    /// Report a Bug… (SCR-51): a form that opens a new GitHub issue in your browser, filled in.
-    /// You submit it there; nothing is sent from here.
-    func showBugReport() {
+    /// Report a Bug… (SCR-51) and Suggest a Feature… (SCR-52): a form that opens a new GitHub
+    /// issue in your browser, filled in. You submit it there; nothing is sent from here.
+    func showBugReport(_ kind: BugReport.Kind = .bug) {
         let copy: (String) -> Void = { text in
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(text, forType: .string)
         }
         let view = BugReportView(
+            report: BugReport(kind),
             open: { [weak self] report in
                 guard let link = report.issueLink() else { NSSound.beep(); return }
                 if link.mustPaste { copy(report.body()) }
@@ -772,7 +774,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         bugReportWindow?.close()
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: BugReportView.width, height: 560),
                               styleMask: [.titled, .closable], backing: .buffered, defer: false)
-        window.title = "Report a Bug"
+        window.title = kind.name
         window.isReleasedWhenClosed = false
         window.contentViewController = NSHostingController(rootView: view)
         window.center()

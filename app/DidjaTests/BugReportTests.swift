@@ -70,6 +70,45 @@ final class BugReportTests: XCTestCase {
     func testItIsInTheHelpMenu() {
         let titles = MenuEntry.titles(AppDelegate().moreMenuEntries())
         XCTAssertTrue(titles.contains("Help › Report a Bug…"))
+        XCTAssertTrue(titles.contains("Help › Suggest a Feature…"))
+    }
+
+    // MARK: Suggest a Feature… (SCR-52)
+
+    private var idea: BugReport {
+        var r = BugReport(.feature)
+        r.title = "Group tasks by project"
+        r.happened = "Put tasks from the same project together in the Full View."
+        r.steps = "On a busy day with tasks from three projects."
+        r.expected = "left over from switching kinds"
+        return r
+    }
+
+    func testAnIdeaHasItsOwnSectionsAndLabel() throws {
+        XCTAssertTrue(idea.isReady)
+        XCTAssertFalse(idea.includeVersions, "an idea leaves the versions out unless you add them")
+        XCTAssertTrue(BugReport().includeVersions)
+        let body = idea.body(versions: "Didja 1.2 (3) on macOS 26.1")
+        XCTAssertTrue(body.hasPrefix("**What you would like Didja to do**\nPut tasks from the same project together in the Full View.\n\n"))
+        XCTAssertTrue(body.contains("**What it would help with**\nOn a busy day"))
+        XCTAssertFalse(body.contains("left over"), "an idea has no third field")
+        XCTAssertFalse(body.contains("Version"))
+        XCTAssertTrue(body.contains("Sent from Suggest a Feature… in Didja"))
+        let link = try XCTUnwrap(idea.issueLink())
+        let q = query(link.url)
+        XCTAssertEqual(q["labels"], "enhancement")
+        XCTAssertEqual(q["title"], "Group tasks by project")
+        XCTAssertEqual(query(try XCTUnwrap(report.issueLink()).url)["labels"], "bug")
+    }
+
+    @MainActor func testRenderSuggestAFeature() throws {
+        let renderer = ImageRenderer(content: BugReportView(report: idea).frame(width: BugReportView.width))
+        renderer.scale = 2
+        let image = try XCTUnwrap(renderer.nsImage)
+        let png = try XCTUnwrap(image.tiffRepresentation.flatMap(NSBitmapImageRep.init(data:))?.representation(using: .png, properties: [:]))
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("didja-ui")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        try png.write(to: dir.appendingPathComponent("feature.png"))
     }
 
     @MainActor func testRenderBugReport() throws {
