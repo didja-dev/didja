@@ -1,5 +1,45 @@
 import AppKit
 import SwiftUI
+import UniformTypeIdentifiers
+
+/// Dragging tasks from the list onto a canvas (SCR-50). The drag carries the tasks' ids in a type
+/// only Didja reads (`ownProcess`), plus their titles as plain text for any other app.
+enum TaskDrag {
+    static let type = UTType(exportedAs: "dev.didja.task-ids", conformingTo: .data)
+
+    static func encode(_ ids: [Int]) -> Data { Data(ids.map(String.init).joined(separator: ",").utf8) }
+
+    /// The ids in a drag; nothing for anything that is not a list of task ids.
+    static func decode(_ data: Data) -> [Int] {
+        guard let text = String(data: data, encoding: .utf8) else { return [] }
+        let parts = text.split(separator: ",", omittingEmptySubsequences: false)
+        let ids = parts.compactMap { Int($0.trimmingCharacters(in: .whitespaces)) }.filter { $0 > 0 }
+        return ids.count == parts.count ? ids : []
+    }
+
+    static func provider(_ items: [TaskItem]) -> NSItemProvider {
+        let provider = NSItemProvider(object: items.map(\.title).joined(separator: "\n") as NSString)
+        let data = encode(items.map(\.id))
+        provider.registerDataRepresentation(forTypeIdentifier: type.identifier, visibility: .ownProcess) { done in
+            done(data, nil)
+            return nil
+        }
+        return provider
+    }
+
+    /// Reads the ids from what was dropped and hands them over on the main thread.
+    static func receive(_ providers: [NSItemProvider], _ send: @escaping ([Int]) -> Void) -> Bool {
+        let ours = providers.filter { $0.hasItemConformingToTypeIdentifier(type.identifier) }
+        guard !ours.isEmpty else { return false }
+        for provider in ours {
+            _ = provider.loadDataRepresentation(forTypeIdentifier: type.identifier) { data, _ in
+                let ids = data.map(decode) ?? []
+                if !ids.isEmpty { DispatchQueue.main.async { send(ids) } }
+            }
+        }
+        return true
+    }
+}
 
 /// Canvases (SCR-49): floating pages you keep open while you work. Tasks sent from the list (a
 /// checklist sends its steps under a heading), tasks you add there, headings and notes, in your
@@ -98,6 +138,11 @@ final class CanvasModel: ObservableObject {
     }
 
     func rename(_ title: String) { change(["canvas", "rename", String(id), title]) }
+    /// Tasks dragged here from the list, as Send to Canvas does: at the end, a checklist with its steps.
+    func send(_ taskIds: [Int]) {
+        guard !taskIds.isEmpty else { return }
+        change(["canvas", "send", String(id)] + taskIds.map(String.init))
+    }
     func toggle(_ item: CanvasPage.Item) {
         guard let task = item.task else { return }
         change([task.status == "done" ? "reopen" : "done", String(task.id)])
@@ -243,6 +288,8 @@ struct CanvasView: View {
     @State private var level = 0
     @State private var asNote = false
     @FocusState private var typing: Bool
+    /// Tasks are being dragged over the canvas.
+    @State private var dropping = false
 
     static let hint = "Type a task, then Enter. # heading · - bullet · > note · Tab indents"
     var close: () -> Void = {}
@@ -253,7 +300,7 @@ struct CanvasView: View {
         VStack(alignment: .leading, spacing: 4) {
             ForEach(model.page?.items ?? []) { item in row(item) }
             if (model.page?.items ?? []).isEmpty {
-                Text("Click anywhere and type. Or send tasks here from the list (right-click › Send to Canvas).")
+                Text("Click anywhere and type. Or drag tasks here from the list (or right-click › Send to Canvas).")
                     .font(.callout).foregroundStyle(.secondary).padding(.vertical, 8)
             }
         }
@@ -326,6 +373,15 @@ struct CanvasView: View {
         .padding(16)
         .frame(minWidth: Self.width, minHeight: 300, alignment: .top)
         .background(Palette.surface)
+        .overlay {
+            if dropping {
+                RoundedRectangle(cornerRadius: 10).strokeBorder(Palette.accent, lineWidth: 2).padding(4)
+                    .allowsHitTesting(false)
+            }
+        }
+        .onDrop(of: [TaskDrag.type], isTargeted: $dropping) { providers in
+            TaskDrag.receive(providers) { [model] ids in model.send(ids) }
+        }
         .onAppear { title = model.page?.title ?? ""; typing = true }
         .onChange(of: model.focusComposer) { _, _ in typing = true }
         .onChange(of: model.selected) { _, id in if id != nil { typing = false } }

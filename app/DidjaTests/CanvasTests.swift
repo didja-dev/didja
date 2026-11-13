@@ -51,6 +51,34 @@ final class CanvasTests: XCTestCase {
         ])
     }
 
+    /// SCR-50: tasks dragged from the list land on the canvas through the engine's `canvas send`.
+    func testDraggedTasksAreSentToTheCanvas() throws {
+        XCTAssertEqual(TaskDrag.decode(TaskDrag.encode([12, 40, 7])), [12, 40, 7])
+        // Anything that is not a list of task ids is not a drop.
+        for junk in ["", "Run the migration", "12,abc", "12,,13", "-4", "0"] {
+            XCTAssertEqual(TaskDrag.decode(Data(junk.utf8)), [], junk)
+        }
+        var ran: [[String]] = []
+        let m = model { ran.append($0) }
+        m.send([12, 40])
+        m.send([])
+        XCTAssertEqual(ran.filter { !$0.starts(with: ["canvas", "show"]) }, [["canvas", "send", "3", "12", "40"]])
+    }
+
+    func testADragCarriesTheIdsForDidjaAndTheTitlesForOtherApps() throws {
+        let items = [TaskItem(id: 12, title: "Run the migration", status: .open, source: "s", isGroup: false), TaskItem(id: 40, title: "Tell Noa", status: .open, source: "s", isGroup: false)]
+        let provider = TaskDrag.provider(items)
+        XCTAssertTrue(provider.hasItemConformingToTypeIdentifier(TaskDrag.type.identifier))
+        XCTAssertTrue(provider.canLoadObject(ofClass: NSString.self))
+        let got = expectation(description: "ids")
+        XCTAssertTrue(TaskDrag.receive([provider]) { ids in
+            XCTAssertEqual(ids, [12, 40])
+            got.fulfill()
+        })
+        wait(for: [got], timeout: 2)
+        XCTAssertFalse(TaskDrag.receive([NSItemProvider(object: "12,40" as NSString)]) { _ in XCTFail("plain text is not a drop") })
+    }
+
     func testNotesShowTheirMarkdown() {
         let shown = CanvasView.rendered("Ask **Noa** about `22:00`, see [the plan](https://example.com)")
         XCTAssertEqual(String(shown.characters), "Ask Noa about 22:00, see the plan")

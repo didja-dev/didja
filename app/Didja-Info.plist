@@ -10,5 +10,18 @@
 	<string>dUhRN/bbKhszbN6vW8if5r8eK9tNXq191Oi6V+T2T/k=</string>
 	<key>SUScheduledCheckInterval</key>
 	<integer>86400</integer>
+	<key>UTExportedTypeDeclarations</key>
+	<array>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>dev.didja.task-ids</string>
+			<key>UTTypeDescription</key>
+			<string>Didja tasks</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>
