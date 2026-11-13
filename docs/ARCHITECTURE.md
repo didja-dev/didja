@@ -317,6 +317,21 @@ The engine runs as two processes, so a model never holds up what needs none:
 
 With Apple's model, the benchmark (two lanes) is unchanged in what it finds and ticks (13 ticked, 3 asked, 6 missed, 0 wrong). New tasks and sure ticks that need no model are shown in the pass that reads them, at 0 s simulated; the 1.0 s left at p90 is email tasks and chat-reply ticks, which are read by the model. Model-judged events stay at 11 s: the list waits 6 s to settle (SCR-78 shows it at once as "checking…"), and each model call starts the app binary (SCR-77).
 
+## The judge server (SCR-77)
+
+The engine asks the app's models through one long-lived process, `Didja --judge-server` (`JudgeServer.swift`), instead of a new process per question. One JSON request per line in (`{"id", "job", "request"}`), one reply per line out (`{"id", "reply"}`), after a first `{"ready":true}`; one question at a time, in order. The jobs are the one-shot flags without their dashes (`judge`, `title`, `needs-reply`, `looks-done`, `criteria`, `chat`, `chat-reply`), and the one-shot flags now run the same `JudgeServer.answer`, so the replies are the same bytes. `warm` loads the models: Apple's is prewarmed when the server starts; Ollama is sent a load request when the local model is first used or changes. Every Ollama request carries `keep_alive: 30m`. A question that runs past 40 s is answered "not available", as a one-shot the engine gave up on was.
+
+Engine side (`engine/src/judgeserver.ts`, used by `askModel` in `cli.ts`): the model lane asks synchronously, so requests and replies go through two named pipes (in a private temporary folder, removed as soon as both ends are open), written and read with blocking calls and a deadline. Each side holds the only writer of its pipe, so when the engine exits the server's input closes and it stops, and when the server dies the engine sees its output close and starts a new one for the next question (asked once more). If it does not say it is ready within 5 s, questions go to one-shot spawns for a minute before it is tried again. `DIDJA_JUDGE_SERVER=0` turns it off. The server process is unref'd, so a one-off command (`didja poll`) still exits.
+
+Measured on the maintainer's Mac (2026-11-13), 20 questions each, Apple's on-device model:
+
+| Job | One-shot, median / p90 | Server, median / p90 | First question, one-shot → server |
+|---|---|---|---|
+| List verdict (`judge`) | 0.49 s / 0.50 s | 0.47 s / 0.51 s | 1.08 s → 0.56 s |
+| "Looks done?" | 0.43 s / 0.45 s | 0.42 s / 0.46 s | 0.44 s → 0.41 s |
+
+With Ollama (qwen3.8, already loaded), 6 each: list verdict 1.86 s → 1.87 s median; "looks done?" 0.82 s → 0.80 s median, p90 1.59 s → 0.86 s. Answers were the same both ways, and `eval/lists.ts` scored the same through the server (Apple 42/44, Ollama 44/44). The median was not halved: starting the app binary costs little on this Mac, and the time is the model's own. What the server saves is the first question after a while (the model loading) and an unloaded Ollama model (about 8 s, not reproduced here).
+
 ## Updates (SCR-33)
 
 - Sparkle 2 (Swift Package Manager, pinned in `project.xcworkspace/xcshareddata/swiftpm/Package.resolved`). `Updates.swift` owns an `SPUStandardUpdaterController`, started at launch only in Release builds with a real `SUPublicEDKey` and never under tests, so a development build never replaces itself and tests make no requests. The menu's **Check for Updates…** and Settings › General's toggle call it.

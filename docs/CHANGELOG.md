@@ -6,6 +6,12 @@ Each entry says what changed, and what was **not verified** where that applies: 
 
 ## 2026-11-13
 
+### The models stay warm: one long-lived judge process (SCR-77)
+- The engine asks every model question through `Didja --judge-server`, one process for all of them, instead of starting the app binary per question. Same jobs, prompts and replies (the one-shot flags now share its code). It is started again if it dies, and the engine falls back to one-shot spawns if it cannot start. Apple's model is prewarmed when it starts; Ollama is asked to keep its model loaded for 30 minutes, and loaded when the local model is first used or changed.
+- Measured, Apple's model: median per question 0.49 s → 0.47 s (lists), 0.43 s → 0.42 s (looks); the first question 1.08 s → 0.56 s. **The issue's target, the median halved, was not met**: launching the binary was not the cost on this Mac. Answers unchanged (`eval/lists.ts`: Apple 42/44, Ollama 44/44 both ways).
+- Fixed on the way: an engine command that used the server would never exit (the server is now unref'd); a test covers it.
+- Tests: engine 7 new (in order by id, a dead server restarted, one that never gets ready, one that does not answer, `askModel` falls back to the flag, warming the local model once per change, a one-off command exits); app 5 new (the request and reply lines, answers as the flags give them, the 40 s limit, `keep_alive`). Not verified: an unloaded Ollama model's first question; `eval/ollama.ts` through the server (the run was cut short).
+
 ### The engine acts on new screens at once, and models never hold it up (SCR-76)
 - Capture wakes the engine after each observation (a line on its standard input); it reads it within about 50 ms instead of at its next 5-second pass. The 5-second pass stays as a heartbeat.
 - `didja run` is now the fast lane: no model, so a clear list, a command run, a marker, an archived email or a signed request is shown or ticked at once, even while a model is busy. It starts `didja lane`, the model lane, which runs the full pass with the models as before (email and chat reads, list verdicts, done criteria, "looks done?", titles), in that order: list verdicts now come before criteria and looks. A queued list already judged elsewhere is dropped without asking the model.
