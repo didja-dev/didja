@@ -125,6 +125,16 @@ struct TroubleshootingView: View {
     var save: (String) -> Void = { _ in }
     var email: () -> Void = {}
     var openIssue: () -> Void = {}
+    /// False in the render test: ImageRenderer draws a scroll view's content blank.
+    var scrolls = true
+
+    private var reportText: some View {
+        Text(report.text)
+            .font(.system(size: 11, design: .monospaced))
+            .textSelection(.enabled)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
+            .padding(8)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -146,14 +156,10 @@ struct TroubleshootingView: View {
                     }
                 }
             }
-            ScrollView {
-                Text(report.text)
-                    .font(.system(size: 11, design: .monospaced))
-                    .textSelection(.enabled)
-                    .frame(maxWidth: .infinity, alignment: .topLeading)
-                    .padding(8)
+            Group {
+                if scrolls { ScrollView { reportText } } else { reportText }
             }
-            .frame(minHeight: 160, maxHeight: .infinity)
+            .frame(minHeight: 160, maxHeight: .infinity, alignment: .top)
             .background(RoundedRectangle(cornerRadius: 6).fill(Color.primary.opacity(0.04)))
             .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.secondary.opacity(0.3)))
             HStack(spacing: 8) {

@@ -123,6 +123,7 @@ struct PrivacyContent: View {
                     bullet("Your mail account", "The address and name your own emails are sent as, read from Outlook's window title, so a message you sent never becomes a task. Nothing else from the window.")
                     bullet("Canvases", "Their titles, the headings and notes you write on them, and which tasks are on them. Kept until you delete them.")
                     bullet("What you taught it", "Corrections you made with Not an Action and Not Done (each holds the task's wording), and any instructions you wrote for the model. Kept until you remove them in How It Decides…")
+                    bullet("What capture did, as counts", "For the Troubleshooting Report: each time capture tried the app in front, what happened (a code such as read, no window or no text), how many lines and the app's name; and why what was read made no task, counted per kind of source. No text and no window titles. Kept 24 hours.")
                     bullet("Settings", "Your choices (appearance, focus, sort, how long text is kept) in the app's macOS preferences, and the exclude list in exclude.json beside the database.")
                     HStack(spacing: 8) {
                         Button("Show in Finder", action: revealDataFolder).buttonStyle(DidjaButtonStyle.secondary)
@@ -175,6 +176,7 @@ struct PrivacyContent: View {
                     bullet("Fresh Start…", "Marks every open task done for a clear list. Nothing is deleted; Undo Fresh Start brings them back for a day.")
                     bullet("Siri", "\u{201C}Add to Didja\u{201D} puts what you say on My List. Siri is Apple's; Didja receives only the words.")
                     bullet("Report a Problem with This Window…", "Shows how Didja sees the window you were last in, with every letter and digit masked unless you choose to show a line. You save or copy it; Didja sends nothing.")
+                    bullet("Troubleshooting Report…", "Says why Didja reads nothing or makes no tasks, in counts and codes. You copy, save, email or post it yourself; Didja sends nothing.")
                 }
             }
             .padding(24)

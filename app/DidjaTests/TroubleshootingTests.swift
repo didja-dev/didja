@@ -111,7 +111,7 @@ final class TroubleshootingTests: XCTestCase {
     }
 
     @MainActor func testRenderTroubleshootingReport() throws {
-        let renderer = ImageRenderer(content: TroubleshootingView(report: report).frame(width: TroubleshootingView.width, height: 560))
+        let renderer = ImageRenderer(content: TroubleshootingView(report: report, scrolls: false).frame(width: TroubleshootingView.width, height: 560))
         renderer.scale = 2
         let image = try XCTUnwrap(renderer.nsImage)
         let png = try XCTUnwrap(image.tiffRepresentation.flatMap(NSBitmapImageRep.init(data:))?.representation(using: .png, properties: [:]))

@@ -6,6 +6,13 @@ Each entry says what changed, and what was **not verified** where that applies: 
 
 ## 2026-11-13
 
+### Troubleshooting report: why Didja reads nothing, or makes no tasks (SCR-79)
+- **Help › Troubleshooting Report…** and `didja doctor [--json]`: plain-language findings first (Accessibility off, and whether Didja moved since you allowed it; paused; capture failed; the engine stopped or erroring; an app that gives no text, refuses, or is excluded; Apple Intelligence unavailable and what that means; Claude read but no numbered list for you; lists seen but none made, and why), then counts and codes: versions, permissions, capture status, readings and outcomes per app, the engine's last pass and errors, Apple's model and the local model, what each source read and why it made no task, tasks per source, settings. No screen text, window titles or task words.
+- Didja sends nothing: Copy, Save…, **Email to Didja…** (a new email in your mail app) or **Open a GitHub Issue…** (filled in), each sent by you.
+- Capture keeps an outcome log (schema 028 `capture_outcomes`: a code, a line count and the app, 24 hours, at most 500 rows) and the engine counts why what it read made no task (`engine_drops`, per hour and source kind). The app writes its facts to `meta.app_facts`; the engine notes its last pass and errors.
+- The Quick View says "Didja isn't reading anything yet: Troubleshoot…" when Accessibility is off, capture failed, or nothing was read two minutes after capture started; the Welcome window has the same link. Privacy lists the new counts.
+- Tests: engine 15 new (`doctor.test.ts`: no text stored or reported; repeats fold and the log is capped; findings for Accessibility off and moved, an empty tree, an excluded app, paused, a stopped engine, Apple Intelligence off, Claude read with no list; drop counts for no model and once per window; the `--json` shape). App 7 new (`TroubleshootingTests`: the outcome log stores no text from a made-up window; repeats; the codes; when the Quick View offers it; the mail and issue links; the facts' keys; the render, looked at). Not verified: the live app's window and the Quick View link; real outcomes from an Electron app or an app that refuses; whether the local model is reachable (only on or off is reported); a masked sample of what Didja read (not built).
+
 ### Didja 0.7.1 (build 9)
 - Released from GitHub on a version tag, with SCR-80: newer Claude Code in a terminal, checklists of boxes, everyday steps (get, back up, bring…) and prompts ending in › now make tasks; toolbar toggles are not read as boxes.
 

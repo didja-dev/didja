@@ -4,6 +4,13 @@ Choices made while building ScrolledAway, with the reason, so they are not re-ar
 
 ## 2026-11-13
 
+- **The troubleshooting report holds codes and counts only** (SCR-79): app names and bundle ids, result codes, line counts, versions, paths and settings, never screen text, window titles or task words, so it can be sent without masking. Engine error messages are included as they are (at most 300 characters each); they come from the engine, not the screen.
+- **Didja sends the report nowhere itself.** Email to Didja opens a `mailto:` in the user's own mail app and Open a GitHub Issue opens a filled-in page in the browser, the same pattern as Report a Bug; the user sends either. No new network call.
+- **The optional masked sample from the issue is not built yet**: Report a Problem with This Window… already gives a masked reading of one window. Left for a follow-up.
+- **What the app knows goes into `meta.app_facts`, and the findings are worked out in the engine**, so `didja doctor` from Terminal says the same as the window, and the rules live in one place.
+- **Why reads make no task is counted by the full pass only**, so a window read by both lanes is counted once; tasks made come from `didja quality`'s counts, because the fast lane usually makes them before the full pass sees them.
+- **"Moved since you allowed it" compares the app's path with where it was when Accessibility was last seen allowed**: macOS ties the permission to the app, and a copy elsewhere is not trusted. It can only be said once Didja has been allowed at least once.
+
 - **Checklists of boxes count like numbered lists, toggle buttons never do** (SCR-80, a new user's Claude app writes its steps as boxes to tick). The same rules decide (mostly actions, not Claude's own plan), so this widens what is read, not what is kept; a toolbar toggle is an AXCheckBox with the AXToggleButton subrole and is written as a button, so "Good response" or "Sidebar" can't make a list.
 - **Newer Claude Code is recognised by its status line, or "●" and "❯" together, not by either alone** (SCR-80). A "❯" prompt theme and "●" in a status tool are common in plain terminals.
 
