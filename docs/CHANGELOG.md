@@ -6,6 +6,9 @@ Each entry says what changed, and what was **not verified** where that applies: 
 
 ## 2026-11-13
 
+### Didja 0.10.0 (build 12)
+- Released from GitHub on a version tag, with SCR-85 (steps an agent runs itself are its own; declined commands are yours), SCR-86 (done by target: a catalogue of where common steps are done), SCR-87 (an opt-in shell hook for exact exit codes; failures read from prompts; editor terminals), SCR-88 (opt-in agent hooks for Claude Code, Cursor and Windsurf), SCR-89 (a "Try it" step in Welcome and a first-run nudge) and SCR-91 (with the menu bar hidden, the hotkey opens the panel as a floating window).
+
 ### First run: "Try it" in the Welcome window, a nudge when nothing comes, and AI tools Didja doesn't know yet (SCR-89)
 - **Welcome › Try it** (after Permissions): a prompt to ask your AI tool ("Give me a numbered checklist to deploy this to Vercel") with a **Copy** button, and a live line, "Watching ChatGPT and Terminal…", naming the apps read in the last ten minutes (names only). When the first list from an AI tool arrives it says "Got it: 3 steps from Claude." and how to tick one.
 - **The nudge:** once AI tool windows have been read for ten minutes (five readings or more) and not one task has ever come from an AI tool, the Quick View shows a quiet note, "Didja has read Claude 40 times but found no steps for you yet. Troubleshoot…". × closes it for good (`meta.first_run_nudge_dismissed`); the first task from an AI tool ends it too.
