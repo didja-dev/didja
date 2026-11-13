@@ -15,7 +15,7 @@ import { deriveCriteria, extractMarkers, withoutLinkTargets } from './markers.ts
 import { findSightings, isComplete, RUN_WINDOW_MS } from './match.ts';
 import { splitSession, terminalLines } from './terminal.ts';
 import type { Checklist, ChecklistItem } from './extract.ts';
-import type { Job, NewChecklist, NewNode, Observation, PendingChatAsk, Store, Task, Teaching } from './store.ts';
+import type { Job, NewChecklist, NewNode, Observation, Outcome, PendingChatAsk, Store, Task, Teaching } from './store.ts';
 import { KEPT_KIND, KEPT_LIST } from './store.ts';
 
 export interface PollStats {
@@ -202,6 +202,15 @@ const CURSOR_KEY = 'last_observation_id';
  */
 const WINDOW_CONTEXT_MS = 30 * 60 * 1000;
 
+/** How a marker tick is counted in "How Didja is doing" (SCR-73): by the kind of thing seen. */
+function tickedBy(task: Task): Outcome {
+  const kinds = new Set(task.markers.map((m) => m.kind));
+  if (kinds.has('command')) return 'ticked-command';
+  if (kinds.has('url')) return 'ticked-link';
+  if (kinds.has('env')) return 'ticked-setting';
+  return 'ticked-file';
+}
+
 /** Capture's window key (SCR-72); app and exact title for a row from before schema 24. */
 const windowKey = (o: Observation) => o.windowKey ?? `${o.bundleId}\u0000${o.windowTitle}`;
 
@@ -368,7 +377,7 @@ export function pollOnce(store: Store, now: Date = new Date(), opts: PollOptions
   for (const id of touched) {
     const task = store.getTask(id);
     if (task && (task.status === 'open' || task.status === 'snoozed') && isComplete(task, store.seenMarkers(id))) {
-      store.setStatus(id, 'done');
+      store.withOutcome(id, tickedBy(task), now, () => store.setStatus(id, 'done', now));
       stats.completed++;
     }
   }

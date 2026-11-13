@@ -18,6 +18,7 @@ import type { Looker } from './looksdone.ts';
 import { cleanCriteria, describeCriteria } from './donecriteria.ts';
 import type { CriteriaWriter, DoneCriteria } from './donecriteria.ts';
 import { JOBS, Store } from './store.ts';
+import { formatQuality, qualityReport } from './quality.ts';
 import { requiredMarkers } from './markers.ts';
 import type { Evidence, Job, Observation, Task, TaskNode, TaskStatus } from './store.ts';
 
@@ -54,6 +55,8 @@ const USAGE = `didja <command>
                       mark every open task done for a clean list (My List stays); --undo puts them back
   done <id>           mark a task done (a checklist's id ticks all its steps)
   done-all <id>       mark done everything still open from the same conversation as task <id>
+  quality [--days N] [--json]
+                      how Didja is doing: tasks made, ticked for you, asked, answered, cleared (counts only, last 7 days by default)
   snooze <id> [for]   hide a task for a while: 30m, 2h, 3d or tomorrow (default 1h)
   notyet <id>         a task marked "looks done?" is not done: keep it open
   dismiss <id>        dismiss a task (not a real to-do)
@@ -785,6 +788,17 @@ async function main(argv: string[]): Promise<number> {
         console.log(`Fresh start: ${done.length} ${done.length === 1 ? 'task' : 'tasks'} marked done`);
         return 0;
       }
+      case 'quality': {
+        const at = args.indexOf('--days');
+        const days = at === -1 ? 7 : Number(args[at + 1]);
+        if (!Number.isFinite(days) || days <= 0) {
+          console.error('usage: didja quality [--days N] [--json]');
+          return 1;
+        }
+        const report = qualityReport(store, days);
+        console.log(args.includes('--json') ? JSON.stringify(report) : formatQuality(report));
+        return 0;
+      }
       case 'done-all': {
         const id = Number(args[0]);
         const task = Number.isInteger(id) ? store.getTask(id) : null;
@@ -804,9 +818,9 @@ async function main(argv: string[]): Promise<number> {
           console.error(`usage: didja ${command} <id>`);
           return 1;
         }
-        const status: TaskStatus =
-          command === 'done' ? 'done' : command === 'dismiss' ? 'dismissed' : 'open';
-        if (!store.setStatus(id, status)) {
+        const status = command === 'done' ? 'done' : command === 'dismiss' ? 'dismissed' : 'open';
+        // Counted in "How Didja is doing" (SCR-73).
+        if (!store.changeByYou(id, status)) {
           console.error(`No task #${id}`);
           return 1;
         }

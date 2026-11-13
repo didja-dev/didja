@@ -102,7 +102,7 @@ export async function syncConnections(store: Store, remote: Remote, now: Date = 
         const item = byId.get(ext.id);
         const type = item?.stateType.toLowerCase() ?? '';
         if (item && type === 'completed') {
-          store.setStatus(task.id, 'done', now);
+          store.withOutcome(task.id, 'ticked-tool', now, () => store.setStatus(task.id, 'done', now));
           store.addNote(task.id, 'judged', now.toISOString(), `Done in ${name} (${item.state || 'completed'})`);
           store.recordEmailCheck(WRITTEN(task.id), 'theirs', now); // nothing to write back
           stats.closed++;

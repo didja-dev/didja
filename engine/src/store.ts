@@ -26,6 +26,7 @@ import schema21 from '../../schema/021_done_places.sql' with { type: 'text' };
 import schema22 from '../../schema/022_criteria_model.sql' with { type: 'text' };
 import schema23 from '../../schema/023_teaching_any_job.sql' with { type: 'text' };
 import schema24 from '../../schema/024_window_key.sql' with { type: 'text' };
+import schema25 from '../../schema/025_outcomes.sql' with { type: 'text' };
 import { contextLines } from './context.ts';
 import { parseCriteria } from './donecriteria.ts';
 import type { DoneCriteria } from './donecriteria.ts';
@@ -100,6 +101,16 @@ export interface Observation {
   /** The window it was seen in, as capture keys it (`windowKeyFor`); absent on rows from before schema 24. */
   windowKey?: string;
 }
+
+/**
+ * What happened to a step (SCR-73), recorded in `outcomes` for "How Didja is doing". `ticked-*` are
+ * ticks Didja made for you; the rest are your answers and actions.
+ */
+export const TICKS = ['ticked-command', 'ticked-link', 'ticked-setting', 'ticked-file', 'ticked-screen', 'ticked-reply', 'ticked-tool', 'ticked-accepted'] as const;
+export type Outcome =
+  | (typeof TICKS)[number]
+  | 'asked' | 'yes' | 'not-yet' | 'done-by-hand' | 'shown-done'
+  | 'dismissed' | 'not-an-action' | 'fresh-start' | 'reopened-after-tick';
 
 export interface Task {
   id: number;
@@ -404,7 +415,7 @@ export class Store {
     // The app migrates the same file. Take the write lock first so only one side runs each step.
     this.db.transaction(() => {
       const { user_version } = this.db.query('PRAGMA user_version').get() as { user_version: number };
-      [schema1, schema2, schema3, schema4, schema5, schema6, schema7, schema8, schema9, schema10, schema11, schema12, schema13, schema14, schema15, schema16, schema17, schema18, schema19, schema20, schema21, schema22, schema23, schema24].forEach((sql, i) => {
+      [schema1, schema2, schema3, schema4, schema5, schema6, schema7, schema8, schema9, schema10, schema11, schema12, schema13, schema14, schema15, schema16, schema17, schema18, schema19, schema20, schema21, schema22, schema23, schema24, schema25].forEach((sql, i) => {
         if (user_version < i + 1) this.db.exec(sql);
       });
     }).immediate();
@@ -855,7 +866,12 @@ export class Store {
    */
   setStatus(id: number, status: TaskStatus, now: Date = new Date(), until: Date | null = null): boolean {
     const before = status === 'done' ? this.getTask(id) : null;
+    // Reopening a step Didja ticked: that tick was wrong (SCR-73).
+    const ticked = status === 'open'
+      ? this.steps(id).filter((s) => s.status === 'done' && (TICKS as readonly string[]).includes(this.lastOutcome(s.id) ?? '')).map((s) => s.id)
+      : [];
     const changed = this.setOwnStatus(id, status, now, until);
+    for (const step of ticked) if (this.getTask(step)?.status === 'open') this.recordOutcome(step, 'reopened-after-tick', now);
     // "Yes, done" on a "looks done?": a positive lesson, kept for trust earned later (SCR-71).
     if (changed && before?.suggestion && before.status !== 'done') this.recordConfirmed(id, before.suggestion, now);
     // Merged tasks are one thing: finishing, reopening or dismissing one does the same to the others.
@@ -865,6 +881,72 @@ export class Store {
       }
     }
     return changed;
+  }
+
+  /**
+   * Run `change` and record `outcome` for each step whose status it changed (SCR-73): the task
+   * itself, or the steps under it when it is a checklist.
+   */
+  withOutcome<T>(id: number, outcome: Outcome, now: Date, change: () => T): T {
+    const before = new Map(this.steps(id).map((s) => [s.id, s.status]));
+    const result = change();
+    for (const [step, status] of before) {
+      if (this.getTask(step)?.status !== status) this.recordOutcome(step, outcome, now);
+    }
+    return result;
+  }
+
+  /**
+   * A change you made in the list (done, dismiss, reopen), counted for "How Didja is doing": a tick
+   * on a "looks done?" is your yes, any other tick is done by hand.
+   */
+  changeByYou(id: number, status: 'done' | 'dismissed' | 'open', now: Date = new Date()): boolean {
+    const change = () => this.setStatus(id, status, now);
+    if (status === 'open') return change();
+    const outcome: Outcome = status === 'dismissed' ? 'dismissed' : this.getTask(id)?.suggestion ? 'yes' : 'done-by-hand';
+    return this.withOutcome(id, outcome, now, change);
+  }
+
+  /** One outcome for one step. Counts only: the row holds the task's id, the time and the outcome. */
+  recordOutcome(taskId: number, outcome: Outcome, now: Date = new Date()): void {
+    this.db.query('INSERT INTO outcomes (task_id, ts, outcome) VALUES (?, ?, ?)').run(taskId, now.toISOString(), outcome);
+  }
+
+  /** The step's newest outcome, if any. */
+  lastOutcome(taskId: number): Outcome | null {
+    const row = this.db.query('SELECT outcome FROM outcomes WHERE task_id = ? ORDER BY id DESC LIMIT 1').get(taskId) as { outcome: Outcome } | null;
+    return row?.outcome ?? null;
+  }
+
+  /** The task itself, or every step under it when it is a checklist (not the checklists inside). */
+  private steps(id: number): { id: number; status: TaskStatus }[] {
+    return this.db
+      .query(
+        `WITH RECURSIVE tree(id) AS (SELECT ?1 UNION ALL SELECT t.id FROM tasks t JOIN tree ON t.parent_id = tree.id)
+         SELECT id, status FROM tasks WHERE id IN (SELECT id FROM tree) AND is_group = 0`,
+      )
+      .all(id) as { id: number; status: TaskStatus }[];
+  }
+
+  /**
+   * Counts for "How Didja is doing" (SCR-73) since a moment: steps made, and outcomes, per kind of
+   * source. Numbers only.
+   */
+  qualityCounts(sinceIso: string): { made: { kind: string; n: number }[]; outcomes: { kind: string; outcome: Outcome; n: number }[] } {
+    const made = this.db
+      .query(
+        `SELECT s.kind AS kind, COUNT(*) AS n FROM tasks t JOIN sources s ON s.id = t.source
+         WHERE t.is_group = 0 AND t.created_at >= ? GROUP BY s.kind`,
+      )
+      .all(sinceIso) as { kind: string; n: number }[];
+    const outcomes = this.db
+      .query(
+        `SELECT COALESCE(s.kind, '') AS kind, o.outcome AS outcome, COUNT(*) AS n
+         FROM outcomes o LEFT JOIN tasks t ON t.id = o.task_id LEFT JOIN sources s ON s.id = t.source
+         WHERE o.ts >= ? GROUP BY 1, 2`,
+      )
+      .all(sinceIso) as { kind: string; outcome: Outcome; n: number }[];
+    return { made, outcomes };
   }
 
   /**
@@ -993,7 +1075,7 @@ export class Store {
     const open = this.db
       .query("SELECT id FROM tasks WHERE source = ? AND parent_id IS NULL AND status = 'open' ORDER BY id")
       .all(task.sourceId) as { id: number }[];
-    for (const row of open) this.setStatus(row.id, 'done', now);
+    for (const row of open) this.withOutcome(row.id, 'done-by-hand', now, () => this.setStatus(row.id, 'done', now));
     return open.map((row) => row.id);
   }
 
@@ -1010,7 +1092,7 @@ export class Store {
                   AND source NOT IN (SELECT id FROM sources WHERE kind = '${KEPT_KIND}') ORDER BY id`)
         .all() as { id: number; status: TaskStatus; until: string | null }[];
       for (const row of rows) {
-        this.setStatus(row.id, 'done', now);
+        this.withOutcome(row.id, 'fresh-start', now, () => this.setStatus(row.id, 'done', now));
         this.addNote(row.id, 'judged', now.toISOString(), 'Marked done by Fresh Start');
       }
       this.setMeta('fresh_start', JSON.stringify({ at: now.toISOString(), tasks: rows }));
@@ -1039,6 +1121,12 @@ export class Store {
         if (t.status === 'snoozed' && t.until && new Date(t.until) > now) this.setStatus(t.id, 'snoozed', now, new Date(t.until));
         else this.setStatus(t.id, 'open', now);
         back.push(t.id);
+      }
+      // Undone, so not counted as cleared by Fresh Start (SCR-73).
+      for (const id of back) {
+        for (const step of this.steps(id)) {
+          this.db.query("DELETE FROM outcomes WHERE task_id = ? AND outcome = 'fresh-start' AND ts = ?").run(step.id, saved.at);
+        }
       }
       this.db.query("DELETE FROM meta WHERE key = 'fresh_start'").run();
       return back;
@@ -1358,7 +1446,7 @@ export class Store {
 
   /** Tick a task because of what was seen, and say why. */
   tickSeen(id: number, observationId: number | null, detail: string, now: Date): void {
-    this.setStatus(id, 'done', now);
+    this.withOutcome(id, 'ticked-screen', now, () => this.setStatus(id, 'done', now));
     this.db
       .query("INSERT INTO evidence (task_id, observation_id, ts, kind, detail) VALUES (?, ?, ?, 'judged', ?)")
       .run(id, observationId, now.toISOString(), detail);
@@ -1455,7 +1543,7 @@ export class Store {
    * and so that reopening it stops replies there ticking it again.
    */
   tickByReply(id: number, place: string, now: Date): void {
-    this.setStatus(id, 'done', now);
+    this.withOutcome(id, 'ticked-reply', now, () => this.setStatus(id, 'done', now));
     this.db.query('UPDATE tasks SET accepted_from = ? WHERE id = ?').run(place, id);
     this.db
       .query("INSERT INTO evidence (task_id, observation_id, ts, kind, detail) VALUES (?, NULL, ?, 'judged', ?)")
@@ -1557,7 +1645,7 @@ export class Store {
    * reopening it stops that response ticking it again.
    */
   tickByResponse(id: number, place: string, now: Date): void {
-    this.setStatus(id, 'done', now);
+    this.withOutcome(id, 'ticked-reply', now, () => this.setStatus(id, 'done', now));
     this.db.query('UPDATE tasks SET accepted_from = ? WHERE id = ?').run(place, id);
     this.db
       .query("INSERT INTO evidence (task_id, observation_id, ts, kind, detail) VALUES (?, NULL, ?, 'judged', ?)")
@@ -1704,7 +1792,7 @@ export class Store {
         this.addLesson('lists', 'not-an-action', dedupeKey(step.capturedTitle), `"${step.capturedTitle}" was not something for me to do.`, now);
       }
     }
-    this.setStatus(id, 'dismissed', now);
+    this.withOutcome(id, 'not-an-action', now, () => this.setStatus(id, 'dismissed', now));
     this.addNote(id, 'judged', now.toISOString(), 'Dismissed: you said this is not an action, and it was remembered');
     return true;
   }
@@ -1749,7 +1837,7 @@ export class Store {
    * It keeps where it looked done, for its label and in case you reopen it.
    */
   acceptLooksDone(id: number, place: string, now: Date): void {
-    this.setStatus(id, 'done', now);
+    this.withOutcome(id, 'ticked-accepted', now, () => this.setStatus(id, 'done', now));
     this.db.query('UPDATE tasks SET accepted_from = ? WHERE id = ?').run(place, id);
     this.db
       .query("INSERT INTO evidence (task_id, observation_id, ts, kind, detail) VALUES (?, NULL, ?, 'judged', ?)")
@@ -1768,6 +1856,7 @@ export class Store {
     this.db
       .query("INSERT INTO evidence (task_id, observation_id, ts, kind, detail) VALUES (?, ?, ?, 'suggested', ?)")
       .run(id, observationId, stamp, `Looked done in ${place}`);
+    this.recordOutcome(id, 'asked', now);
   }
 
   /** "Not yet": drop the suggestion and do not suggest from that place again. */
@@ -1778,6 +1867,7 @@ export class Store {
     this.db
       .query("INSERT INTO evidence (task_id, observation_id, ts, kind, marker, detail) VALUES (?, NULL, ?, 'rejected', ?, ?)")
       .run(id, now.toISOString(), task.suggestion, `You said it was not done yet (${task.suggestion})`);
+    this.recordOutcome(id, 'not-yet', now);
     return true;
   }
 
