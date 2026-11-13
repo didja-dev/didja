@@ -12,6 +12,8 @@ struct AXNode {
     var url: String? = nil
     /// A checkbox, radio button or switch's state as written in the text: "[x]", "[ ]", "[on]", "[off]", "[-]".
     var state: String? = nil
+    /// Holds the focused input of an editor's built-in terminal, not yet wrapped as its section (SCR-69).
+    var terminalInput = false
 }
 
 /// The text of one window, as lines.
@@ -49,6 +51,11 @@ enum AXCapture {
     private static let titledRoles: Set<String> = ["AXLink", "AXButton"]
     /// Controls whose state is written before their label (SCR-68).
     static let toggleRoles: Set<String> = ["AXCheckBox", "AXRadioButton", "AXSwitch"]
+    /// Editors with a built-in terminal (xterm.js): VS Code, Cursor, Windsurf (SCR-69).
+    static let editorBundles: Set<String> = ["com.microsoft.VSCode", "com.todesktop.230313mzl4w4u92", "com.exafunction.windsurf"]
+    /// The section an editor's terminal is written under while it has focus.
+    static let terminalSection = "Terminal"
+
     /// At most this many link targets are kept from the main content of a page.
     static let maxPageLinkTargets = 20
 
@@ -511,6 +518,12 @@ enum AXCapture {
 
             var node = AXNode(role: role, subrole: subrole)
             if limits.skipFocusedInput, role == "AXTextArea" || role == "AXTextField", element.isFocused() {
+                // An editor's terminal has focus (its hidden input): the terminal around it is marked (SCR-69).
+                if let app = limits.app, AXCapture.editorBundles.contains(app), element.classes().contains("xterm-helper-textarea") {
+                    var input = AXNode(role: "AXGroup")
+                    input.terminalInput = true
+                    return input
+                }
                 return nil
             }
             if AXCapture.textRoles.contains(role) {
@@ -567,8 +580,20 @@ enum AXCapture {
             if subrole == "AXLandmarkMain" { insideMain = true }
             defer { insideWebArea = wasInWebArea; insideMain = wasInMain }
             node.children = element.children().compactMap { self.node(for: $0, depth: depth + 1) }
+            // The nearest element around a focused terminal input that holds text is the terminal:
+            // its lines go under "⟦Terminal⟧", and what follows it under "⟦Page⟧".
+            if node.children.contains(where: \.terminalInput) {
+                if AXCapture.hasText(node) {
+                    return AXNode(role: "AXGroup", children: [Self.section(AXCapture.terminalSection, children: [node]), Self.page])
+                }
+                node.terminalInput = true
+            }
             return node
         }
+    }
+
+    static func hasText(_ node: AXNode) -> Bool {
+        node.children.contains { (["AXStaticText", "AXTextArea", "AXTextField"].contains($0.role) && !$0.text.isEmpty) || hasText($0) }
     }
 
     private static func attribute(_ element: AXUIElement, _ name: String) -> AnyObject? {

@@ -137,3 +137,44 @@ final class DoneStateTests: XCTestCase {
         XCTAssertEqual(copy.children()[0].number("AXValue"), 1)
     }
 }
+
+/// SCR-69: an editor's built-in terminal, while it has focus, is written under "⟦Terminal⟧".
+final class EditorTerminalTests: XCTestCase {
+    private func lines(_ outline: String, app: String) throws -> [String] {
+        var limits = AXCapture.Limits()
+        limits.app = app
+        limits.profiles = Profiles.all
+        limits.skipFocusedInput = true
+        return AXCapture.read(root: try OutlineElement.parse(outline), title: "", appName: "", limits: limits).lines
+    }
+
+    private func editor(focused: Bool) -> String {
+        """
+        AXWindow title="release.ts — acme-web"
+         AXWebArea
+          AXGroup
+           AXStaticText value="export const version = 2"
+          AXGroup class="terminal xterm"
+           AXGroup class="xterm-accessibility-tree"
+            AXGroup
+             AXStaticText value="sam@mac acme-web % git push origin main"
+            AXGroup
+             AXStaticText value="Everything up-to-date"
+           AXGroup class="xterm-helper"
+            AXTextArea class="xterm-helper-textarea" value=""\(focused ? " focused" : "")
+          AXGroup
+           AXStaticText value="Ln 4, Col 12"
+        """
+    }
+
+    func testAFocusedTerminalInVSCodeIsItsOwnSection() throws {
+        let out = try lines(editor(focused: true), app: "com.microsoft.VSCode")
+        XCTAssertEqual(out, ["export const version = 2", "⟦Terminal⟧", "sam@mac acme-web % git push origin main",
+                             "Everything up-to-date", "⟦Page⟧", "Ln 4, Col 12"])
+    }
+
+    func testATerminalWithoutFocusOrInAnotherAppIsNotMarked() throws {
+        XCTAssertFalse(try lines(editor(focused: false), app: "com.microsoft.VSCode").contains("⟦Terminal⟧"))
+        XCTAssertFalse(try lines(editor(focused: true), app: "com.google.Chrome").contains("⟦Terminal⟧"))
+    }
+}
