@@ -1,0 +1,27 @@
+{
+  "id": "next-steps-yours",
+  "about": "A \"Next steps:\" list that is yours: a dashboard and a person.",
+  "start": "2026-11-11T09:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "Claude",
+      "bundle": "com.anthropic.claudefordesktop",
+      "title": "Login redirect",
+      "text": [
+        "⟦Message 4⟧",
+        "Claude responded: The callback route is in place.",
+        "Next steps:",
+        "1. Add https://app.example.com/auth/callback as a redirect URL in the Supabase dashboard",
+        "2. Tell Noa the login page is ready to try"
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [
+      { "words": ["redirect URL", "Supabase"], "done": null },
+      { "words": ["Tell Noa"], "done": null }
+    ],
+    "none": []
+  }
+}

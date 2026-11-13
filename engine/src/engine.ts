@@ -4,7 +4,7 @@ import { accountOf, baseSubject, responseAction, isAutomatic, isMine, isRecent, 
 import type { MailIdentity, MailReader } from './email.ts';
 import { chatApp, chatKey, asksForAcknowledgement, chatTaskTitle, isEmojiOnly, isPositiveEmoji, isReaction, lineHash, plainReactions, reactedTo, namesMe, chatSourceRef, chatTime, isMine as isMyMessage, mayAskOfMe, parseChatMessages, plainlyDefers, sentBefore } from './chat.ts';
 import type { ChatMessage, ChatReader, ReplyJudge } from './chat.ts';
-import { assemble, classifySource, doneByClaude, EDITORS, extractCommands, extractChecklists, sourceRef, splitClaudeCode, stepLine, TERMINALS } from './extract.ts';
+import { assemble, classifySource, doneByClaude, EDITORS, extractCommands, extractChecklists, replyAround, sourceRef, splitClaudeCode, stepLine, TERMINALS } from './extract.ts';
 import { rewordPlacesOnce } from './missed.ts';
 import { localModelOf } from './localmodel.ts';
 import { cleanCriteria, groundCriteria, matchCriteria, matchedWords } from './donecriteria.ts';
@@ -15,7 +15,7 @@ import { deriveCriteria, extractMarkers, withoutLinkTargets } from './markers.ts
 import { findSightings, isComplete, RUN_WINDOW_MS } from './match.ts';
 import { splitSession, terminalLines } from './terminal.ts';
 import type { Checklist, ChecklistItem } from './extract.ts';
-import type { Job, NewNode, Observation, PendingChatAsk, Store, Task, Teaching } from './store.ts';
+import type { Job, NewChecklist, NewNode, Observation, PendingChatAsk, Store, Task, Teaching } from './store.ts';
 import { KEPT_KIND, KEPT_LIST } from './store.ts';
 
 export interface PollStats {
@@ -55,7 +55,7 @@ export interface JudgeReply {
  * available. Only the list's lead-in and its steps are passed, and they never
  * leave the machine.
  */
-export type Judge = (list: { leadIn: string; steps: string[]; after?: string[]; asked?: string | null; teach?: Teaching }) => JudgeReply | null;
+export type Judge = (list: { leadIn: string; steps: string[]; after?: string[]; asked?: string | null; reply?: string; teach?: Teaching }) => JudgeReply | null;
 
 /**
  * Asks the on-device model for a short title for a checklist. Returns null
@@ -167,6 +167,12 @@ const TITLES_PER_POLL = 2;
 /** How long a queued list must sit unchanged before it is judged (it may still be streaming). */
 const JUDGE_SETTLE_MS = 6_000;
 const JUDGE_PER_POLL = 2;
+/**
+ * The confidence of a list kept while no model could say who it is for: shown as "maybe" (SCR-70).
+ * Every other list is stored at `MIN_SHOWN_CONFIDENCE` or above, so only these fall below it.
+ */
+export const MAYBE_CONFIDENCE = 0.2;
+const MIN_SHOWN_CONFIDENCE = 0.3;
 const CLAUDE_DID_IT = 'Claude did this itself: its own tools ran it after listing it, so it was not yours to do';
 const CLAUDE_SAID_SO = 'The text around this list shows it is what Claude was going to do, not something asked of you';
 const NOT_FOR_YOU = "On-device model: this list reads as Claude's own plan or report, not something asked of you";
@@ -278,11 +284,11 @@ export function pollOnce(store: Store, now: Date = new Date(), opts: PollOptions
         stats.retracted += retract(store, list.items.map((i) => i.title), CLAUDE_SAID_SO, now);
         continue;
       }
-      // The wording does not say who this list is for: go by the model's verdict
-      // if there is one; otherwise take it for now and queue it to be judged.
-      const unsettled = list.actor === null && opts.judge !== undefined;
-      const key = unsettled ? judgementKey(list) : '';
-      const verdict = unsettled ? store.getJudgement(key) : null;
+      // The wording does not say who this list is for: go by the model's verdict. Until there is one,
+      // the list is held and makes no task (SCR-70); with no model at all it is kept as "maybe".
+      const unclear = list.actor === null;
+      const key = unclear ? judgementKey(list) : '';
+      const verdict = unclear ? store.getJudgement(key) : null;
       if (verdict === 'assistant') continue;
       // Steps you said are not actions are not captured again.
       const keep = (items: ChecklistItem[]): ChecklistItem[] =>
@@ -290,33 +296,41 @@ export function pollOnce(store: Store, now: Date = new Date(), opts: PollOptions
       list.items = keep(list.items);
       if (list.items.length === 0) continue;
 
-      stats.checklists++;
       const only = list.items.length === 1 ? list.items[0]! : null;
-      const { rootId, created } = store.upsertChecklist({
+      const checklist: NewChecklist = {
         title: list.title ?? 'Checklist',
         sourceKind: kind,
         sourceRef: sourceRef(latest, kind),
-        confidence: list.confidence,
+        confidence: Math.max(list.confidence, MIN_SHOWN_CONFIDENCE),
         ts: latest.ts,
         observationId: latest.id,
         items: list.items.map(toNode),
         // One step is just a task (or, with sub-steps, its own checklist); it needs no parent around it.
         wrap: only === null,
-      });
+      };
+      if (unclear && verdict === null) {
+        if (opts.judge) {
+          const slot = `${sourceRef(latest, kind)}\u0000${list.title ?? ''}`;
+          const payload = JSON.stringify({
+            leadIn: list.title ?? '', steps: list.items.map((i) => i.title), after: list.after.slice(0, 3),
+            ...(list.asked ? { asked: list.asked } : {}), reply: replyAround(source, list.items[0]!.title), list: checklist,
+          });
+          store.setPendingJudgement(slot, key, payload, now);
+          continue;
+        }
+        checklist.confidence = MAYBE_CONFIDENCE;
+      }
+
+      stats.checklists++;
+      const { rootId, created } = store.upsertChecklist(checklist);
       stats.newTasks += created;
+      // Judged yours after it was kept as "maybe" (a model became available): no longer maybe.
+      if (verdict === 'user' && rootId !== null) store.unmarkMaybe(rootId, checklist.confidence, MAYBE_CONFIDENCE);
       // Steps Claude then carried out with its own tools are its, not yours: taken back, never ticked.
       if (transcript?.split) {
         const steps = list.items.flatMap(function all(i: ChecklistItem): ChecklistItem[] { return [i, ...i.children.flatMap(all)]; });
         const did = steps.filter((i) => i.children.length === 0 && doneByClaude(i, transcript.tools, stepLine(source, i.title)));
         stats.retracted += retract(store, did.map((i) => i.title), CLAUDE_DID_IT, now);
-      }
-
-      if (unsettled && verdict === null && rootId !== null) {
-        const slot = `${sourceRef(latest, kind)}\u0000${list.title ?? ''}`;
-        const payload = JSON.stringify({
-          leadIn: list.title ?? '', steps: list.items.map((i) => i.title), after: list.after.slice(0, 3), ...(list.asked ? { asked: list.asked } : {}), rootId,
-        });
-        store.setPendingJudgement(slot, key, payload, now);
       }
     }
   }
@@ -1063,23 +1077,48 @@ function retract(store: Store, titles: string[], why: string, now: Date): number
  * Ask the model about queued lists that have stopped changing. A list judged
  * to be Claude's own has its open tasks dismissed, with a note saying why.
  */
+/** A list waiting for the model's verdict: what it is asked, and what is kept if it is yours. */
+interface PendingList {
+  leadIn: string;
+  steps: string[];
+  after?: string[];
+  asked?: string | null;
+  reply?: string;
+  /** The checklist to keep once judged yours (SCR-70). */
+  list?: NewChecklist;
+  /** Lists queued before SCR-70 were already kept: their root. */
+  rootId?: number;
+}
+
 function judgePending(store: Store, judge: Judge, now: Date): number {
   let judged = 0;
   const settled = store.settledPendingJudgements(new Date(now.getTime() - JUDGE_SETTLE_MS), JUDGE_PER_POLL);
   for (const row of settled) {
-    const list = JSON.parse(row.payload) as { leadIn: string; steps: string[]; after?: string[]; asked?: string | null; rootId: number };
-    const reply = judge({ leadIn: list.leadIn, steps: list.steps, after: list.after, ...(list.asked ? { asked: list.asked } : {}), ...taught(store, 'lists') });
+    const list = JSON.parse(row.payload) as PendingList;
+    const reply = judge({ leadIn: list.leadIn, steps: list.steps, after: list.after, ...(list.asked ? { asked: list.asked } : {}),
+      ...(list.reply ? { reply: list.reply } : {}), ...taught(store, 'lists') });
     if (!reply) {
-      // No model on this machine (or it is switched off): stop queuing, keep the wording-based result.
+      // No model on this machine (or it is switched off): what waits is kept, marked "maybe" (SCR-70).
+      for (const waiting of store.settledPendingJudgements(new Date(now.getTime() + 86_400_000), 1000)) {
+        const held = JSON.parse(waiting.payload) as PendingList;
+        if (held.list) store.upsertChecklist({ ...held.list, confidence: MAYBE_CONFIDENCE });
+      }
       store.clearPendingJudgement();
       return judged;
     }
     judged++;
     store.saveJudgement(row.key, reply.audience, reply.model, now);
     store.clearPendingJudgement(row.slot);
-    if (reply.audience !== 'assistant') continue;
-    const root = store.getTask(list.rootId);
-    if (root) dismissOpen(store, root.id, NOT_FOR_YOU, now);
+    if (reply.audience === 'assistant') {
+      // Queued before SCR-70, when a list was kept before its verdict: take it back.
+      const root = list.rootId === undefined ? null : store.getTask(list.rootId);
+      if (root) dismissOpen(store, root.id, NOT_FOR_YOU, now);
+      continue;
+    }
+    if (list.list) {
+      const { rootId } = store.upsertChecklist(list.list);
+      if (rootId !== null) store.unmarkMaybe(rootId, list.list.confidence, MAYBE_CONFIDENCE);
+    }
   }
   return judged;
 }

@@ -408,7 +408,7 @@ test('a list with a single real step becomes a loose task, not a checklist', () 
 const PLAN = 'Claude responded: x\nOrder of work\n1. Add parent tasks to the schema\n2. Run the tests\n3. Update the docs';
 const at = (seconds: number) => new Date(NOW.getTime() + seconds * 1000);
 function fakeJudge(audience: 'user' | 'assistant' | null) {
-  const asked: { leadIn: string; steps: string[]; after?: string[] }[] = [];
+  const asked: Parameters<Judge>[0][] = [];
   const judge: Judge = (list) => {
     asked.push(list);
     return audience ? { audience, model: 'test-model' } : null;
@@ -416,23 +416,23 @@ function fakeJudge(audience: 'user' | 'assistant' | null) {
   return { judge, asked };
 }
 
-test('an unsettled list is taken at once, then dismissed if the model says it is Claude\'s own', () => {
+test('an unclear list makes no task until judged, and none at all if the model says it is Claude\'s own (SCR-70)', () => {
   const store = new Store(':memory:');
   const { judge, asked } = fakeJudge('assistant');
   observe(store, { text: PLAN });
-  expect(pollOnce(store, NOW, { judge })).toMatchObject({ newTasks: 3, judged: 0 }); // still settling
-  expect(store.listTasks().length).toBe(3);
+  expect(pollOnce(store, NOW, { judge })).toMatchObject({ newTasks: 0, judged: 0 }); // held while it settles
+  expect(store.listTasks()).toEqual([]);
 
   expect(pollOnce(store, at(7), { judge }).judged).toBe(1);
-  expect(asked).toEqual([{ leadIn: 'Order of work', steps: ['Add parent tasks to the schema', 'Run the tests', 'Update the docs'], after: [] }]);
-  expect(store.listTasks()).toEqual([]);
-  expect(store.getTask(4)!.status).toBe('dismissed'); // the checklist goes with its steps
-  expect(formatWhy(store.getTask(1)!, store.listEvidence(1))).toContain("reads as Claude's own plan");
+  expect(asked).toEqual([{ leadIn: 'Order of work', steps: ['Add parent tasks to the schema', 'Run the tests', 'Update the docs'], after: [],
+    reply: 'x\nOrder of work\n1. Add parent tasks to the schema\n2. Run the tests\n3. Update the docs' }]);
+  expect(store.listTasks({ all: true })).toEqual([]); // never shown, so nothing to take back
 
   // Seen again: the verdict is remembered, nothing comes back and the model is not asked twice.
   observe(store, { ts: LATER, text: PLAN });
   expect(pollOnce(store, at(30), { judge })).toMatchObject({ newTasks: 0, judged: 0 });
   expect(asked.length).toBe(1);
+  expect(store.listTasks({ all: true })).toEqual([]);
   store.close();
 });
 
@@ -467,14 +467,16 @@ test('the model is not asked about lists whose wording already settles it', () =
   store.close();
 });
 
-test('a task you already ticked is not touched by a later verdict', () => {
+test('a task you already ticked is not touched by a later verdict (a list queued before SCR-70, already kept)', () => {
   const store = new Store(':memory:');
   const { judge } = fakeJudge('assistant');
-  observe(store, { text: PLAN });
-  pollOnce(store, NOW, { judge });
-  store.setStatus(2, 'done');
+  const { rootId } = store.upsertChecklist({ title: 'Order of work', sourceKind: 'claude', sourceRef: 'Claude — Plan', confidence: 1, ts: NOW.toISOString(),
+    observationId: null, items: ['Add parent tasks to the schema', 'Run the tests', 'Update the docs'].map((title, i) => ({ title, position: i + 1 })) });
+  store.setPendingJudgement('Claude — Plan\u0000Order of work', 'k', JSON.stringify({ leadIn: 'Order of work', steps: ['a', 'b', 'c'], rootId }), NOW);
+  const [first, second, third] = store.listTasks().map((t) => t.id);
+  store.setStatus(second!, 'done');
   pollOnce(store, at(7), { judge });
-  expect([1, 2, 3].map((id) => statusOf(store, id))).toEqual(['dismissed', 'done', 'dismissed']);
+  expect([first!, second!, third!].map((id) => statusOf(store, id))).toEqual(['dismissed', 'done', 'dismissed']);
   store.close();
 });
 

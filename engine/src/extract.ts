@@ -204,6 +204,67 @@ export function followUpActor(after: string[]): Actor {
   return after.some((line) => OFFER_TO_DO_IT.test(line) && !WAITING_FOR_YOU.test(line)) ? 'assistant' : null;
 }
 
+// --- Claude's own plan, from its steps (SCR-70) -----------------------------------------------
+
+/** Claude speaking of what it will do, anywhere in a step or the text after the list. */
+const FIRST_PERSON_FUTURE = /\b(?:I['’]ll|I will|I['’]m going to|I am going to|let me|I['’]d (?:then|next)|we['’]ll)\b/i;
+/** Work on code: a verb a coder uses, on the start of a step. */
+const CODE_VERB = /^(?:add|implement|write|fix|update|build|refactor|test|create|rename|extract|move|remove|delete|wire|hook up|port|split|replace|change|make|introduce|migrate|cover|extend|inline|clean up)\b/i;
+/** Something in a codebase: a function, a file, tests, a schema. */
+const CODE_OBJECT = /\b(?:functions?|methods?|class(?:es)?|components?|hooks?|modules?|files?|tests?|specs?|schema|migrations?|endpoints?|routes?|types?|interfaces?|handlers?|quer(?:y|ies)|tables?|columns?|indexes|enums?|structs?|props?|reducers?|helpers?|utils?|fixtures?|mocks?|imports?|exports?|variables?|constants?|parsers?|validators?|middleware|resolvers?|controllers?|models?|services?|store|state|callbacks?|loops?|regex(?:es)?|unit tests|test cases?)\b/i;
+/** A file of the repository: `src/auth.ts`, `Judge.swift`, `package.json`. */
+const REPO_FILE = /(?:^|[\s`'"(])(?:[\w.-]+\/)*[\w.-]+\.(?:ts|tsx|js|jsx|mjs|cjs|swift|py|rb|go|rs|java|kt|sql|css|scss|html|vue|svelte|json|ya?ml|toml|md|sh|c|h|cpp|m)\b/;
+/** A function or symbol in code: `parseEmails()`, `UserStore`. */
+const CODE_SYMBOL = /`[A-Za-z_][\w.]*\(\)`|`[a-z]+[A-Z]\w*`|`[A-Z][a-z]+[A-Z]\w*`/;
+/** Something only you can do: a dashboard, a site, a credential, a person, your account or device. */
+const YOURS = /\b(?:dashboard|console|portal|settings page|in (?:the )?browser|website|https?:\/\/|\w+\.(?:com|io|dev|app|org|net)\b|sign in|log ?in|log out|credentials?|password|api key|secret|token|2fa|billing|invoice|pay|purchase|subscribe|account|tell|ask|email|message|call|ping|slack|DM|meeting|your (?:phone|mac|laptop|browser|account|inbox|team|manager)|System Settings|App Store|restart your|reboot|plug|unplug|approve|sign the|review the PR|merge the PR)\b/i;
+
+/** How a step reads: Claude's work on code, something only you can do, or neither. */
+export function stepLeaning(step: string): 'assistant' | 'you' | null {
+  if (YOURS.test(step)) return 'you';
+  if (FIRST_PERSON_FUTURE.test(step)) return 'assistant';
+  const plain = step.replace(/^[^A-Za-z]+/, '');
+  if (CODE_VERB.test(plain) && (CODE_OBJECT.test(plain) || REPO_FILE.test(step) || CODE_SYMBOL.test(step))) return 'assistant';
+  return null;
+}
+
+/**
+ * Who a list with an unclear lead-in is for, from its steps (SCR-70): Claude's own plan when most
+ * of its steps say what it will do ("I'll …") or are work on code (a function, a file, tests, a
+ * schema) and none is something only you can do (a dashboard, a site, a credential, a person).
+ * Otherwise still unclear, for the model. (The text after a list can run into the next list's
+ * lead-in, so it is left to `followUpActor`.)
+ */
+export function planActor(steps: string[]): Actor {
+  const leanings = steps.map(stepLeaning);
+  if (leanings.includes('you')) return null;
+  const code = leanings.filter((l) => l === 'assistant').length;
+  return steps.length >= 2 && code >= Math.max(2, Math.ceil(steps.length * 0.6)) ? 'assistant' : null;
+}
+
+/**
+ * The whole reply a list sits in, for the model to judge who it is for (SCR-70): from the message's
+ * start to its end (its section or label lines), at most `max` characters around the list's first
+ * step. Empty when the step is not found.
+ */
+export function replyAround(text: string, firstStep: string, max = 2000): string {
+  const lines = text.split(/\r?\n/);
+  const at = lines.findIndex((l) => l.includes(firstStep));
+  if (at === -1) return '';
+  const boundary = (l: string) => SECTION_LINE.test(l) || USER_LABEL.test(l);
+  let start = at;
+  while (start > 0 && !boundary(lines[start - 1]!) && !CLAUDE_LABEL.test(lines[start]!)) start--;
+  let end = at + 1;
+  while (end < lines.length && !boundary(lines[end]!) && !CLAUDE_LABEL.test(lines[end]!)) end++;
+  let reply = lines.slice(start, end).map((l) => l.trimEnd()).filter((l) => l.trim() !== '').join('\n');
+  if (reply.length > max) {
+    const offset = reply.indexOf(firstStep);
+    const from = Math.max(0, Math.min(offset - Math.floor(max / 3), reply.length - max));
+    reply = reply.slice(from, from + max);
+  }
+  return reply.replace(/^\s*Claude responded:\s*/, '');
+}
+
 export function listActor(leadIn: string | null): Actor {
   if (!leadIn) return null;
   const line = leadIn.replace(/`[^`]*`/g, ' ');
@@ -482,6 +543,7 @@ export function extractChecklists(text: string, opts: ExtractOptions = {}): Chec
       if (line.trim() !== '' && !NUMBERED_LINE.test(line) && !BULLET_LINE.test(line)) list.after.push(line.trim().slice(0, 240));
     }
     if (list.actor === null) list.actor = followUpActor(list.after);
+    if (list.actor === null) list.actor = planActor(list.items.map((i) => i.title));
     if (list.actor !== 'assistant' || opts.includeAssistant) lists.push(list);
   }
   return lists;

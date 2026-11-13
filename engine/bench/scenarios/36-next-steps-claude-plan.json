@@ -1,0 +1,27 @@
+{
+  "id": "next-steps-claude-plan",
+  "about": "A \"Next steps:\" list that is Claude's own coding plan: none of it is yours.",
+  "start": "2026-11-11T09:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "Claude",
+      "bundle": "com.anthropic.claudefordesktop",
+      "title": "Retry logic",
+      "text": [
+        "⟦Message 2⟧",
+        "Claude responded: I looked at the failures.",
+        "The fetch calls give up after one timeout.",
+        "Next steps:",
+        "1. Add a `retry` option to the fetch helper",
+        "2. Write tests for parseFeed()",
+        "3. Update the schema migration for the new column",
+        "The tests should then pass again."
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [],
+    "none": [["retry", "fetch helper"], ["tests", "parseFeed"], ["schema migration"]]
+  }
+}

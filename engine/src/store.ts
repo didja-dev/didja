@@ -671,6 +671,19 @@ export class Store {
    * gathered under a new one. A step first seen on its own that later gains
    * sub-steps becomes their parent.
    */
+  /**
+   * A list kept as "maybe" (confidence at or below `maybe`) that is now known to be yours: it and
+   * everything under it take `confidence` (SCR-70). Lists that were never "maybe" are left as they are.
+   */
+  unmarkMaybe(rootId: number, confidence: number, maybe: number): void {
+    this.db
+      .query(
+        `WITH RECURSIVE tree(id) AS (SELECT ?1 UNION ALL SELECT t.id FROM tasks t JOIN tree ON t.parent_id = tree.id)
+         UPDATE tasks SET confidence = ?2 WHERE id IN (SELECT id FROM tree) AND confidence <= ?3`,
+      )
+      .run(rootId, confidence, maybe);
+  }
+
   upsertChecklist(list: NewChecklist): { rootId: number | null; created: number } {
     return this.db.transaction(() => {
       let created = 0;
