@@ -6,6 +6,15 @@ Each entry says what changed, and what was **not verified** where that applies: 
 
 ## 2026-11-13
 
+### Feedback that teaches, and dedupe and take-back kept to their own conversation (SCR-71)
+- **Yes, done** on a "looks done?" and **This Shows It Done** are recorded as `confirmed` evidence (place, kind of task, its verb), for trust earned later.
+- A step already seen in another conversation is a new task when that one is done, or open but not seen for 3 days: a recurring "Restart the app" no longer disappears into an old done task. The same conversation, or one renamed within the hour, is still the same task.
+- Taking back Claude's own plan, or steps Claude ran, looks only in that conversation: your task with the same words elsewhere stays.
+- Email "Not an Action" is keyed on sender and base subject, read and written the same way: "Re: Re: X" matches, and another sender's email with that subject is not blocked. Older lessons still match as before.
+- A new **Chats** job in How It Decides: chat corrections teach the chat question (`--chat`), not the list judge. Renaming a checklist teaches the titles job.
+- Schema 023: `lesson_notes` and `brain_jobs` replace `lessons` and `brain` (copied once; the old tables stay, unused), since their CHECKs allowed no new job or kind.
+- Tests: recurring step → new task; renamed or re-seen conversation → same task; take-back in A leaves B; per-source key found again; "Re: Re:" and other senders; an old lesson still matches; chat corrections reach the chat job only; checklist rename teaches titles, step rename does not; Yes and This Shows It Done recorded, a plain tick not. Benchmark unchanged, wrong ticks 0. **Not verified:** the How It Decides window with the Chats job on screen.
+
 ### Unclear lists wait for the verdict; Claude's own plans are recognised; the local model judges lists (SCR-70)
 - A list whose lead-in does not say who it is for ("Next steps:") makes no task until the model says it is yours (about six seconds after it stops changing). Before, it was taken at once and taken back if the model said it was Claude's.
 - With no model, such a list is kept as **maybe**: greyed, with a quiet "maybe" tag on its checklist (confidence 0.2); a later "yours" lifts it.

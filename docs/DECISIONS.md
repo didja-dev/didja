@@ -297,3 +297,11 @@ A live back-and-forth made a task per message. Waiting before an ask becomes a t
 - The local model may judge lists: on 44 made-up lists it was right on all, with no false "yours", against 42 and one false "yours" for Apple's model. This is the rule in CLAUDE.md ("measures better with no new wrong ticks"), so the job list there now includes it. Titles still use Apple's model only.
 - The sample set is 24 yours and 20 Claude's, not exactly half: the extra four are the hard mixed kind (a coding word in a step that is still yours).
 
+## Feedback that teaches: windows for "the same task", new lesson tables (SCR-71, 2026-11-13)
+- "The same task" across sources: same source always; elsewhere, an open one seen in the last 3 days (the issue's example window), or any one seen in the last hour. The hour is not in the issue: Claude renames a conversation after its first reply, which changes the source, and without it a step you ticked a minute ago would come back as new.
+- A task's dedupe key is unique in the table, so a second task with the same words gets `<key>\u0000source <kind> <ref>`; lookups strip that part. This needs no schema change.
+- New tables (`lesson_notes`, `brain_jobs`, schema 023) instead of changing `lessons` and `brain`: their CHECKs could not take a `chats` job or a `renamed` lesson, and schema steps are additive only. Rows are copied once with their ids, so "forget lesson <id>" keeps working.
+- Email lessons from before SCR-71 (subject only) still block that subject from every sender, as they did: dropping them would bring back emails you already said ask nothing of you.
+- Chat asks dismissed before SCR-71 were stored as list lessons; the chat path checks both, so they still stop the same wording.
+- "Plain dismiss teaches nothing" is left as it is: a dismiss can mean "not now" as well as "not mine", and Not an Action is the way to teach.
+

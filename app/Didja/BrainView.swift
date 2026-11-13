@@ -3,7 +3,7 @@ import SwiftUI
 
 /// The on-device model's jobs that can be taught, with their built-in instructions.
 enum ModelJob: String, CaseIterable, Identifiable, Codable {
-    case lists, titles, emails
+    case lists, titles, emails, chats
     case looksDone = "looks-done"
 
     var id: String { rawValue }
@@ -13,6 +13,7 @@ enum ModelJob: String, CaseIterable, Identifiable, Codable {
         case .lists: return "Who a list is for"
         case .titles: return "Checklist titles"
         case .emails: return "Emails"
+        case .chats: return "Chats"
         case .looksDone: return "Looks done"
         }
     }
@@ -22,6 +23,7 @@ enum ModelJob: String, CaseIterable, Identifiable, Codable {
         case .lists: return "Reads a numbered list from Claude and decides whether it is for you to do, or Claude's own plan or report."
         case .titles: return "Writes a short heading for a checklist whose opening line is too long."
         case .emails: return "Reads the start of an email and says what, if anything, you are asked to do, and who is asking."
+        case .chats: return "Reads a chat message and says whether it asks something of you, and what."
         case .looksDone: return "Looks at a later screen that mentions a task and says whether it shows the task done."
         }
     }
@@ -30,8 +32,9 @@ enum ModelJob: String, CaseIterable, Identifiable, Codable {
     var taughtBy: String {
         switch self {
         case .lists: return "Taught by \u{201C}Not an Action\u{201D} on a step from Claude."
-        case .titles: return "Not taught by corrections; edit the instructions."
+        case .titles: return "Taught by renaming a checklist."
         case .emails: return "Taught by \u{201C}Not an Action\u{201D} on a task from an email."
+        case .chats: return "Taught by \u{201C}Not an Action\u{201D} on a task from a chat."
         case .looksDone: return "Taught by \u{201C}Not Done\u{201D} on a task that was auto-accepted."
         }
     }
@@ -41,6 +44,7 @@ enum ModelJob: String, CaseIterable, Identifiable, Codable {
         case .lists: return Judge.instructions
         case .titles: return Judge.titleInstructions
         case .emails: return Judge.mailInstructions
+        case .chats: return Judge.chatInstructions
         case .looksDone: return Judge.lookInstructions
         }
     }
