@@ -329,3 +329,7 @@ A live back-and-forth made a task per message. Waiting before an ask becomes a t
 - Only what the user types goes in, plus Didja's and macOS's versions (on by default, can be turned off). No captured text, tasks, logs or app names: for an app Didja misreads, the form points to Report a Problem with This Window…, which masks what it adds.
 - The issue is public, so the form says so and warns about an email address, a long number or a link with a path in the text. It warns rather than refuses: the user wrote it and may mean it.
 - In Help, not at the top of the menu: the top holds what is used most, and Report a Problem stays there.
+
+## Suggest a Feature is Report a Bug's form for an idea (SCR-52, 2026-11-13)
+- One form with two kinds, not a second window: the same way to GitHub (a filled-in issue the user submits, as in SCR-51), the same public-issue cautions. An idea asks what you would like and what it would help with, and is labelled `enhancement` (GitHub's default label for one).
+- Versions are off by default for an idea: they rarely matter to one, and leaving them out puts less in a public issue. The box is there to tick.

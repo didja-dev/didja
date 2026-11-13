@@ -6,6 +6,10 @@ Each entry says what changed, and what was **not verified** where that applies: 
 
 ## 2026-11-13
 
+### Suggest a Feature… (SCR-52)
+- **Suggest a Feature…** in Help, next to Report a Bug…: the same window, asking for a title, what you would like Didja to do, and optionally what it would help with. **Open on GitHub…** opens a new issue filled in with label `enhancement`, for you to submit; Didja sends nothing. The versions are off for an idea (on for a bug), and the same public-issue cautions apply.
+- Tests: app 2 new and 1 updated (an idea's sections, no third field, no versions by default, its label; the menu item; a render: looked at `feature.png`). Not verified: the window and the browser opening in the live app.
+
 ### Report a Bug… (SCR-51)
 - **Report a Bug…** in Help (the Quick View's "…" menu): a title, what happened, and optional steps and what you expected. **Open on GitHub…** opens `github.com/didja-dev/didja/issues/new` in your browser, filled in (label `bug`), with Didja's and macOS's versions unless you turn that off. You submit it there; Didja sends nothing. **Copy** puts the same text on the clipboard.
 - A reminder that the issue is public, and a warning when the text looks like it holds an email address, a phone number or a long number, or a link with a path. A body too long for a link (over 7,000 characters of URL) is put on the clipboard and the issue asks you to paste it.
