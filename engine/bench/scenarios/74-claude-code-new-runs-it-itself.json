@@ -1,0 +1,48 @@
+{
+  "id": "claude-code-new-runs-it-itself",
+  "family": "claude-code",
+  "about": "Newer Claude Code lists a command step, then runs it itself: the step was never yours to do.",
+  "start": "2026-11-12T10:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "Ghostty",
+      "bundle": "com.mitchellh.ghostty",
+      "title": "zsh",
+      "text": [
+        "❯ set up the db",
+        "● Next steps:",
+        "  1. Run `bun run db:push`",
+        "  2. Add DATABASE_URL in Vercel",
+        "✻ Cogitated for 6s"
+      ]
+    },
+    {
+      "at": 2,
+      "app": "Ghostty",
+      "bundle": "com.mitchellh.ghostty",
+      "title": "zsh",
+      "text": [
+        "❯ go ahead and run it",
+        "● Bash(bun run db:push)",
+        "  ⎿  Pushed schema in 1.1s",
+        "✻ Baked for 3s"
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [
+      {
+        "words": [
+          "database_url"
+        ],
+        "done": null
+      }
+    ],
+    "none": [
+      [
+        "bun run db:push"
+      ]
+    ]
+  }
+}

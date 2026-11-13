@@ -1,6 +1,7 @@
 {
   "id": "claude-code-spinner-title",
   "about": "A Claude Code list arrives in two pieces while the spinner in the terminal title changes (✳, then ✻); both steps are done in Vercel and Terminal.",
+  "family": "claude-code",
   "start": "2026-11-11T09:00",
   "steps": [
     {

@@ -1,0 +1,79 @@
+{
+  "id": "chatgpt-bold-leadins",
+  "family": "chatgpt",
+  "about": "ChatGPT desktop: numbered steps with bold lead-ins and the command after a dash; you run both in Terminal.",
+  "start": "2026-11-12T10:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "ChatGPT",
+      "bundle": "com.openai.chat",
+      "title": "Stripe webhooks locally",
+      "text": [
+        "⟦Message 2⟧",
+        "ChatGPT said:",
+        "To test webhooks locally:",
+        "1. Install the CLI — Download it from stripe.com/docs/stripe-cli or use Homebrew.",
+        "2. Log in — run `stripe login` and confirm in the browser.",
+        "3. Forward events — run `stripe listen --forward-to localhost:3000/api/webhooks`",
+        "You'll get a signing secret starting with whsec_ to put in .env.local."
+      ]
+    },
+    {
+      "at": 4,
+      "app": "Terminal",
+      "bundle": "com.apple.Terminal",
+      "title": "zsh",
+      "text": [
+        "mike@mac acme-web % stripe login",
+        "Your pairing code is: brave-quiet-owl",
+        "> Done! The Stripe CLI is configured for Acme with account id acct_000",
+        "mike@mac acme-web % "
+      ]
+    },
+    {
+      "at": 6,
+      "app": "Terminal",
+      "bundle": "com.apple.Terminal",
+      "title": "zsh",
+      "text": [
+        "mike@mac acme-web % stripe listen --forward-to localhost:3000/api/webhooks",
+        "> Ready! Your webhook signing secret is whsec_000 (^C to quit)",
+        "mike@mac acme-web % "
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [
+      {
+        "words": [
+          "install",
+          "cli"
+        ],
+        "done": {
+          "at": 4,
+          "where": "Terminal"
+        }
+      },
+      {
+        "words": [
+          "stripe login"
+        ],
+        "done": {
+          "at": 4,
+          "where": "Terminal"
+        }
+      },
+      {
+        "words": [
+          "stripe listen"
+        ],
+        "done": {
+          "at": 6,
+          "where": "Terminal"
+        }
+      }
+    ],
+    "none": []
+  }
+}

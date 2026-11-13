@@ -38,9 +38,21 @@ export interface Step {
   text: string[];
 }
 
+/**
+ * Which tool a scenario's tasks come from (SCR-82): the AI assistant, editor agent or terminal agent,
+ * or `email`, `messaging`, `notes`, `editor` (a document), `first-day` (a new user's first session
+ * across tools) and `done-target` (where a step is done, and near-misses that must not tick).
+ */
+export const FAMILIES = [
+  'claude-app', 'chatgpt', 'gemini', 'copilot', 'claude-code', 'codex', 'gemini-cli', 'copilot-cli', 'aider', 'opencode', 'goose',
+  'vscode-copilot', 'cursor', 'windsurf', 'devin', 'editor', 'email', 'messaging', 'notes', 'first-day', 'done-target',
+] as const;
+export type Family = typeof FAMILIES[number];
+
 export interface Scenario {
   id: string;
   about: string;
+  family: Family;
   /** Local time the session starts, "2026-11-11T09:00". */
   start: string;
   /** Your name, as the app knows it (default "Mike Rosen"). */
@@ -59,6 +71,7 @@ export interface Scenario {
 
 export interface ScenarioResult {
   id: string;
+  family: Family;
   expected: number;
   captured: number;
   matched: number;
@@ -166,7 +179,7 @@ export function runScenario(s: Scenario, opts: PollOptions = {}, model: ModelCho
     .map((t) => ({ what: speedKind(t), ms: Math.max(0, Date.parse(t.shownAt) - Date.parse(t.seenAt!)) }));
   store.close();
   const result: ScenarioResult = {
-    id: s.id, expected: s.expect.tasks.length, captured: tasks.length, matched: 0, unwanted: [],
+    id: s.id, family: s.family, expected: s.expect.tasks.length, captured: tasks.length, matched: 0, unwanted: [],
     ticked: 0, suggested: 0, missed: 0, wrongTicks: [], wrongSuggestions: [], latencies: [], titles: tasks.map((t) => t.title), speeds,
   };
   const taken = new Set<number>();
@@ -256,6 +269,24 @@ export function totals(results: ScenarioResult[], scenarios: Scenario[]): Totals
 
 const pct = (x: number | null) => (x === null ? '—' : `${Math.round(x * 100)}%`);
 
+/** The totals per tool family (SCR-82), in `FAMILIES` order, only the families that have scenarios. */
+export function byFamily(results: ScenarioResult[], scenarios: Scenario[]): { family: Family; t: Totals }[] {
+  return FAMILIES.map((family) => ({
+    family,
+    t: totals(results.filter((r) => r.family === family), scenarios.filter((s) => s.family === family)),
+  })).filter((x) => x.t.scenarios > 0);
+}
+
+/** One row per tool family: how many tasks it should make, how many it found, and what got ticked. */
+export function familyTable(rows: { family: Family; t: Totals }[]): string {
+  const head = ['family', 'scen', 'want', 'right', 'recall', 'got', 'precision', 'unwanted', 'done', 'ticked', 'asked', 'missed', 'WRONG tick', 'wrong ask'];
+  const cells = rows.map(({ family, t }) => [family, t.scenarios, t.expected, t.matched, pct(t.recall), t.captured, pct(t.precision),
+    t.unwanted, t.done, t.ticked, t.suggested, t.missed, t.wrongTicks, t.wrongSuggestions].map(String));
+  const widths = head.map((h, i) => Math.max(h.length, ...cells.map((r) => r[i]!.length)));
+  const line = (c: string[]) => c.map((x, i) => (i === 0 ? x.padEnd(widths[i]!) : x.padStart(widths[i]!))).join('  ');
+  return [line(head), widths.map((w) => '-'.repeat(w)).join('  '), ...cells.map(line)].join('\n');
+}
+
 export function table(results: ScenarioResult[], t: Totals, verbose = false): string {
   const head = ['scenario', 'want', 'got', 'right', 'unwanted', 'ticked', 'asked', 'missed', 'WRONG tick', 'wrong ask'];
   const rows = results.map((r) => [r.id, r.expected, r.captured, r.matched, r.unwanted.length, r.ticked, r.suggested, r.missed,
@@ -304,6 +335,7 @@ if (import.meta.main) {
   const t = totals(results, scenarios);
   console.log(`Didja benchmark — model: ${model}, ${t.scenarios} scenarios\n`);
   console.log(table(results, t, args.includes('--verbose')));
+  console.log(`\nBy tool:\n${familyTable(byFamily(results, scenarios))}`);
   if (t.wrongTicks > 0) {
     console.error(`\n${t.wrongTicks} wrong tick(s): see --verbose.`);
     process.exit(1);

@@ -1,0 +1,45 @@
+{
+  "id": "copilot-web-markdown",
+  "family": "copilot",
+  "about": "copilot.microsoft.com: a ### heading and bullets for you.",
+  "start": "2026-11-12T10:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "Google Chrome",
+      "bundle": "com.google.Chrome",
+      "title": "Microsoft Copilot",
+      "url": "https://copilot.microsoft.com/chats/000a",
+      "text": [
+        "### Steps",
+        "- Register the app in the Azure portal",
+        "- Add http://localhost:3000/auth to its redirect URIs",
+        "- Copy the tenant ID into .env.local"
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [
+      {
+        "words": [
+          "register",
+          "azure"
+        ],
+        "done": null
+      },
+      {
+        "words": [
+          "redirect uris"
+        ],
+        "done": null
+      },
+      {
+        "words": [
+          "tenant id"
+        ],
+        "done": null
+      }
+    ],
+    "none": []
+  }
+}

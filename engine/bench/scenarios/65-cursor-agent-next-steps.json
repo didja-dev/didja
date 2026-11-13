@@ -1,0 +1,59 @@
+{
+  "id": "cursor-agent-next-steps",
+  "family": "cursor",
+  "about": "Cursor's agent runs the tests itself, then leaves two steps for you; one is done in Vercel.",
+  "start": "2026-11-12T10:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "Cursor",
+      "bundle": "com.todesktop.230313mzl4w4u92",
+      "title": "acme-web",
+      "text": [
+        "⟦Chat⟧",
+        "Ran terminal command: bun test",
+        "✓ 42 pass",
+        "Next steps for you:",
+        "1. Set RESEND_API_KEY in Vercel",
+        "2. Verify the sending domain in Resend"
+      ]
+    },
+    {
+      "at": 5,
+      "app": "Google Chrome",
+      "bundle": "com.google.Chrome",
+      "title": "Environment Variables – acme-web – Vercel",
+      "url": "https://vercel.com/acme/acme-web/settings/environment-variables",
+      "text": [
+        "Environment Variables",
+        "RESEND_API_KEY",
+        "Production, Preview",
+        "Added just now"
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [
+      {
+        "words": [
+          "resend_api_key"
+        ],
+        "done": {
+          "at": 5,
+          "where": "Vercel"
+        }
+      },
+      {
+        "words": [
+          "sending domain"
+        ],
+        "done": null
+      }
+    ],
+    "none": [
+      [
+        "bun test"
+      ]
+    ]
+  }
+}

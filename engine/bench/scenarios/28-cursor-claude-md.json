@@ -1,6 +1,7 @@
 {
   "id": "cursor-claude-md",
   "about": "CLAUDE.md open in Cursor: its numbered rules are not your tasks.",
+  "family": "editor",
   "start": "2026-11-11T09:00",
   "steps": [
     {

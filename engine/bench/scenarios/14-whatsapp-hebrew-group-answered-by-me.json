@@ -1,6 +1,7 @@
 {
   "id": "whatsapp-hebrew-group-answered-by-me",
   "about": "In a Hebrew family group Noa asks you to book a table; you answer 25 minutes later that it is booked.",
+  "family": "messaging",
   "start": "2026-11-11T09:00",
   "steps": [
     {

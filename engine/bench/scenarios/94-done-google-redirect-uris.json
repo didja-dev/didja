@@ -1,0 +1,56 @@
+{
+  "id": "done-google-redirect-uris",
+  "family": "done-target",
+  "about": "Claude asks for an Authorized redirect URI; Google Cloud then lists it and says saved.",
+  "start": "2026-11-12T10:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "Claude",
+      "bundle": "com.anthropic.claudefordesktop",
+      "title": "OAuth",
+      "text": [
+        "⟦Message 2⟧",
+        "Claude responded: In Google Cloud:",
+        "In Google Cloud:",
+        "1. Add https://acme.example.com/api/auth/callback/google to Authorized redirect URIs",
+        "2. Publish the consent screen"
+      ]
+    },
+    {
+      "at": 6,
+      "app": "Google Chrome",
+      "bundle": "com.google.Chrome",
+      "title": "Edit OAuth client – Google Cloud console",
+      "url": "https://console.cloud.google.com/apis/credentials/oauthclient/000-acme",
+      "text": [
+        "Client ID for Web application",
+        "Authorized redirect URIs",
+        "URIs 1",
+        "https://acme.example.com/api/auth/callback/google",
+        "Save",
+        "⟦Notice: OAuth client saved⟧"
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [
+      {
+        "words": [
+          "redirect uris"
+        ],
+        "done": {
+          "at": 6,
+          "where": "Google Cloud"
+        }
+      },
+      {
+        "words": [
+          "consent screen"
+        ],
+        "done": null
+      }
+    ],
+    "none": []
+  }
+}

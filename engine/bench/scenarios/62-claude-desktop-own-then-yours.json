@@ -1,0 +1,48 @@
+{
+  "id": "claude-desktop-own-then-yours",
+  "family": "claude-app",
+  "about": "Claude desktop lists the files it changed, then two steps for you: only the second list is yours.",
+  "start": "2026-11-12T10:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "Claude",
+      "bundle": "com.anthropic.claudefordesktop",
+      "title": "Billing page",
+      "text": [
+        "⟦Message 4⟧",
+        "Claude responded: I've updated:",
+        "I've updated:",
+        "- src/billing/page.tsx",
+        "- src/lib/stripe.ts",
+        "To finish, on your side:",
+        "1. Create the Pro price in Stripe",
+        "2. Set STRIPE_PRICE_PRO in Vercel"
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [
+      {
+        "words": [
+          "pro price"
+        ],
+        "done": null
+      },
+      {
+        "words": [
+          "stripe_price_pro"
+        ],
+        "done": null
+      }
+    ],
+    "none": [
+      [
+        "page.tsx"
+      ],
+      [
+        "stripe.ts"
+      ]
+    ]
+  }
+}

@@ -1,6 +1,7 @@
 {
   "id": "command-output-in-other-terminal",
   "about": "A command typed in one terminal; output in another window does not make it run.",
+  "family": "claude-app",
   "start": "2026-11-11T09:00",
   "steps": [
     {

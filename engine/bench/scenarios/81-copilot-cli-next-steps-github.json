@@ -1,0 +1,59 @@
+{
+  "id": "copilot-cli-next-steps-github",
+  "family": "copilot-cli",
+  "about": "GitHub Copilot CLI leaves steps for you; you make the repo public on GitHub.",
+  "start": "2026-11-12T10:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "iTerm2",
+      "bundle": "com.googlecode.iterm2",
+      "title": "copilot",
+      "text": [
+        "● The repo is ready to open-source. Next steps:",
+        "  1. Make acme/widgets public on GitHub",
+        "  2. Turn on Discussions",
+        "  3. Pin the issue templates"
+      ]
+    },
+    {
+      "at": 7,
+      "app": "Google Chrome",
+      "bundle": "com.google.Chrome",
+      "title": "General · acme/widgets",
+      "url": "https://github.com/acme/widgets/settings",
+      "text": [
+        "Danger Zone",
+        "Change repository visibility",
+        "This repository is currently public.",
+        "⟦Notice: Your repository is now public⟧"
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [
+      {
+        "words": [
+          "public"
+        ],
+        "done": {
+          "at": 7,
+          "where": "GitHub"
+        }
+      },
+      {
+        "words": [
+          "discussions"
+        ],
+        "done": null
+      },
+      {
+        "words": [
+          "issue templates"
+        ],
+        "done": null
+      }
+    ],
+    "none": []
+  }
+}

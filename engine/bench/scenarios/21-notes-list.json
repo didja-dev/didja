@@ -1,6 +1,7 @@
 {
   "id": "notes-list",
   "about": "A shopping list in Notes is not a Claude list.",
+  "family": "notes",
   "start": "2026-11-11T09:00",
   "steps": [
     {

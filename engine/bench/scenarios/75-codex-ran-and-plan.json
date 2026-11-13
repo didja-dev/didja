@@ -1,0 +1,57 @@
+{
+  "id": "codex-ran-and-plan",
+  "family": "codex",
+  "about": "Codex CLI: its \"Updated Plan\" and \"• Ran\" lines are its own; its closing \"Next steps\" are yours.",
+  "start": "2026-11-12T10:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "iTerm2",
+      "bundle": "com.googlecode.iterm2",
+      "title": "codex",
+      "text": [
+        "› add the export endpoint",
+        "• Updated Plan",
+        "  └ ✔ Read the orders module",
+        "    ✔ Add GET /api/export",
+        "    □ Document the endpoint",
+        "• Ran npm test",
+        "  └ 31 passing",
+        "    ✓ • 5ms",
+        "Next steps:",
+        "1. Add EXPORT_TOKEN to Vercel",
+        "2. Tell Sam the endpoint is live"
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [
+      {
+        "words": [
+          "export_token"
+        ],
+        "done": null
+      },
+      {
+        "words": [
+          "tell sam"
+        ],
+        "done": null
+      }
+    ],
+    "none": [
+      [
+        "orders module"
+      ],
+      [
+        "get /api/export"
+      ],
+      [
+        "document the endpoint"
+      ],
+      [
+        "npm test"
+      ]
+    ]
+  }
+}

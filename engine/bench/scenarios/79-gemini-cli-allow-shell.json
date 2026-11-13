@@ -1,0 +1,32 @@
+{
+  "id": "gemini-cli-allow-shell",
+  "family": "gemini-cli",
+  "about": "Gemini CLI asks \"Allow execution of [Shell]?\" and you allow it: the command is the agent's.",
+  "start": "2026-11-12T10:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "Warp",
+      "bundle": "dev.warp.Warp-Stable",
+      "title": "gemini",
+      "text": [
+        "✦ I'll install the dependencies.",
+        "Allow execution of [Shell]?",
+        "  npm install zod",
+        "● 1. Yes, allow once",
+        "  2. Yes, allow always",
+        "  3. No (esc)",
+        "✔ Shell npm install zod",
+        "  added 1 package in 2s"
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [],
+    "none": [
+      [
+        "npm install zod"
+      ]
+    ]
+  }
+}

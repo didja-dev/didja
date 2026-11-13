@@ -1,0 +1,54 @@
+{
+  "id": "near-miss-agent-own-check",
+  "family": "done-target",
+  "about": "Codex ticks its own \"✔ Set DATABASE_URL in .env\"; your step is setting it in Vercel, which you have not done: must not tick.",
+  "start": "2026-11-12T10:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "iTerm2",
+      "bundle": "com.googlecode.iterm2",
+      "title": "codex",
+      "text": [
+        "• Updated Plan",
+        "  └ ✔ Set DATABASE_URL in .env",
+        "    ✔ Run the migrations locally",
+        "Next steps:",
+        "1. Set DATABASE_URL in Vercel for Production",
+        "2. Ask Ron for read access to the replica"
+      ]
+    },
+    {
+      "at": 3,
+      "app": "iTerm2",
+      "bundle": "com.googlecode.iterm2",
+      "title": "codex",
+      "text": [
+        "  ✓ DATABASE_URL set",
+        "  ✓ • 3ms"
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [
+      {
+        "words": [
+          "database_url",
+          "vercel"
+        ],
+        "done": null
+      },
+      {
+        "words": [
+          "ron"
+        ],
+        "done": null
+      }
+    ],
+    "none": [
+      [
+        "run the migrations locally"
+      ]
+    ]
+  }
+}

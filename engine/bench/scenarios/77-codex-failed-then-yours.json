@@ -1,0 +1,53 @@
+{
+  "id": "codex-failed-then-yours",
+  "family": "codex",
+  "about": "Codex CLI's publish fails (✗ (1)) because it isn't logged in; it asks you to log in, and you do in Terminal.",
+  "start": "2026-11-12T10:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "iTerm2",
+      "bundle": "com.googlecode.iterm2",
+      "title": "codex",
+      "text": [
+        "• Ran npm publish",
+        "  └ npm error code ENEEDAUTH",
+        "    ✗ (1)",
+        "I can't log in to npm for you. Please run:",
+        "`npm login`",
+        "then ask me to publish again."
+      ]
+    },
+    {
+      "at": 4,
+      "app": "Terminal",
+      "bundle": "com.apple.Terminal",
+      "title": "zsh",
+      "text": [
+        "mike@mac acme-web % npm login",
+        "Login at:",
+        "https://www.npmjs.com/login?next=/login/cli/000",
+        "Logged in on https://registry.npmjs.org/.",
+        "mike@mac acme-web % "
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [
+      {
+        "words": [
+          "npm login"
+        ],
+        "done": {
+          "at": 4,
+          "where": "Terminal"
+        }
+      }
+    ],
+    "none": [
+      [
+        "npm publish"
+      ]
+    ]
+  }
+}

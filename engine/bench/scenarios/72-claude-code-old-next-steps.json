@@ -1,0 +1,61 @@
+{
+  "id": "claude-code-old-next-steps",
+  "family": "claude-code",
+  "about": "Claude Code (⏺ replies) leaves two steps; you set the secret in Vercel.",
+  "start": "2026-11-12T10:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "Ghostty",
+      "bundle": "com.mitchellh.ghostty",
+      "title": "✳ Webhooks",
+      "text": [
+        "> wire up the stripe webhook",
+        "⏺ Update(src/app/api/stripe/route.ts)",
+        "  ⎿  Updated src/app/api/stripe/route.ts with 24 additions",
+        "⏺ Done. Two things on your side:",
+        "  1. Set STRIPE_WEBHOOK_SECRET in Vercel",
+        "  2. Add the endpoint in the Stripe dashboard",
+        "? for shortcuts"
+      ]
+    },
+    {
+      "at": 6,
+      "app": "Google Chrome",
+      "bundle": "com.google.Chrome",
+      "title": "Environment Variables – acme-web – Vercel",
+      "url": "https://vercel.com/acme/acme-web/settings/environment-variables",
+      "text": [
+        "Environment Variables",
+        "STRIPE_WEBHOOK_SECRET",
+        "Production, Preview",
+        "Added just now"
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [
+      {
+        "words": [
+          "stripe_webhook_secret"
+        ],
+        "done": {
+          "at": 6,
+          "where": "Vercel"
+        }
+      },
+      {
+        "words": [
+          "endpoint",
+          "stripe"
+        ],
+        "done": null
+      }
+    ],
+    "none": [
+      [
+        "route.ts"
+      ]
+    ]
+  }
+}

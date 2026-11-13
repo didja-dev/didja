@@ -1,6 +1,7 @@
 {
   "id": "outlook-reply",
   "about": "Dana asks for the Q3 numbers; you reply in the conversation 20 minutes later.",
+  "family": "email",
   "start": "2026-11-11T09:00",
   "steps": [
     {

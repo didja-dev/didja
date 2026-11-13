@@ -1,0 +1,60 @@
+{
+  "id": "claude-code-new-bullets",
+  "family": "claude-code",
+  "about": "Newer Claude Code (● replies, ❯ prompt, \"✻ Baked for 4s\"): steps for you; one done in Supabase.",
+  "start": "2026-11-12T10:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "Ghostty",
+      "bundle": "com.mitchellh.ghostty",
+      "title": "zsh",
+      "text": [
+        "❯ add magic link login",
+        "● Write(src/lib/auth.ts)",
+        "  ⎿  Wrote 40 lines to src/lib/auth.ts",
+        "● Magic links are in. On your side:",
+        "  1. Add http://localhost:3000/auth/confirm to Redirect URLs in Supabase",
+        "  2. Turn on the Email provider in Supabase",
+        "✻ Baked for 4s · done"
+      ]
+    },
+    {
+      "at": 5,
+      "app": "Google Chrome",
+      "bundle": "com.google.Chrome",
+      "title": "Auth · acme · Supabase",
+      "url": "https://supabase.com/dashboard/project/acme/auth/url-configuration",
+      "text": [
+        "URL Configuration",
+        "Redirect URLs",
+        "http://localhost:3000/auth/confirm",
+        "Saved"
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [
+      {
+        "words": [
+          "redirect urls"
+        ],
+        "done": {
+          "at": 5,
+          "where": "Supabase"
+        }
+      },
+      {
+        "words": [
+          "email provider"
+        ],
+        "done": null
+      }
+    ],
+    "none": [
+      [
+        "auth.ts"
+      ]
+    ]
+  }
+}

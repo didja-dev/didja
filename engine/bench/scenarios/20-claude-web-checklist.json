@@ -1,6 +1,7 @@
 {
   "id": "claude-web-checklist",
   "about": "Claude in the browser (claude.ai) gives a deploy step; you run it.",
+  "family": "claude-app",
   "start": "2026-11-11T09:00",
   "steps": [
     {

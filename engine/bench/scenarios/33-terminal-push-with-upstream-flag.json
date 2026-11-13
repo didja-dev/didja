@@ -1,6 +1,7 @@
 {
   "id": "terminal-push-with-upstream-flag",
   "about": "Claude says to push; you push with -u, in an oh-my-zsh prompt with a dirty tree mark.",
+  "family": "claude-app",
   "start": "2026-11-11T09:00",
   "steps": [
     {

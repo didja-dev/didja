@@ -1,6 +1,7 @@
 {
   "id": "next-steps-yours",
   "about": "A \"Next steps:\" list that is yours: a dashboard and a person.",
+  "family": "claude-app",
   "start": "2026-11-11T09:00",
   "steps": [
     {

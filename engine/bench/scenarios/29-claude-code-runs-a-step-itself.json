@@ -1,6 +1,7 @@
 {
   "id": "claude-code-runs-a-step-itself",
   "about": "Claude Code lists two steps for you, then runs the first itself; only the dashboard step is yours, and you do it.",
+  "family": "claude-code",
   "start": "2026-11-11T09:00",
   "steps": [
     {

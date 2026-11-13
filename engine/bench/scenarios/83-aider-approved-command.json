@@ -1,0 +1,30 @@
+{
+  "id": "aider-approved-command",
+  "family": "aider",
+  "about": "Aider asks \"Run shell command?\" and you say Yes: Aider runs it, so it is not your task.",
+  "start": "2026-11-12T10:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "Terminal",
+      "bundle": "com.apple.Terminal",
+      "title": "aider",
+      "text": [
+        "aider> run the linter and fix what it finds",
+        "npm run lint",
+        "Run shell command? (Y)es/(N)o/(D)on't ask again [Yes]: y",
+        "Running npm run lint",
+        "✔ No ESLint warnings or errors",
+        "Add command output to the chat? (Y)es/(N)o/(D)on't ask again [Yes]: n"
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [],
+    "none": [
+      [
+        "npm run lint"
+      ]
+    ]
+  }
+}

@@ -1,6 +1,7 @@
 {
   "id": "email-newsletter",
   "about": "A newsletter asks nothing of you.",
+  "family": "email",
   "start": "2026-11-11T09:00",
   "steps": [
     {

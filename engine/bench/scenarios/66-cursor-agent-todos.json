@@ -1,0 +1,43 @@
+{
+  "id": "cursor-agent-todos",
+  "family": "cursor",
+  "about": "Cursor's agent shows its To-dos panel: the agent's plan, never yours.",
+  "start": "2026-11-12T10:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "Cursor",
+      "bundle": "com.todesktop.230313mzl4w4u92",
+      "title": "acme-web",
+      "text": [
+        "⟦Chat⟧",
+        "To-dos 3 of 5 Done",
+        "✓ Read the existing auth code",
+        "✓ Add the session table",
+        "✓ Write the login route",
+        "○ Add rate limiting",
+        "○ Run the tests"
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [],
+    "none": [
+      [
+        "auth code"
+      ],
+      [
+        "session table"
+      ],
+      [
+        "login route"
+      ],
+      [
+        "rate limiting"
+      ],
+      [
+        "run the tests"
+      ]
+    ]
+  }
+}

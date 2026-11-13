@@ -1,6 +1,7 @@
 {
   "id": "github-merged-notice",
   "about": "Claude asks you to merge a pull request; GitHub then shows the merged notice naming it. Two signs with a model: the notice and the model's \"done\".",
+  "family": "claude-app",
   "start": "2026-11-11T09:00",
   "steps": [
     {

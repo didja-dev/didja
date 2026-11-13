@@ -1,6 +1,7 @@
 {
   "id": "outlook-approval-response-email",
   "about": "A workflow approval request; your Approve link sends a response email, seen in Sent Items.",
+  "family": "email",
   "start": "2026-11-11T09:00",
   "steps": [
     {

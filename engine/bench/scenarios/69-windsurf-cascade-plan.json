@@ -1,0 +1,36 @@
+{
+  "id": "windsurf-cascade-plan",
+  "family": "windsurf",
+  "about": "Windsurf's Cascade shows its plan: steps it will take, not yours.",
+  "start": "2026-11-12T10:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "Windsurf",
+      "bundle": "com.exafunction.windsurf",
+      "title": "acme-web",
+      "text": [
+        "⟦Chat⟧",
+        "Cascade",
+        "Planned for 3 steps",
+        "1. Update the Prisma schema",
+        "2. Generate the client",
+        "3. Rewrite the orders query"
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [],
+    "none": [
+      [
+        "prisma schema"
+      ],
+      [
+        "generate the client"
+      ],
+      [
+        "orders query"
+      ]
+    ]
+  }
+}

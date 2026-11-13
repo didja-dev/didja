@@ -1,6 +1,7 @@
 {
   "id": "next-steps-claude-plan",
   "about": "A \"Next steps:\" list that is Claude's own coding plan: none of it is yours.",
+  "family": "claude-app",
   "start": "2026-11-11T09:00",
   "steps": [
     {

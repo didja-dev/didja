@@ -1,0 +1,49 @@
+{
+  "id": "vscode-copilot-agent-run-card",
+  "family": "vscode-copilot",
+  "about": "Copilot agent in VS Code asks \"Run zsh command?\", you allow it and it runs; its \"Next steps\" are yours.",
+  "start": "2026-11-12T10:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "Code",
+      "bundle": "com.microsoft.VSCode",
+      "title": "acme-web",
+      "text": [
+        "⟦Chat⟧",
+        "GitHub Copilot",
+        "Run zsh command?",
+        "npm run build",
+        "Allow",
+        "Skip",
+        "Ran `npm run build`",
+        "Build succeeded.",
+        "Next steps:",
+        "1. Add STRIPE_KEY to .env.local",
+        "2. Add the same key in Vercel"
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [
+      {
+        "words": [
+          "stripe_key",
+          ".env.local"
+        ],
+        "done": null
+      },
+      {
+        "words": [
+          "vercel"
+        ],
+        "done": null
+      }
+    ],
+    "none": [
+      [
+        "npm run build"
+      ]
+    ]
+  }
+}

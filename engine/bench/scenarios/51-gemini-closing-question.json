@@ -1,0 +1,41 @@
+{
+  "id": "gemini-closing-question",
+  "family": "gemini",
+  "about": "gemini.google.com: two steps for you, then a closing question offering more work, which is no task.",
+  "start": "2026-11-12T10:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "Google Chrome",
+      "bundle": "com.google.Chrome",
+      "title": "Gemini",
+      "url": "https://gemini.google.com/app/000d",
+      "text": [
+        "1. Enable Row Level Security on the orders table",
+        "2. Add a select policy for the owner",
+        "Would you like me to write the migration for this?"
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [
+      {
+        "words": [
+          "row level security"
+        ],
+        "done": null
+      },
+      {
+        "words": [
+          "select policy"
+        ],
+        "done": null
+      }
+    ],
+    "none": [
+      [
+        "write the migration"
+      ]
+    ]
+  }
+}

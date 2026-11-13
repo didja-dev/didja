@@ -1,0 +1,65 @@
+{
+  "id": "claude-web-bold-headings",
+  "family": "claude-app",
+  "about": "claude.ai: steps written as bold numbered headings with a sentence under each; the redirect URI is done in Google Cloud.",
+  "start": "2026-11-12T10:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "Google Chrome",
+      "bundle": "com.google.Chrome",
+      "title": "Google login - Claude",
+      "url": "https://claude.ai/chat/000a",
+      "text": [
+        "⟦Message 2⟧",
+        "Claude responded: Two things in Google Cloud:",
+        "1. Create the OAuth client",
+        "Pick Web application and name it Acme.",
+        "2. Add the redirect URI",
+        "Add https://acme.example.com/auth/google/callback under Authorized redirect URIs."
+      ]
+    },
+    {
+      "at": 6,
+      "app": "Google Chrome",
+      "bundle": "com.google.Chrome",
+      "title": "Edit OAuth client – Google Cloud console",
+      "url": "https://console.cloud.google.com/apis/credentials/oauthclient/000-acme",
+      "text": [
+        "Client ID for Web application",
+        "Authorized redirect URIs",
+        "URIs 1",
+        "https://acme.example.com/auth/google/callback",
+        "Save",
+        "⟦Notice: OAuth client saved⟧"
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [
+      {
+        "words": [
+          "oauth client"
+        ],
+        "done": {
+          "at": 6,
+          "where": "Google Cloud"
+        }
+      },
+      {
+        "words": [
+          "redirect uri"
+        ],
+        "done": {
+          "at": 6,
+          "where": "Google Cloud"
+        }
+      }
+    ],
+    "none": [
+      [
+        "pick web application"
+      ]
+    ]
+  }
+}

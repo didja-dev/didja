@@ -1,0 +1,142 @@
+{
+  "id": "first-day-claude-code-and-app",
+  "family": "first-day",
+  "about": "A new user's first 30 minutes: Claude Code in Ghostty, then the Claude app asked for numbered steps and for a checklist. At least six tasks should appear; three are done.",
+  "start": "2026-11-12T10:00",
+  "tail": 10,
+  "steps": [
+    {
+      "at": 0,
+      "app": "Ghostty",
+      "bundle": "com.mitchellh.ghostty",
+      "title": "zsh",
+      "text": [
+        "❯ get this ready to deploy",
+        "● The app builds. Before it can run in production:",
+        "  1. Set DATABASE_URL in Vercel",
+        "  2. Run `bun run db:migrate` against production",
+        "✻ Baked for 5s · done"
+      ]
+    },
+    {
+      "at": 6,
+      "app": "Claude",
+      "bundle": "com.anthropic.claudefordesktop",
+      "title": "Launch",
+      "text": [
+        "⟦Message 1⟧",
+        "You said: give me numbered steps for the domain",
+        "⟦Message 2⟧",
+        "Claude responded: Numbered steps:",
+        "Numbered steps:",
+        "1. Add acme.example.com in Vercel",
+        "2. Add the CNAME record at your registrar"
+      ]
+    },
+    {
+      "at": 10,
+      "app": "Google Chrome",
+      "bundle": "com.google.Chrome",
+      "title": "Environment Variables – acme-web – Vercel",
+      "url": "https://vercel.com/acme/acme-web/settings/environment-variables",
+      "text": [
+        "Environment Variables",
+        "DATABASE_URL",
+        "Production, Preview",
+        "Added just now"
+      ]
+    },
+    {
+      "at": 14,
+      "app": "Claude",
+      "bundle": "com.anthropic.claudefordesktop",
+      "title": "Launch",
+      "text": [
+        "⟦Message 3⟧",
+        "You said: now a checklist for email",
+        "⟦Message 4⟧",
+        "Claude responded: Checklist:",
+        "Checklist:",
+        "☐ Verify acme.example.com in Resend",
+        "☐ Set RESEND_API_KEY in Vercel"
+      ]
+    },
+    {
+      "at": 18,
+      "app": "Ghostty",
+      "bundle": "com.mitchellh.ghostty",
+      "title": "zsh",
+      "text": [
+        "mike@mac acme-web % bun run db:migrate",
+        "Applied 4 migrations.",
+        "Done in 0.9s",
+        "mike@mac acme-web % "
+      ]
+    },
+    {
+      "at": 25,
+      "app": "Google Chrome",
+      "bundle": "com.google.Chrome",
+      "title": "Environment Variables – acme-web – Vercel",
+      "url": "https://vercel.com/acme/acme-web/settings/environment-variables",
+      "text": [
+        "Environment Variables",
+        "RESEND_API_KEY",
+        "Production, Preview",
+        "Added just now"
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [
+      {
+        "words": [
+          "database_url"
+        ],
+        "done": {
+          "at": 10,
+          "where": "Vercel"
+        }
+      },
+      {
+        "words": [
+          "bun run db:migrate"
+        ],
+        "done": {
+          "at": 18,
+          "where": "Terminal"
+        }
+      },
+      {
+        "words": [
+          "acme.example.com",
+          "vercel"
+        ],
+        "done": null
+      },
+      {
+        "words": [
+          "cname"
+        ],
+        "done": null
+      },
+      {
+        "words": [
+          "verify",
+          "resend"
+        ],
+        "done": null
+      },
+      {
+        "words": [
+          "resend_api_key"
+        ],
+        "done": {
+          "at": 25,
+          "where": "Vercel"
+        }
+      }
+    ],
+    "none": []
+  }
+}

@@ -1,6 +1,7 @@
 {
   "id": "claude-plan-then-your-step",
   "about": "Claude's own plan, then one step for you: merge the pull request, which GitHub then shows merged.",
+  "family": "claude-app",
   "start": "2026-11-11T09:00",
   "steps": [
     {

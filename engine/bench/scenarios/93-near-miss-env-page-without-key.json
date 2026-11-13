@@ -1,0 +1,52 @@
+{
+  "id": "near-miss-env-page-without-key",
+  "family": "done-target",
+  "about": "Claude asks you to set a key in Vercel; you open the env page, but the key is not there: must not tick.",
+  "start": "2026-11-12T10:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "Claude",
+      "bundle": "com.anthropic.claudefordesktop",
+      "title": "Analytics",
+      "text": [
+        "⟦Message 2⟧",
+        "Claude responded: Almost there:",
+        "Almost there:",
+        "1. Set POSTHOG_KEY in Vercel",
+        "2. Redeploy"
+      ]
+    },
+    {
+      "at": 5,
+      "app": "Google Chrome",
+      "bundle": "com.google.Chrome",
+      "title": "Environment Variables – acme-web – Vercel",
+      "url": "https://vercel.com/acme/acme-web/settings/environment-variables",
+      "text": [
+        "Environment Variables",
+        "DATABASE_URL",
+        "Production",
+        "Updated 3d ago",
+        "Add New"
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [
+      {
+        "words": [
+          "posthog_key"
+        ],
+        "done": null
+      },
+      {
+        "words": [
+          "redeploy"
+        ],
+        "done": null
+      }
+    ],
+    "none": []
+  }
+}

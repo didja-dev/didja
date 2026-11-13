@@ -1,6 +1,7 @@
 {
   "id": "whatsapp-group-not-naming-me",
   "about": "A group message asks anyone to pick up milk: not yours.",
+  "family": "messaging",
   "start": "2026-11-11T09:00",
   "steps": [
     {

@@ -1,0 +1,61 @@
+{
+  "id": "gemini-table",
+  "family": "gemini",
+  "about": "gemini.google.com answers with a table of what to set where; each row is a step.",
+  "start": "2026-11-12T10:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "Google Chrome",
+      "bundle": "com.google.Chrome",
+      "title": "Gemini",
+      "url": "https://gemini.google.com/app/000c",
+      "text": [
+        "Here are the variables you need:",
+        "| Variable | Where | Value |",
+        "|---|---|---|",
+        "| DATABASE_URL | Vercel | your Supabase connection string |",
+        "| STRIPE_SECRET_KEY | Vercel | from the Stripe dashboard |"
+      ]
+    },
+    {
+      "at": 8,
+      "app": "Google Chrome",
+      "bundle": "com.google.Chrome",
+      "title": "Environment Variables – acme-web – Vercel",
+      "url": "https://vercel.com/acme/acme-web/settings/environment-variables",
+      "text": [
+        "Environment Variables",
+        "STRIPE_SECRET_KEY",
+        "Production, Preview",
+        "Added just now"
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [
+      {
+        "words": [
+          "database_url"
+        ],
+        "done": null
+      },
+      {
+        "words": [
+          "stripe_secret_key"
+        ],
+        "done": {
+          "at": 8,
+          "where": "Vercel"
+        }
+      }
+    ],
+    "none": [
+      [
+        "variable",
+        "where",
+        "value"
+      ]
+    ]
+  }
+}

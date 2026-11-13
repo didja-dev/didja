@@ -1,6 +1,7 @@
 {
   "id": "claude-code-mixed",
   "about": "Claude Code runs the tests itself and leaves one step for you, done in the Supabase dashboard.",
+  "family": "claude-code",
   "start": "2026-11-11T09:00",
   "steps": [
     {

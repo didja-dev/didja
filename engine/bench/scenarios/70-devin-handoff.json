@@ -1,0 +1,39 @@
+{
+  "id": "devin-handoff",
+  "family": "devin",
+  "about": "A Devin session in the browser hands two things to you: a deploy key on GitHub and a secret.",
+  "start": "2026-11-12T10:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "Google Chrome",
+      "bundle": "com.google.Chrome",
+      "title": "Devin",
+      "url": "https://app.devin.ai/sessions/000a",
+      "text": [
+        "Devin",
+        "I've opened the pull request. I need you to:",
+        "1. Add the deploy key to acme/widgets on GitHub",
+        "2. Approve the pull request so I can merge"
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [
+      {
+        "words": [
+          "deploy key"
+        ],
+        "done": null
+      },
+      {
+        "words": [
+          "approve",
+          "pull request"
+        ],
+        "done": null
+      }
+    ],
+    "none": []
+  }
+}

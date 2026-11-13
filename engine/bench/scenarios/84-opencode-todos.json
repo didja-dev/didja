@@ -1,0 +1,41 @@
+{
+  "id": "opencode-todos",
+  "family": "opencode",
+  "about": "OpenCode shows its # Todos list and a \"Permission required\" prompt you allow: all of it the agent's.",
+  "start": "2026-11-12T10:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "Ghostty",
+      "bundle": "com.mitchellh.ghostty",
+      "title": "opencode",
+      "text": [
+        "# Todos",
+        "[✓] Add the invoices table",
+        "[✓] Write the PDF renderer",
+        "[ ] Add tests for the renderer",
+        "Permission required",
+        "$ bun test",
+        "Allow once   Allow always   Reject",
+        "✓ 18 pass"
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [],
+    "none": [
+      [
+        "invoices table"
+      ],
+      [
+        "pdf renderer"
+      ],
+      [
+        "add tests"
+      ],
+      [
+        "bun test"
+      ]
+    ]
+  }
+}

@@ -1,6 +1,7 @@
 {
   "id": "claude-desktop-command-run",
   "about": "Claude hands you a command; you run it in Terminal and it prints its answer.",
+  "family": "claude-app",
   "start": "2026-11-11T09:00",
   "steps": [
     {

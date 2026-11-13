@@ -1,6 +1,7 @@
 {
   "id": "claude-code-cat-file",
   "about": "Claude Code prints a doc with cat: the doc's numbered list is not yours.",
+  "family": "claude-code",
   "start": "2026-11-11T09:00",
   "steps": [
     {

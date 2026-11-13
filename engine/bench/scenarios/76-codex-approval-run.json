@@ -1,0 +1,32 @@
+{
+  "id": "codex-approval-run",
+  "family": "codex",
+  "about": "Codex CLI asks \"Would you like to run the following command?\", you approve, and it runs: the agent's command, not your task.",
+  "start": "2026-11-12T10:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "iTerm2",
+      "bundle": "com.googlecode.iterm2",
+      "title": "codex",
+      "text": [
+        "• Would you like to run the following command?",
+        "  $ git push origin main",
+        "› 1. Yes, proceed",
+        "  2. No, and tell Codex what to do differently",
+        "• Ran git push origin main",
+        "  └ To github.com:acme/widgets.git",
+        "       a1b2c3d..e4f5a6b  main -> main",
+        "    ✓ • 820ms"
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [],
+    "none": [
+      [
+        "git push origin main"
+      ]
+    ]
+  }
+}

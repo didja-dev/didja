@@ -1,6 +1,7 @@
 {
   "id": "editor-doc-named-claude",
   "about": "A CLAUDE.md open in an editor: its numbered rules are not your tasks.",
+  "family": "editor",
   "start": "2026-11-11T09:00",
   "steps": [
     {

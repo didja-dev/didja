@@ -1,6 +1,7 @@
 {
   "id": "claude-desktop-checklist-done",
   "about": "A Claude desktop reply with two steps for you; both done: the env var in Vercel, the migration in Terminal.",
+  "family": "claude-app",
   "start": "2026-11-11T09:00",
   "steps": [
     {

@@ -1,0 +1,50 @@
+{
+  "id": "cursor-agent-skipped-command",
+  "family": "cursor",
+  "about": "Cursor's agent asks to run a migration; you press Skip and it hands it to you; you run it in Terminal.",
+  "start": "2026-11-12T10:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "Cursor",
+      "bundle": "com.todesktop.230313mzl4w4u92",
+      "title": "acme-web",
+      "text": [
+        "⟦Chat⟧",
+        "Run command?",
+        "bun run db:migrate",
+        "Skip",
+        "Run",
+        "Skipped",
+        "No problem. You can run it yourself when ready:",
+        "`bun run db:migrate`"
+      ]
+    },
+    {
+      "at": 6,
+      "app": "Terminal",
+      "bundle": "com.apple.Terminal",
+      "title": "zsh",
+      "text": [
+        "mike@mac acme-web % bun run db:migrate",
+        "Applied 1 migration.",
+        "Done in 0.3s",
+        "mike@mac acme-web % "
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [
+      {
+        "words": [
+          "bun run db:migrate"
+        ],
+        "done": {
+          "at": 6,
+          "where": "Terminal"
+        }
+      }
+    ],
+    "none": []
+  }
+}

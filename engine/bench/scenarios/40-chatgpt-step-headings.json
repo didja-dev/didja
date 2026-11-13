@@ -1,0 +1,86 @@
+{
+  "id": "chatgpt-step-headings",
+  "family": "chatgpt",
+  "about": "ChatGPT desktop answers with \"Step 1 — …\" headings; the redirect URI and the secret are done in Google Cloud and Vercel.",
+  "start": "2026-11-12T10:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "ChatGPT",
+      "bundle": "com.openai.chat",
+      "title": "Google sign-in",
+      "text": [
+        "⟦Message 2⟧",
+        "ChatGPT said:",
+        "Here's how to add Google sign-in.",
+        "Step 1 — Create the OAuth client",
+        "In Google Cloud console, go to APIs & Services › Credentials and create an OAuth client ID of type Web application.",
+        "Step 2 — Add the redirect URI",
+        "Under Authorized redirect URIs add https://acme.example.com/api/auth/callback/google",
+        "Step 3 — Set the secret in Vercel",
+        "Add GOOGLE_CLIENT_SECRET to the project's environment variables in Vercel.",
+        "That's it — redeploy and try signing in."
+      ]
+    },
+    {
+      "at": 7,
+      "app": "Google Chrome",
+      "bundle": "com.google.Chrome",
+      "title": "Edit OAuth client – Google Cloud console",
+      "url": "https://console.cloud.google.com/apis/credentials/oauthclient/000-acme",
+      "text": [
+        "Client ID for Web application",
+        "Authorized redirect URIs",
+        "URIs 1",
+        "https://acme.example.com/api/auth/callback/google",
+        "Save",
+        "⟦Notice: OAuth client saved⟧"
+      ]
+    },
+    {
+      "at": 11,
+      "app": "Google Chrome",
+      "bundle": "com.google.Chrome",
+      "title": "Environment Variables – acme-web – Vercel",
+      "url": "https://vercel.com/acme/acme-web/settings/environment-variables",
+      "text": [
+        "Environment Variables",
+        "GOOGLE_CLIENT_SECRET",
+        "Production, Preview",
+        "Added just now"
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [
+      {
+        "words": [
+          "oauth client"
+        ],
+        "done": {
+          "at": 7,
+          "where": "Google Cloud"
+        }
+      },
+      {
+        "words": [
+          "redirect uri"
+        ],
+        "done": {
+          "at": 7,
+          "where": "Google Cloud"
+        }
+      },
+      {
+        "words": [
+          "google_client_secret"
+        ],
+        "done": {
+          "at": 11,
+          "where": "Vercel"
+        }
+      }
+    ],
+    "none": []
+  }
+}

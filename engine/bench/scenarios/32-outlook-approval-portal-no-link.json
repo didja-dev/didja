@@ -1,6 +1,7 @@
 {
   "id": "outlook-approval-portal-no-link",
   "about": "An email asks you to approve purchase order 4410 without a link; you approve it in the company portal a few minutes later.",
+  "family": "email",
   "start": "2026-11-11T09:00",
   "steps": [
     {

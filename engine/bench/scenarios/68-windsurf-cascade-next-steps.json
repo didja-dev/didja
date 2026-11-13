@@ -1,0 +1,44 @@
+{
+  "id": "windsurf-cascade-next-steps",
+  "family": "windsurf",
+  "about": "Windsurf's Cascade runs a command in the background, then lists what you must do; nothing done.",
+  "start": "2026-11-12T10:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "Windsurf",
+      "bundle": "com.exafunction.windsurf",
+      "title": "acme-web",
+      "text": [
+        "⟦Chat⟧",
+        "Cascade",
+        "Ran background terminal command",
+        "bun run dev",
+        "To finish the setup:",
+        "1. Create a GitHub OAuth app",
+        "2. Put its client secret in .env.local as GITHUB_SECRET"
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [
+      {
+        "words": [
+          "github oauth app"
+        ],
+        "done": null
+      },
+      {
+        "words": [
+          "github_secret"
+        ],
+        "done": null
+      }
+    ],
+    "none": [
+      [
+        "bun run dev"
+      ]
+    ]
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "id": "aider-declined-command",
+  "family": "aider",
+  "about": "Aider asks \"Run shell command?\" and you say No; the command is then yours, and you run it later.",
+  "start": "2026-11-12T10:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "Terminal",
+      "bundle": "com.apple.Terminal",
+      "title": "aider",
+      "text": [
+        "aider> add an index on orders.user_id",
+        "Applied edit to migrations/0008_orders_index.sql",
+        "npm run migrate",
+        "Run shell command? (Y)es/(N)o/(D)on't ask again [Yes]: n"
+      ]
+    },
+    {
+      "at": 8,
+      "app": "Terminal",
+      "bundle": "com.apple.Terminal",
+      "title": "zsh",
+      "text": [
+        "mike@mac acme-web % npm run migrate",
+        "> acme-web: migrate",
+        "Applied 0008_orders_index.sql",
+        "mike@mac acme-web % "
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [
+      {
+        "words": [
+          "npm run migrate"
+        ],
+        "done": {
+          "at": 8,
+          "where": "Terminal"
+        }
+      }
+    ],
+    "none": []
+  }
+}

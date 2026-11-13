@@ -1,6 +1,7 @@
 {
   "id": "env-var-seen-in-wrong-place",
   "about": "The env var's name shows up in Slack and in Claude again, never in Vercel.",
+  "family": "claude-app",
   "start": "2026-11-11T09:00",
   "steps": [
     {

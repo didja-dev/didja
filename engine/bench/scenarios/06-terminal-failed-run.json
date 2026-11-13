@@ -1,6 +1,7 @@
 {
   "id": "terminal-failed-run",
   "about": "The command is run and fails; it is not run again.",
+  "family": "claude-app",
   "start": "2026-11-11T09:00",
   "steps": [
     {

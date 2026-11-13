@@ -1,0 +1,36 @@
+{
+  "id": "codex-plan-only",
+  "family": "codex",
+  "about": "Codex CLI only shows its \"Updated Plan\" while working: no task.",
+  "start": "2026-11-12T10:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "iTerm2",
+      "bundle": "com.googlecode.iterm2",
+      "title": "codex",
+      "text": [
+        "• Updated Plan",
+        "  └ □ Find where the cache is invalidated",
+        "    □ Add a TTL to the session cache",
+        "    □ Run the test suite",
+        "• Explored",
+        "  └ Read cache.ts, session.ts"
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [],
+    "none": [
+      [
+        "cache is invalidated"
+      ],
+      [
+        "ttl"
+      ],
+      [
+        "test suite"
+      ]
+    ]
+  }
+}

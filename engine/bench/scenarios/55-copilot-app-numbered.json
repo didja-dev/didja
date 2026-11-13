@@ -1,0 +1,52 @@
+{
+  "id": "copilot-app-numbered",
+  "family": "copilot",
+  "about": "The Copilot app: a numbered list for you; you run the first command in Terminal.",
+  "start": "2026-11-12T10:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "Copilot",
+      "bundle": "com.microsoft.copilot",
+      "title": "Copilot",
+      "text": [
+        "Copilot said:",
+        "Do this:",
+        "1. Run `brew install postgresql@16`",
+        "2. Start it with `brew services start postgresql@16`"
+      ]
+    },
+    {
+      "at": 4,
+      "app": "Terminal",
+      "bundle": "com.apple.Terminal",
+      "title": "zsh",
+      "text": [
+        "mike@mac acme-web % brew install postgresql@16",
+        "==> Pouring the postgresql 16.4 bottle",
+        "🍺  /opt/homebrew/Cellar/postgresql@16/16.4: 3,800 files, 70MB",
+        "mike@mac acme-web % "
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [
+      {
+        "words": [
+          "brew install postgresql@16"
+        ],
+        "done": {
+          "at": 4,
+          "where": "Terminal"
+        }
+      },
+      {
+        "words": [
+          "brew services start"
+        ],
+        "done": null
+      }
+    ],
+    "none": []
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "id": "chatgpt-here-is-what-i-changed",
+  "family": "chatgpt",
+  "about": "ChatGPT desktop reports its own edits as a list: nothing in it is yours.",
+  "start": "2026-11-12T10:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "ChatGPT",
+      "bundle": "com.openai.chat",
+      "title": "Refactor",
+      "text": [
+        "⟦Message 6⟧",
+        "ChatGPT said:",
+        "Here's what I changed:",
+        "1. Moved the fetch logic into useOrders()",
+        "2. Replaced the any types with Order",
+        "3. Added an error boundary around the table",
+        "Let me know if anything breaks."
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [],
+    "none": [
+      [
+        "useorders"
+      ],
+      [
+        "any types"
+      ],
+      [
+        "error boundary"
+      ]
+    ]
+  }
+}

@@ -1,6 +1,7 @@
 {
   "id": "editor-terminal-run",
   "about": "Claude says to run the migration; you run it in VS Code's own terminal.",
+  "family": "claude-app",
   "start": "2026-11-11T09:00",
   "steps": [
     {

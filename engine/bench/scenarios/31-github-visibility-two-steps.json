@@ -1,6 +1,7 @@
 {
   "id": "github-visibility-two-steps",
   "about": "Claude leaves two steps on GitHub; you make the repository public, and GitHub's settings show it.",
+  "family": "claude-app",
   "start": "2026-11-11T09:00",
   "steps": [
     {

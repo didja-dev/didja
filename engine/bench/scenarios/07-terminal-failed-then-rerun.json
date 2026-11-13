@@ -1,6 +1,7 @@
 {
   "id": "terminal-failed-then-rerun",
   "about": "A push is rejected, then run again after a pull and accepted.",
+  "family": "claude-app",
   "start": "2026-11-11T09:00",
   "steps": [
     {

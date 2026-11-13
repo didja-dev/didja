@@ -1,0 +1,52 @@
+{
+  "id": "gemini-cli-todos",
+  "family": "gemini-cli",
+  "about": "Gemini CLI: its \"Todo 1/3 completed\" list is its own; the steps it leaves you are yours.",
+  "start": "2026-11-12T10:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "Warp",
+      "bundle": "dev.warp.Warp-Stable",
+      "title": "gemini",
+      "text": [
+        "> add the cron job",
+        "✦ I'll break this down.",
+        "Todo 1/3 completed",
+        "  ✔ Add the cron route",
+        "  ○ Schedule it in vercel.json",
+        "  ○ Add a test",
+        "✦ When I'm done you'll need to:",
+        "1. Set CRON_SECRET in Vercel",
+        "2. Redeploy from the Vercel dashboard"
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [
+      {
+        "words": [
+          "cron_secret"
+        ],
+        "done": null
+      },
+      {
+        "words": [
+          "redeploy"
+        ],
+        "done": null
+      }
+    ],
+    "none": [
+      [
+        "cron route"
+      ],
+      [
+        "vercel.json"
+      ],
+      [
+        "add a test"
+      ]
+    ]
+  }
+}

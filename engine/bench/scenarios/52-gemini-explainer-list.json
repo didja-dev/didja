@@ -1,0 +1,35 @@
+{
+  "id": "gemini-explainer-list",
+  "family": "gemini",
+  "about": "gemini.google.com explains how tokens work in a numbered list: facts, not steps.",
+  "start": "2026-11-12T10:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "Google Chrome",
+      "bundle": "com.google.Chrome",
+      "title": "Gemini",
+      "url": "https://gemini.google.com/app/000e",
+      "text": [
+        "How it works:",
+        "1. Access tokens expire after an hour",
+        "2. The refresh token is stored in an HttpOnly cookie",
+        "3. The middleware renews the session on each request"
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [],
+    "none": [
+      [
+        "access tokens"
+      ],
+      [
+        "refresh token"
+      ],
+      [
+        "middleware"
+      ]
+    ]
+  }
+}

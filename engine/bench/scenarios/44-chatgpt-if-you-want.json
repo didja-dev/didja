@@ -1,0 +1,48 @@
+{
+  "id": "chatgpt-if-you-want",
+  "family": "chatgpt",
+  "about": "ChatGPT desktop: two steps for you, then a closing \"If you want, I can…\" offer whose items are not tasks.",
+  "start": "2026-11-12T10:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "ChatGPT",
+      "bundle": "com.openai.chat",
+      "title": "Resend setup",
+      "text": [
+        "⟦Message 2⟧",
+        "ChatGPT said:",
+        "To send email from your domain:",
+        "1. Add the DKIM record Resend shows you to your DNS",
+        "2. Set RESEND_API_KEY in Vercel",
+        "If you want, I can:",
+        "- write the tests for the mailer",
+        "- add a retry when sending fails"
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [
+      {
+        "words": [
+          "dkim"
+        ],
+        "done": null
+      },
+      {
+        "words": [
+          "resend_api_key"
+        ],
+        "done": null
+      }
+    ],
+    "none": [
+      [
+        "write the tests"
+      ],
+      [
+        "retry"
+      ]
+    ]
+  }
+}

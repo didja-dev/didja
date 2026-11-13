@@ -1,0 +1,51 @@
+{
+  "id": "chatgpt-nested-bullets",
+  "family": "chatgpt",
+  "about": "ChatGPT desktop: two numbered steps, each with nested bullets that are details, not steps of their own. Nothing done yet.",
+  "start": "2026-11-12T10:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "ChatGPT",
+      "bundle": "com.openai.chat",
+      "title": "Avatar uploads",
+      "text": [
+        "⟦Message 4⟧",
+        "ChatGPT said:",
+        "You'll need two things in Supabase:",
+        "1. Create a storage bucket named avatars",
+        "   - Set it to Public",
+        "   - Limit uploads to 2 MB",
+        "2. Add a policy so users can upload their own file",
+        "   - Target role: authenticated",
+        "   - Use auth.uid() in the path check"
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [
+      {
+        "words": [
+          "bucket",
+          "avatars"
+        ],
+        "done": null
+      },
+      {
+        "words": [
+          "policy",
+          "upload"
+        ],
+        "done": null
+      }
+    ],
+    "none": [
+      [
+        "target role"
+      ],
+      [
+        "auth.uid"
+      ]
+    ]
+  }
+}

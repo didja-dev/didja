@@ -1,0 +1,46 @@
+{
+  "id": "claude-desktop-bullets",
+  "family": "claude-app",
+  "about": "Claude desktop: bullets after \"You'll need to:\"; none done.",
+  "start": "2026-11-12T10:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "Claude",
+      "bundle": "com.anthropic.claudefordesktop",
+      "title": "Sentry",
+      "text": [
+        "⟦Message 2⟧",
+        "Claude responded: The SDK is wired up. You'll need to:",
+        "You'll need to:",
+        "- Create a project in Sentry",
+        "- Set SENTRY_DSN in Vercel",
+        "- Add the auth token to GitHub Actions secrets"
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [
+      {
+        "words": [
+          "sentry",
+          "project"
+        ],
+        "done": null
+      },
+      {
+        "words": [
+          "sentry_dsn"
+        ],
+        "done": null
+      },
+      {
+        "words": [
+          "auth token"
+        ],
+        "done": null
+      }
+    ],
+    "none": []
+  }
+}

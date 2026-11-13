@@ -1,6 +1,7 @@
 {
   "id": "claude-code-asks-you-to-run",
   "about": "Claude Code cannot push tags itself and asks you to; you run it in another terminal tab.",
+  "family": "claude-code",
   "start": "2026-11-11T09:00",
   "steps": [
     {

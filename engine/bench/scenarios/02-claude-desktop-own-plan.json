@@ -1,6 +1,7 @@
 {
   "id": "claude-desktop-own-plan",
   "about": "Claude lists what it will do itself: none of it is yours.",
+  "family": "claude-app",
   "start": "2026-11-11T09:00",
   "steps": [
     {

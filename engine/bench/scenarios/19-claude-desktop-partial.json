@@ -1,6 +1,7 @@
 {
   "id": "claude-desktop-partial",
   "about": "Three steps; only the migration is done.",
+  "family": "claude-app",
   "start": "2026-11-11T09:00",
   "steps": [
     {

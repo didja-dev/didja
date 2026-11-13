@@ -1,6 +1,7 @@
 {
   "id": "whatsapp-direct-put-off",
   "about": "Sam asks for the invoice; you say you will send it tomorrow.",
+  "family": "messaging",
   "start": "2026-11-11T09:00",
   "steps": [
     {

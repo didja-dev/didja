@@ -1,6 +1,7 @@
 {
   "id": "whatsapp-direct-done-with-older-done",
   "about": "Dana asks for the signed contract; you reply \"Done\", with an older \"Done\" of yours in the chat (SCR-63).",
+  "family": "messaging",
   "start": "2026-11-11T09:00",
   "steps": [
     {

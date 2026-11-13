@@ -1,6 +1,7 @@
 {
   "id": "teams-answered-by-someone-else",
   "about": "Sam asks you in a Teams group to send the deck; Dana answers that she already sent it.",
+  "family": "messaging",
   "start": "2026-11-11T09:00",
   "steps": [
     {

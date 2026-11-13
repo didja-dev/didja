@@ -1,0 +1,51 @@
+{
+  "id": "near-miss-name-only-in-chat",
+  "family": "done-target",
+  "about": "The key is named again in the chat (\"did you set it?\") but never set: must not tick.",
+  "start": "2026-11-12T10:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "Claude",
+      "bundle": "com.anthropic.claudefordesktop",
+      "title": "Search",
+      "text": [
+        "⟦Message 2⟧",
+        "Claude responded: Two things:",
+        "Two things:",
+        "1. Set ALGOLIA_ADMIN_KEY in Vercel",
+        "2. Run the indexer once"
+      ]
+    },
+    {
+      "at": 5,
+      "app": "Claude",
+      "bundle": "com.anthropic.claudefordesktop",
+      "title": "Search",
+      "text": [
+        "⟦Message 3⟧",
+        "You said: what's ALGOLIA_ADMIN_KEY for again?",
+        "⟦Message 4⟧",
+        "Claude responded: ALGOLIA_ADMIN_KEY lets the indexer write to your index. Set it in Vercel, then run the indexer.",
+        "ALGOLIA_ADMIN_KEY lets the indexer write to your index. Set it in Vercel, then run the indexer."
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [
+      {
+        "words": [
+          "algolia_admin_key"
+        ],
+        "done": null
+      },
+      {
+        "words": [
+          "indexer"
+        ],
+        "done": null
+      }
+    ],
+    "none": []
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "id": "chatgpt-code-block-step",
+  "family": "chatgpt",
+  "about": "ChatGPT desktop: the step is a code block on its own; you run it in Terminal and it succeeds.",
+  "start": "2026-11-12T10:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "ChatGPT",
+      "bundle": "com.openai.chat",
+      "title": "Prisma deploy",
+      "text": [
+        "⟦Message 2⟧",
+        "ChatGPT said:",
+        "Your schema is fine. Apply it to production by running this in your project:",
+        "bash",
+        "Copy code",
+        "npx prisma migrate deploy",
+        "After that the new orders table will exist."
+      ]
+    },
+    {
+      "at": 5,
+      "app": "Terminal",
+      "bundle": "com.apple.Terminal",
+      "title": "zsh",
+      "text": [
+        "mike@mac acme-web % npx prisma migrate deploy",
+        "1 migration found in prisma/migrations",
+        "Applying migration `20261112_orders`",
+        "All migrations have been successfully applied.",
+        "mike@mac acme-web % "
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [
+      {
+        "words": [
+          "prisma migrate deploy"
+        ],
+        "done": {
+          "at": 5,
+          "where": "Terminal"
+        }
+      }
+    ],
+    "none": []
+  }
+}

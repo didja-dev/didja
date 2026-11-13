@@ -1,6 +1,7 @@
 {
   "id": "outlook-fyi",
   "about": "An FYI email that says no action is needed.",
+  "family": "email",
   "start": "2026-11-11T09:00",
   "steps": [
     {

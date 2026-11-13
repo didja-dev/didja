@@ -1,0 +1,36 @@
+{
+  "id": "opencode-next-steps",
+  "family": "opencode",
+  "about": "OpenCode finishes and leaves you two steps; neither done.",
+  "start": "2026-11-12T10:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "Ghostty",
+      "bundle": "com.mitchellh.ghostty",
+      "title": "opencode",
+      "text": [
+        "Invoices are generated on checkout. To go live:",
+        "1. Upload the company logo to the storage bucket in Supabase",
+        "2. Set INVOICE_FROM_EMAIL in Vercel"
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [
+      {
+        "words": [
+          "logo"
+        ],
+        "done": null
+      },
+      {
+        "words": [
+          "invoice_from_email"
+        ],
+        "done": null
+      }
+    ],
+    "none": []
+  }
+}

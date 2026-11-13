@@ -1,0 +1,42 @@
+{
+  "id": "copilot-cli-run-prompt",
+  "family": "copilot-cli",
+  "about": "GitHub Copilot CLI asks \"Do you want to run this command?\", runs the tests itself, and leaves one step for you.",
+  "start": "2026-11-12T10:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "iTerm2",
+      "bundle": "com.googlecode.iterm2",
+      "title": "copilot",
+      "text": [
+        "Do you want to run this command?",
+        "  npm test",
+        "❯ 1. Yes",
+        "  2. No, and tell Copilot what to do differently (Esc)",
+        "● Run tests (shell)",
+        "  └ 12 passed",
+        "● All green. One thing left for you:",
+        "  1. Add the NPM_TOKEN secret to the repository on GitHub"
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [
+      {
+        "words": [
+          "npm_token"
+        ],
+        "done": null
+      }
+    ],
+    "none": [
+      [
+        "npm test"
+      ],
+      [
+        "run tests"
+      ]
+    ]
+  }
+}

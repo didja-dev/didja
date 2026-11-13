@@ -1,0 +1,56 @@
+{
+  "id": "done-stripe-webhook-enabled",
+  "family": "done-target",
+  "about": "Claude Code asks you to add a Stripe webhook; Stripe then shows it Enabled.",
+  "start": "2026-11-12T10:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "Ghostty",
+      "bundle": "com.mitchellh.ghostty",
+      "title": "✳ Payments",
+      "text": [
+        "⏺ The handler is in. On your side:",
+        "  1. Add a webhook for https://acme.example.com/api/stripe in Stripe",
+        "  2. Put the signing secret in .env.local",
+        "? for shortcuts"
+      ]
+    },
+    {
+      "at": 5,
+      "app": "Google Chrome",
+      "bundle": "com.google.Chrome",
+      "title": "Webhooks – Acme – Stripe",
+      "url": "https://dashboard.stripe.com/acct_000/workbench/webhooks/we_000",
+      "text": [
+        "Webhooks",
+        "Destination details",
+        "https://acme.example.com/api/stripe",
+        "Status",
+        "Enabled",
+        "Listening to checkout.session.completed"
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [
+      {
+        "words": [
+          "webhook",
+          "stripe"
+        ],
+        "done": {
+          "at": 5,
+          "where": "Stripe"
+        }
+      },
+      {
+        "words": [
+          "signing secret"
+        ],
+        "done": null
+      }
+    ],
+    "none": []
+  }
+}

@@ -1,0 +1,67 @@
+{
+  "id": "claude-desktop-checkbox-checklist",
+  "family": "claude-app",
+  "about": "Claude desktop, asked for a checklist: steps with empty boxes; the domain shows Valid Configuration in Vercel.",
+  "start": "2026-11-12T10:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "Claude",
+      "bundle": "com.anthropic.claudefordesktop",
+      "title": "Custom domain",
+      "text": [
+        "⟦Message 1⟧",
+        "You said: make it a checklist",
+        "⟦Message 2⟧",
+        "Claude responded: Checklist:",
+        "Checklist:",
+        "☐ Add the A record for acme.example.com at your registrar",
+        "☐ Add acme.example.com to the project in Vercel",
+        "☐ Wait for the certificate"
+      ]
+    },
+    {
+      "at": 12,
+      "app": "Google Chrome",
+      "bundle": "com.google.Chrome",
+      "title": "Domains – acme-web – Vercel",
+      "url": "https://vercel.com/acme/acme-web/settings/domains",
+      "text": [
+        "Domains",
+        "acme.example.com",
+        "Valid Configuration",
+        "Assigned to main"
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [
+      {
+        "words": [
+          "a record"
+        ],
+        "done": {
+          "at": 12,
+          "where": "Vercel"
+        }
+      },
+      {
+        "words": [
+          "add acme.example.com",
+          "vercel"
+        ],
+        "done": {
+          "at": 12,
+          "where": "Vercel"
+        }
+      },
+      {
+        "words": [
+          "certificate"
+        ],
+        "done": null
+      }
+    ],
+    "none": []
+  }
+}

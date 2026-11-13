@@ -1,0 +1,46 @@
+{
+  "id": "claude-code-new-hands-command",
+  "family": "claude-code",
+  "about": "Newer Claude Code can't log in for you and hands over one command; you run it in another tab.",
+  "start": "2026-11-12T10:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "Ghostty",
+      "bundle": "com.mitchellh.ghostty",
+      "title": "zsh",
+      "text": [
+        "❯ open a PR",
+        "● I can't authenticate the GitHub CLI from here. Please run:",
+        "  `gh auth login`",
+        "✻ Worked for 2s"
+      ]
+    },
+    {
+      "at": 3,
+      "app": "Ghostty",
+      "bundle": "com.mitchellh.ghostty",
+      "title": "zsh",
+      "text": [
+        "mike@mac acme-web % gh auth login",
+        "? Where do you use GitHub? GitHub.com",
+        "✓ Logged in to github.com account mike-acme",
+        "mike@mac acme-web % "
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [
+      {
+        "words": [
+          "gh auth login"
+        ],
+        "done": {
+          "at": 3,
+          "where": "Terminal"
+        }
+      }
+    ],
+    "none": []
+  }
+}

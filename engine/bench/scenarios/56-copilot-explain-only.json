@@ -1,0 +1,35 @@
+{
+  "id": "copilot-explain-only",
+  "family": "copilot",
+  "about": "The Copilot app explains what a function does in a numbered list: no task.",
+  "start": "2026-11-12T10:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "Copilot",
+      "bundle": "com.microsoft.copilot",
+      "title": "Copilot",
+      "text": [
+        "Copilot said:",
+        "This function:",
+        "1. Reads the cart from the cookie",
+        "2. Validates each item against the catalogue",
+        "3. Returns the total in cents"
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [],
+    "none": [
+      [
+        "cart"
+      ],
+      [
+        "validates"
+      ],
+      [
+        "total in cents"
+      ]
+    ]
+  }
+}

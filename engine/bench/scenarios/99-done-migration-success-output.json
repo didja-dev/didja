@@ -1,0 +1,48 @@
+{
+  "id": "done-migration-success-output",
+  "family": "done-target",
+  "about": "Claude asks you to run the migration; iTerm then shows it applied successfully.",
+  "start": "2026-11-12T10:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "Claude",
+      "bundle": "com.anthropic.claudefordesktop",
+      "title": "Orders",
+      "text": [
+        "⟦Message 2⟧",
+        "Claude responded: Apply the migration:",
+        "Apply the migration:",
+        "`supabase db push`",
+        "Then the orders page will load."
+      ]
+    },
+    {
+      "at": 4,
+      "app": "iTerm2",
+      "bundle": "com.googlecode.iterm2",
+      "title": "zsh",
+      "text": [
+        "mike@mac acme-web % supabase db push",
+        "Connecting to remote database...",
+        "Applying migration 20261112_orders.sql...",
+        "Finished supabase db push.",
+        "mike@mac acme-web % "
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [
+      {
+        "words": [
+          "supabase db push"
+        ],
+        "done": {
+          "at": 4,
+          "where": "iTerm"
+        }
+      }
+    ],
+    "none": []
+  }
+}

@@ -142,7 +142,7 @@ test('the benchmark charges each model call its cost on the fake clock', () => {
 
 test('the benchmark times its tasks and ticks, and flags a path with no model that takes over 3 s', () => {
   const s: Scenario = {
-    id: 'speed-check', about: 'A command handed over by Claude and run in Terminal at minute 3.', start: '2026-11-11T09:00',
+    id: 'speed-check', family: 'claude-app', about: 'A command handed over by Claude and run in Terminal at minute 3.', start: '2026-11-11T09:00',
     steps: [
       { at: 0, app: 'Claude', bundle: 'com.anthropic.claudefordesktop', title: 'Check', text: ['⟦Message 2⟧', 'Claude responded: Run this:', 'Check it:', '`curl ipinfo.io`'] },
       { at: 3, app: 'Terminal', bundle: 'com.apple.Terminal', title: 'zsh', text: ['me@mac ~ % curl ipinfo.io', '{ "ip": "203.0.113.7" }', 'me@mac ~ % '] },

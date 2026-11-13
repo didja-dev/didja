@@ -1,0 +1,41 @@
+{
+  "id": "vscode-copilot-agent-todos",
+  "family": "vscode-copilot",
+  "about": "Copilot agent in VS Code shows its own todo list while it works: none of it is yours.",
+  "start": "2026-11-12T10:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "Code",
+      "bundle": "com.microsoft.VSCode",
+      "title": "acme-web",
+      "text": [
+        "⟦Chat⟧",
+        "GitHub Copilot",
+        "Todos (2/4)",
+        "✓ Create the orders schema",
+        "✓ Add the API route",
+        "○ Write tests for the route",
+        "○ Update the README",
+        "Working…"
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [],
+    "none": [
+      [
+        "orders schema"
+      ],
+      [
+        "api route"
+      ],
+      [
+        "write tests"
+      ],
+      [
+        "readme"
+      ]
+    ]
+  }
+}
