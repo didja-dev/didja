@@ -795,6 +795,10 @@ struct PopoverView: View {
                             .font(.callout)
                     }
                 }
+                // AI tool windows read for ten minutes and no steps came of them (SCR-89).
+                if let nudge = capture.firstRun?.nudge {
+                    FirstRunNudge(nudge: nudge, troubleshoot: troubleshoot, dismiss: { capture.dismissFirstRunNudge() })
+                }
                 Text(command.isHeld ? KeyboardHints.command : KeyboardHints.popover)
                     .font(.caption2)
                     .foregroundStyle(.tertiary)

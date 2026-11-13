@@ -159,8 +159,9 @@ test('didja doctor --json has the shape the app reads', () => {
   const s = store();
   s.recordCaptureOutcome('com.apple.Terminal', 'Terminal', 'ok', 12, at(-5));
   const r = JSON.parse(JSON.stringify(doctorReport(s, NOW)));
-  expect(Object.keys(r).sort()).toEqual(['app', 'capture', 'commands', 'engine', 'findings', 'generatedAt', 'settings', 'sources', 'tasks']);
+  expect(Object.keys(r).sort()).toEqual(['app', 'candidates', 'capture', 'commands', 'engine', 'findings', 'generatedAt', 'settings', 'sources', 'tasks']);
   expect(r.commands).toEqual({ openSteps: 0, editorsRead: [], editorTerminalReadings: 0, warpEmpty: 0, shellHook: false });
+  expect(r.candidates).toEqual([]);
   expect(Object.keys(r.capture).sort()).toEqual(['apps', 'lastObservation', 'state', 'status']);
   expect(r.capture.apps[0]).toEqual({ app: 'Terminal', bundleId: 'com.apple.Terminal', lastHour: 0, lastDay: 0, outcomes: [expect.objectContaining({ result: 'ok', lines: 12, n: 1 })] });
   expect(Object.keys(r.engine).sort()).toEqual(['errors', 'lastPass', 'localModel', 'running']);

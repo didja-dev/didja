@@ -2268,6 +2268,22 @@ export class Store {
       .all(since) as { ts: string; lastTs: string; bundleId: string; app: string; result: string; lines: number; n: number }[];
   }
 
+  /**
+   * The newest step or loose task from any of these source kinds (SCR-89): its kind, when it was
+   * made, and how many steps its list has (1 for a loose task). Null when there is none.
+   */
+  newestStepFrom(kinds: string[]): { kind: string; at: string; count: number } | null {
+    if (kinds.length === 0) return null;
+    const row = this.db
+      .query(`SELECT t.parent_id AS parent, s.kind AS kind, t.created_at AS at FROM tasks t JOIN sources s ON s.id = t.source
+              WHERE t.is_group = 0 AND s.kind IN (${kinds.map(() => '?').join(', ')}) ORDER BY t.created_at DESC, t.id DESC LIMIT 1`)
+      .get(...kinds) as { parent: number | null; kind: string; at: string } | null;
+    if (!row) return null;
+    const count = row.parent === null ? 1
+      : (this.db.query('SELECT COUNT(*) AS n FROM tasks WHERE parent_id = ? AND is_group = 0').get(row.parent) as { n: number }).n;
+    return { kind: row.kind, at: row.at, count };
+  }
+
   /** How many observations each app gave since `since`. Counts only. */
   observationCountsByApp(since: string): { app: string; bundleId: string; n: number }[] {
     return this.db

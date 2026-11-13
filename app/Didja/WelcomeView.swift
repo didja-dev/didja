@@ -1,3 +1,4 @@
+import AppKit
 import ApplicationServices
 import SwiftUI
 
@@ -15,6 +16,12 @@ struct WelcomeView: View {
     var openPrivacy: () -> Void = {}
     /// Help › Troubleshooting Report… (SCR-79).
     var troubleshoot: () -> Void = {}
+    /// What the engine says about the first run (SCR-89), looked at again every second.
+    var firstRun: () -> FirstRunStatus? = { nil }
+    var copyText: (String) -> Void = { text in
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
+    }
     var done: () -> Void = {}
 
     var body: some View {
@@ -52,6 +59,13 @@ struct WelcomeView: View {
                     permission(
                         "Screen Recording", detail: "Optional. Lets it read windows that expose no text, one frame at a time, never saved.",
                         granted: screenRecordingGranted(), action: "Enable", perform: requestScreenRecording)
+                }
+            }
+
+            // SCR-89: prove it works with your own AI tool, before you close this.
+            TimelineView(.periodic(from: .now, by: 1)) { _ in
+                section("sparkles", "Try it") {
+                    TryItSection(status: firstRun(), copy: copyText)
                 }
             }
 

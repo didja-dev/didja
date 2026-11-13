@@ -248,6 +248,16 @@ final class ObservationStore {
         return rows
     }
 
+    /// A note the engine wrote, such as the first run's status (SCR-89); nil when there is none.
+    func meta(_ key: String) throws -> String? {
+        var statement: OpaquePointer?
+        guard sqlite3_prepare_v2(db, "SELECT value FROM meta WHERE key = ?", -1, &statement, nil) == SQLITE_OK else { throw lastError("prepare") }
+        defer { sqlite3_finalize(statement) }
+        sqlite3_bind_text(statement, 1, key, -1, transient)
+        guard sqlite3_step(statement) == SQLITE_ROW, let value = sqlite3_column_text(statement, 0) else { return nil }
+        return String(cString: value)
+    }
+
     /// Small shared key/value notes, e.g. the capture status the CLI reports.
     func setMeta(_ key: String, _ value: String) throws {
         let sql = "INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value"

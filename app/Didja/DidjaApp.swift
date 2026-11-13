@@ -553,6 +553,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 editExcludeList: { [weak self] in self?.showExcludeList() },
                 openPrivacy: { [weak self] in self?.showPrivacy() },
                 troubleshoot: { [weak self] in self?.showTroubleshooting() },
+                firstRun: { [capture] in capture.firstRun },
                 done: { [weak self] in self?.welcomeWindow?.close() })))
             window.contentViewController = controller
             window.setContentSize(NSSize(width: WelcomeView.width, height: 640))

@@ -1,5 +1,6 @@
 #!/usr/bin/env bun
 import { doctorReport, formatDoctor } from './doctor.ts';
+import { firstRunStatus } from './firstrun.ts';
 import { assistants, assistantsDir } from './assistants.ts';
 import { profiles, profilesDir } from './profiles.ts';
 import { canvasMarkdown, canvasText, parseCanvasLine } from './canvas.ts';
@@ -40,6 +41,7 @@ const USAGE = `didja <command>
                       show open tasks (--all includes done/dismissed)
   status              is capture running, and when did it last see something
   doctor [--json]     troubleshooting report: why Didja reads nothing or makes no tasks (counts only)
+  first-run           what the Welcome's "Try it" step and the nudge show, as JSON (names and counts only)
   profiles [--json]   the app profiles (how each chat and email app is read) and the AI tools (profiles/assistants)
   mcp                 serve your own Claude over MCP (stdio), when turned on; see docs/AGENTS.md
   mcp on|off|status|log [--json]
@@ -388,6 +390,10 @@ async function main(argv: string[]): Promise<number> {
         console.log(`Capture: ${store.getMeta('capture_status') ?? 'the app has not reported yet'}`);
         console.log(`Last observation: ${last ? `${ago(last.ts)} (${last.app})` : 'none'}`);
         console.log(`Open tasks: ${store.listTasks().length}`);
+        return 0;
+      }
+      case 'first-run': {
+        console.log(JSON.stringify(firstRunStatus(store), null, 2));
         return 0;
       }
       case 'doctor': {

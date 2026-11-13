@@ -13,6 +13,7 @@ import { dirname, join } from 'node:path';
 import type { Listed } from './done.ts';
 import { agentCommands, agentTodos, ranByAgent, todoKey, withoutAgentWork } from './agents.ts';
 import { normalizeSteps } from './steps.ts';
+import { aiLike, noteCandidates, updateFirstRun } from './firstrun.ts';
 import { assemble, doneByClaude, EDITORS, extractCommands, extractChecklists, replyAround, sourceRef, splitClaudeCode, stepCommands, stepLine, TERMINALS } from './extract.ts';
 import { rewordPlacesOnce } from './missed.ts';
 import { localModelOf } from './localmodel.ts';
@@ -311,6 +312,9 @@ function pass(store: Store, now: Date, options: PollOptions): PollStats {
   const windows = new Map<string, Observation>();
   for (const o of fresh) windows.set(windowKey(o), o);
   const claudeWindows = new Set<string>();
+  // For the first run (SCR-89): the AI tools read in this pass, and windows that look like one Didja doesn't know.
+  const assistantsRead = new Set<string>();
+  const candidates: { app: string; bundleId: string; sign: string; host?: string }[] = [];
   stats.windows = windows.size;
 
   const since = new Date(now.getTime() - WINDOW_CONTEXT_MS).toISOString();
@@ -341,9 +345,13 @@ function pass(store: Store, now: Date, options: PollOptions): PollStats {
     const kind = assistant?.sourceKind ?? null;
     if (!assistant || !kind) {
       drop(TERMINALS.has(latest.bundleId) ? 'terminal' : 'other', 'read');
+      // Looks like an AI tool Didja has no profile for: a candidate for the troubleshooting report (SCR-89).
+      const looks = aiLike(latest, text);
+      if (looks) candidates.push({ app: latest.app, bundleId: latest.bundleId, ...looks });
       continue;
     }
     drop(kind, 'read');
+    assistantsRead.add(kind);
     stats.claudeWindows++;
     claudeWindows.add(windowKey(latest));
 
@@ -623,6 +631,8 @@ function pass(store: Store, now: Date, options: PollOptions): PollStats {
   stats.expired = store.pruneObservations(now);
   store.pruneContext();
   store.recordDrops(drops, now);
+  noteCandidates(store, candidates, now);
+  updateFirstRun(store, now, [...assistantsRead]);
   return stats;
 }
 

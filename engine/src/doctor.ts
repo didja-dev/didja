@@ -11,6 +11,8 @@ import { localModelOf } from './localmodel.ts';
 import { qualityReport, sourceGroup } from './quality.ts';
 import type { Store } from './store.ts';
 import { EDITORS } from './extract.ts';
+import { assistantName, readCandidates } from './firstrun.ts';
+import type { Candidate } from './firstrun.ts';
 
 /** What the app writes to `meta.app_facts` each time it starts, and before it shows the report. */
 export interface AppFacts {
@@ -54,6 +56,11 @@ export interface DoctorReport {
    * readings held their built-in terminal's text, Warp's empty readings, and whether the shell hook is on.
    */
   commands: { openSteps: number; editorsRead: string[]; editorTerminalReadings: number; warpEmpty: number; shellHook: boolean };
+  /**
+   * Windows that looked like an AI tool Didja has no profile for (SCR-89): app name, bundle id, a
+   * browser's host name, and the sign (an approval prompt, a "context left" footer, the host's name).
+   */
+  candidates: Candidate[];
 }
 
 /** The words for each outcome capture records (`capture_outcomes.result`). */
@@ -81,6 +88,16 @@ export const DROP_WORDS: Record<string, string> = {
   'not-for-you': 'asks nothing of you',
   'not-an-action': 'you said it is not an action',
   waiting: 'waiting for your reply first',
+};
+
+/** The words for a source kind: its own, else its AI tool profile's name (SCR-89). */
+export function sourceWords(kind: string): string {
+  return SOURCE_WORDS[kind] ?? assistantName(kind);
+}
+
+/** Why a window looked like an unknown AI tool. */
+export const CANDIDATE_WORDS: Record<string, string> = {
+  approval: 'it asked to run a command', 'context-left': 'it shows how much context is left', host: 'its address says chat or ai',
 };
 
 /** The words for each source kind. */
@@ -175,6 +192,7 @@ export function doctorReport(store: Store, now: Date = new Date()): DoctorReport
       excluded: app?.excluded ?? null,
     },
     commands,
+    candidates: readCandidates(store, now),
   };
   report.findings = findings(report);
   return report;
@@ -231,10 +249,12 @@ export function findings(r: DoctorReport): string[] {
     out.push(`Apple Intelligence can't be used here (${facts?.modelStatus ?? 'unavailable'}): emails and chat messages are not turned into tasks, and lists that don't say whose they are show only as "maybe".`);
   }
   for (const s of r.sources) {
-    const name = SOURCE_WORDS[s.source] ?? s.source;
+    const name = sourceWords(s.source);
     if (s.read === 0 || s.made > 0) continue;
-    if ((s.source.startsWith('claude')) && s.seen === 0) {
-      out.push(`Didja read ${s.read} ${s.read === 1 ? 'screen' : 'screens'} from ${name} but saw no numbered list of steps for you. Try asking Claude for a numbered checklist of what you need to do.`);
+    // Any AI tool with a profile, named after it (SCR-89); Terminal and Other apps hold no assistant.
+    const tool = !['email', 'chat', 'terminal', 'other'].includes(s.source);
+    if (tool && s.seen === 0) {
+      out.push(`Didja read ${s.read} ${s.read === 1 ? 'screen' : 'screens'} from ${name} but saw no numbered list of steps for you. Try asking ${name} for a numbered checklist of what you need to do.`);
     } else if (s.seen > 0) {
       const top = Object.entries(s.drops).sort((a, b) => b[1] - a[1])[0];
       if (top) out.push(`${name}: ${s.seen} ${s.seen === 1 ? 'list or message' : 'lists or messages'} seen, none became a task; most often because of ${DROP_WORDS[top[0]] ?? top[0]} (${top[1]}).`);
@@ -248,6 +268,10 @@ export function findings(r: DoctorReport): string[] {
     if (c.warpEmpty > 0) {
       out.push(`Warp gave no text in ${c.warpEmpty} ${c.warpEmpty === 1 ? 'try' : 'tries'}, so commands run there are not seen: turn on the shell hook (Settings › General › Commands) for them to tick their steps.`);
     }
+  }
+  for (const c of r.candidates ?? []) {
+    const where = c.host ? `${c.host} in ${c.app}` : c.app;
+    out.push(`${where} looks like an AI tool Didja doesn't know yet (${CANDIDATE_WORDS[c.sign] ?? c.sign}), so its steps are not read. Tell us: with it in front, choose Report a Problem with This Window… in Didja's menu.`);
   }
   const reading = r.capture.apps.some((a) => a.lastDay > 0);
   if (out.length === 0 && r.capture.state === 'capturing' && !reading) {
@@ -310,7 +334,11 @@ export function formatDoctor(r: DoctorReport): string {
   if (r.sources.length === 0) lines.push('  nothing yet');
   for (const s of r.sources) {
     const why = Object.entries(s.drops).map(([k, n]) => `${DROP_WORDS[k] ?? k} ${n}`).join(', ');
-    lines.push(`  ${SOURCE_WORDS[s.source] ?? s.source}: read ${s.read}, lists or messages seen ${s.seen}, tasks made ${s.made}${why ? `; not made: ${why}` : ''}`);
+    lines.push(`  ${sourceWords(s.source)}: read ${s.read}, lists or messages seen ${s.seen}, tasks made ${s.made}${why ? `; not made: ${why}` : ''}`);
+  }
+  if ((r.candidates ?? []).length > 0) {
+    lines.push('', 'Looks like an AI tool Didja does not know yet');
+    for (const c of r.candidates) lines.push(`  ${c.app} (${c.bundleId})${c.host ? ` ${c.host}` : ''}: ${c.sign} ×${c.n}, last ${ago(c.last, now)}`);
   }
   lines.push('', 'Tasks (last 24 h)');
   if (r.tasks.length === 0) lines.push('  none');

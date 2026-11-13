@@ -2275,6 +2275,41 @@ final class WelcomeTests: XCTestCase {
             try png.write(to: dir.appendingPathComponent("\(name).png"))
         }
     }
+
+    // SCR-89: the engine's first-run note, as the app reads it.
+    func testFirstRunStatusDecodesTheEnginesNote() throws {
+        let json = #"{"at":"2026-11-10T10:00:00.000Z","watching":["ChatGPT","Terminal"],"assistantsRead":[{"name":"ChatGPT","reads":40}],"firstList":null,"nudge":{"name":"ChatGPT","reads":40}}"#
+        let status = try XCTUnwrap(FirstRunStatus.decode(json))
+        XCTAssertEqual(status.watchingLine, "Watching ChatGPT and Terminal…")
+        XCTAssertNil(status.gotIt)
+        XCTAssertEqual(FirstRunStatus.nudgeText(try XCTUnwrap(status.nudge)), "Didja has read ChatGPT 40 times but found no steps for you yet.")
+        let got = try XCTUnwrap(FirstRunStatus.decode(#"{"watching":[],"assistantsRead":[],"firstList":{"count":3,"from":"Claude","at":"x"},"nudge":null}"#))
+        XCTAssertEqual(got.gotIt, "Got it: 3 steps from Claude.")
+        XCTAssertEqual(got.watchingLine, "Waiting for a window to read: click into your AI tool.")
+        XCTAssertEqual(FirstRunStatus.list(["ChatGPT", "Cursor", "Terminal"]), "ChatGPT, Cursor and Terminal")
+        XCTAssertNil(FirstRunStatus.decode(nil))
+        XCTAssertNil(FirstRunStatus.decode("not json"))
+    }
+
+    /// Draws the "Try it" step while watching and once steps arrived, and the Quick View's nudge.
+    @MainActor
+    func testRenderTryItAndNudge() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("didja-ui")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        func write<V: View>(_ view: V, _ name: String) throws {
+            let renderer = ImageRenderer(content: view)
+            renderer.scale = 2
+            let png = try XCTUnwrap(renderer.nsImage?.tiffRepresentation.flatMap(NSBitmapImageRep.init(data:))?
+                .representation(using: .png, properties: [:]))
+            try png.write(to: dir.appendingPathComponent("\(name).png"))
+        }
+        let watching = FirstRunStatus(watching: ["ChatGPT", "Terminal"], assistantsRead: [.init(name: "ChatGPT", reads: 4)])
+        let got = FirstRunStatus(watching: ["Claude"], assistantsRead: [.init(name: "Claude", reads: 6)], firstList: .init(count: 3, from: "Claude"))
+        try write(WelcomeView(accessibilityGranted: { true }, screenRecordingGranted: { true }, firstRun: { watching }), "welcome-try-it")
+        try write(WelcomeView(accessibilityGranted: { true }, screenRecordingGranted: { true }, firstRun: { got }), "welcome-got-it")
+        try write(FirstRunNudge(nudge: .init(name: "Claude", reads: 40), troubleshoot: {}, dismiss: {})
+            .padding(14).frame(width: PanelPlacement.width).background(Palette.surface), "first-run-nudge")
+    }
 }
 
 final class TeachingTests: XCTestCase {
