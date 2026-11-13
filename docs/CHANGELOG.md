@@ -6,6 +6,9 @@ Each entry says what changed, and what was **not verified** where that applies: 
 
 ## 2026-11-13
 
+### Didja 0.9.0 (build 11)
+- Released from GitHub on a version tag, with SCR-82 (a benchmark of 60 made-up sessions in every AI tool's shape, gated in CI), SCR-83 (assistant profiles: which window is which AI tool) and SCR-84 (steps in any format: headings, human-steps bullets, boxes, tables, code blocks, and steps known by their target).
+
 ### Steps in any format become tasks (SCR-84)
 - Steps written as "Step 1 — …" or "### 2. …" headings, bullets under "Next steps:", "You'll need to:", "On your side:" and the like, boxes an app draws ("☐ …"), the rows of a table of what to set where, and a command in a code block (ChatGPT's "bash" / "Copy code") are read as numbered lists and commands are (`engine/src/steps.ts`).
 - A step that names its target (an env name, a URL or callback path, a dashboard path, a service, an API key or redirect URL, a command) is a step even without a known verb at its start. One step is a list when its lead-in hands it to you ("The only thing left for you:").
