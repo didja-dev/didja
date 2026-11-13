@@ -4,6 +4,11 @@ Choices made while building ScrolledAway, with the reason, so they are not re-ar
 
 ## 2026-11-13
 
+- **An unclear list is shown as "checking…" instead of held** (SCR-78, the maintainer's call: speed counts as much as being right). It replaces SCR-70's "no task until the verdict". It is kept honest by not counting it as open, never nudging it, and taking back only what you left open when the verdict is Claude's.
+- **"Checking" is a confidence (0.1), like "maybe" (0.2)**, not a new column: no schema step, and the app already reads confidence. Every list judged or clear is 0.3 or more.
+- **A tick while checking is taken as "yours" for the whole list**: the verdict is saved with model "you", so neither lane asks the model about that list again. A "Claude's" verdict that arrives in the same moment from the other lane still leaves your tick alone.
+- **The verdict goes first in the model lane** already (SCR-76 put list verdicts ahead of criteria, looks and titles), so nothing more was needed for this issue's ordering.
+
 - **The judge server is reached through two named pipes with blocking reads** (SCR-77). Every model call sits inside a synchronous rule, and Bun has no synchronous read of a child's output; named pipes opened by the engine give blocking reads with a deadline and an end-of-file when either side goes. They live in a private temporary folder and are removed once open, so nothing is left on disk.
 - **One-shot spawns stay as the fallback, and the one-shot flags run the server's own code**, so a server that cannot start, or an older app binary, changes nothing about what is decided.
 - **Shipped although the median was not halved.** Measured, launching the app binary is not where the time goes on the maintainer's Mac (0.49 s → 0.47 s); the server still saves the model's load on the first question (1.08 s → 0.56 s) and keeps Ollama loaded. Left for the maintainer to keep or take out.

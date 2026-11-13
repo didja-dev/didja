@@ -6,6 +6,11 @@ Each entry says what changed, and what was **not verified** where that applies: 
 
 ## 2026-11-13
 
+### An unclear list shows at once as "checking…" (SCR-78)
+- A list whose lead-in does not say whose it is ("Next steps:") now appears in the fast lane's pass, greyed with a **checking…** tag, instead of after the model's verdict. It is not counted in "N open" and never nudges. "Yours" makes it a normal list; "Claude's" takes back what is still open (Dismissed view, with why); with no model it becomes "maybe", as before.
+- Ticking a step while it is checking keeps the tick and settles the list as yours: the model is not asked (the verdict is saved as yours).
+- Tests: engine 5 new (`checking.test.ts`: visible after one fast pass and never nudged; a yours verdict promotes and can then be nudged; a tick while checking is kept and settles it; Claude's verdict after a tick leaves the tick; no model gives maybe) and 4 changed from SCR-70's "nothing until judged" to the new rule; app 1 new and 1 extended (not counted but still shown; 0.1 reads as checking), and the render shows a checking list (looked at `popover.png`). Not verified: how it looks and changes in the live app. "How Didja is doing" still counts a checking list taken back as made.
+
 ### The models stay warm: one long-lived judge process (SCR-77)
 - The engine asks every model question through `Didja --judge-server`, one process for all of them, instead of starting the app binary per question. Same jobs, prompts and replies (the one-shot flags now share its code). It is started again if it dies, and the engine falls back to one-shot spawns if it cannot start. Apple's model is prewarmed when it starts; Ollama is asked to keep its model loaded for 30 minutes, and loaded when the local model is first used or changed.
 - Measured, Apple's model: median per question 0.49 s → 0.47 s (lists), 0.43 s → 0.42 s (looks); the first question 1.08 s → 0.56 s. **The issue's target, the median halved, was not met**: launching the binary was not the cost on this Mac. Answers unchanged (`eval/lists.ts`: Apple 42/44, Ollama 44/44 both ways).
