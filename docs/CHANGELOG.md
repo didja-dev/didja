@@ -6,6 +6,9 @@ Each entry says what changed, and what was **not verified** where that applies: 
 
 ## 2026-11-13
 
+### Didja 0.7.0 (build 8)
+- Released from GitHub on a version tag. In it since 0.6.0: speed targets measured per stage, in `didja quality` and the benchmark (SCR-75); an event-driven engine with a fast lane for new tasks and sure ticks and a separate queue for model questions (SCR-76); one warm judge process instead of a new one per question, and Ollama kept loaded (SCR-77); unclear lists shown at once as "checking…" (SCR-78); and earned auto-tick, Tick When Didja Is Sure, as the default (SCR-74).
+
 ### Tick When Didja Is Sure (SCR-74)
 - "When a task looks done" has three choices: Ask Me, **Tick When Didja Is Sure** (now the default), Accept Automatically. Installs on Ask Me moved to the new default once; Accept Automatically is kept.
 - Sure means:
