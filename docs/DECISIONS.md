@@ -323,3 +323,9 @@ A live back-and-forth made a task per message. Waiting before an ask becomes a t
 - The issue had only its title; it was read as "drag rows from the Quick View or the Tasks window onto an open canvas window", the drag counterpart of Send to Canvas. Dragging onto the "…" menu's Canvases list, or between canvases, is not part of it.
 - A drop does exactly what Send to Canvas does (the engine's `canvas send`): the tasks go to the end, a checklist as heading and steps. Dropping at a place in the canvas would need a new engine command with a position; reordering stays with ⌥↑↓ and Move Up/Down.
 - The ids travel in a Didja-only type (`ownProcess`), with the titles as plain text for other apps. Plain text dropped on a canvas is not turned into tasks: a drop from another app would make tasks from whatever was dragged, which is what typing on the canvas is for.
+
+## Report a Bug opens a filled-in issue; the user submits it (SCR-51, 2026-11-13)
+- The issue had only its title ("submit the issue to github by the user"). Didja opens GitHub's new-issue page filled in, and the user submits it in their browser with their own account, as Report a Problem and Propose Upstream already do. Didja making the issue itself would need a GitHub token and a network call from the app, which the hard rules rule out.
+- Only what the user types goes in, plus Didja's and macOS's versions (on by default, can be turned off). No captured text, tasks, logs or app names: for an app Didja misreads, the form points to Report a Problem with This Window…, which masks what it adds.
+- The issue is public, so the form says so and warns about an email address, a long number or a link with a path in the text. It warns rather than refuses: the user wrote it and may mean it.
+- In Help, not at the top of the menu: the top holds what is used most, and Report a Problem stays there.

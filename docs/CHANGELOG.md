@@ -6,6 +6,11 @@ Each entry says what changed, and what was **not verified** where that applies: 
 
 ## 2026-11-13
 
+### Report a Bug… (SCR-51)
+- **Report a Bug…** in Help (the Quick View's "…" menu): a title, what happened, and optional steps and what you expected. **Open on GitHub…** opens `github.com/didja-dev/didja/issues/new` in your browser, filled in (label `bug`), with Didja's and macOS's versions unless you turn that off. You submit it there; Didja sends nothing. **Copy** puts the same text on the clipboard.
+- A reminder that the issue is public, and a warning when the text looks like it holds an email address, a phone number or a long number, or a link with a path. A body too long for a link (over 7,000 characters of URL) is put on the clipboard and the issue asks you to paste it.
+- Tests: app 7 new (needs a title and what happened, the body and its sections, the link's title, label and body, a long body pasted, the cautions, the menu item, a render: looked at `bug-report.png`). Not verified: the window and the browser opening in the live app.
+
 ### Drag tasks onto a canvas (SCR-50)
 - Drag a task from the Quick View or the Tasks window onto an open canvas to put it there, the same as right-click › Send to Canvas: at the end, a checklist as its heading and steps, a task already there not added twice. With several rows chosen, dragging one of them takes them all. The canvas shows an outline while tasks are over it.
 - The drag carries the tasks' ids in a type only Didja reads (`dev.didja.task-ids`, declared in the app's Info.plist), and their titles as plain text, so dropping them in another app gives the titles. Plain text dropped on a canvas is not taken as tasks.
