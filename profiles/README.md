@@ -30,6 +30,30 @@ Which windows are an AI tool, and how to read them, are profiles too (SCR-83): o
 
 Patterns are JavaScript regular expressions (multi-line, Unicode), with the same limits as above: at most 300 characters, no back-references or look-behind, no repeated group that repeats inside; `(?i)` at the start ignores case. A fixture (`profiles/fixtures/assistants/<name>.json`) is a window (`app`, `bundle`, `title`, optional `url`), its made-up `lines`, and `expect.assistant`, the profile id it must be recognised as, or `null` for a window that is no AI tool. An agent's fixture may add `expect.agent`: the commands it `ran`, the ones you `declined`, and its `todos` (`engine/test/agents.test.ts` checks them).
 
+## Where steps are done (`profiles/done/`)
+
+Where common steps are done and what an item looks like there (SCR-86): one file per service in `profiles/done/`, read by the engine (`engine/src/done.ts`), with made-up pages in `profiles/fixtures/done/` (checked by `engine/test/done.test.ts`; every place needs one that finds a step done there, and near-misses that must not).
+
+```json
+{
+  "$schema": "../schema/done.schema.json",
+  "id": "vercel",
+  "name": "Vercel",
+  "hosts": ["vercel.com"],
+  "places": [
+    { "id": "vercel-env", "name": "Vercel › Environment Variables", "kinds": ["env"], "path": "/settings/environment-variables(?:/|$)",
+      "environments": ["Production", "Preview", "Development"], "form": ["^Key$", "^Value$", "^Save$"],
+      "followUp": { "title": "Redeploy on Vercel so the new value is used" } }
+  ]
+}
+```
+
+- `hosts`, then per place a `path` pattern or `page` words (a line on the page): which page it is. `names`: other names a step may use for the service; the step or its source must name it.
+- `kinds`: what a step targets there: `env` (a name), `url`, `domain`, `visibility` (public or private), `dns` (a record's type and name), `provider`, `deployment` (a redeploy).
+- `after` / `before`: the list's heading, and what ends it. `confirm`: a line that must be within four lines after the item ("^Enabled$"). `saved`: a line that must be on the page (a list that is also a form: "OAuth client saved"). `form`: a line just above the item that means a form still being filled in. `environments`: the environments a row shows; a step naming one needs it on the row. `followUp`: a step a change here implies.
+
+A fixture is the `step`, the `page` (`url`, made-up `lines`) and `expect.place`: the place id that finds it done, or `null` for a near-miss.
+
 **Terminals are not profiles.** How a terminal's text is read (prompts, commands, their output and how each ended) is code, in one place: `engine/src/terminal.ts` (SCR-69). It knows zsh, oh-my-zsh, starship-like, bash and fish prompts. A prompt it does not know means a command there is not ticked; open an issue with a made-up example of the prompt. An editor's built-in terminal (VS Code, Cursor, Windsurf) is marked `⟦Terminal⟧` by capture while it has focus.
 
 ## How to add an app

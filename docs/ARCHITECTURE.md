@@ -356,6 +356,20 @@ The benchmark now counts what is on the list at the end (a task the engine took 
 
 (Under the old measure, which counted taken-back tasks as made, the same "before" read 121/125 and 3 that must not exist.) By family: Aider 0/1 → 1/1 (its declined command is now yours and is ticked when you run it), Copilot CLI 2/4 → 3/4 (the step after its approval prompt), Claude Code precision 90% → 100% (the step newer Claude Code ran with `● Bash(…)` is taken back). Every agent's "must not exist" is now 0; the one left is ChatGPT's nested bullet. Apple's model was not run for this change: nothing here asks a model. Still missed in the agent families: Claude Code handing over one command outside a list, and its run in the same Ghostty window (scenarios 27 and 89), and Copilot CLI's third GitHub step.
 
+### After SCR-86: done by target
+
+`profiles/done/*.json` is a catalogue of where common steps are done (`engine/src/done.ts`): per service its hosts and other names, per place its page (path or page words), the kinds of target it lists, and its rules (list heading, confirming line near the item, a saved notice, form labels above the item, environment chips). `targetsOf` takes a step's targets from its markers (env names, URLs) and words (a bare domain, public/private with repo, a DNS type and name, an auth provider to enable, "redeploy"). `listedOn` says whether a screen lists one as an item: the page is a place of a service the step or its kept context names (SCR-66's rule; names inside links and code do not count), the target is a line of its own (first on its line, never a prefix of a longer name), inside the list, not under form labels, with the confirming line and the environment the step names. A deployment counts when a confirming line has a relative time ("1m ago") that puts it after the step.
+
+Where it is used: (1) `match.ts`: an env or URL marker seen on a host the catalogue has places for counts only when `listedOn` finds it (a build log, an unsaved form or another environment's row on vercel.com no longer ticks); other hosts are unchanged. (2) `lookForDone`: a listed target is the strongest candidate (score 11) and its sign is the second sign for a sure tick (SCR-74); if the model gives no answer, it asks. (3) `doneByTarget`, every full pass, for open steps with no exact markers: at a trusted place (and not Ask Me) it ticks, labelled with what was listed; with no model it asks. (4) After an env marker ticks on a place with a `followUp`, `addFollowUp` adds that step to the same conversation once (not when one there already says redeploy), with a note saying Didja added it.
+
+The benchmark lists Didja-added follow-ups apart (they are not captured). Same 99 scenarios, no model (CI), before → after:
+
+| Model | Recall | Precision | Must not exist | Ticked | Asked | Missed | Wrong ticks | Wrong asks |
+|---|---|---|---|---|---|---|---|---|
+| none (CI) | 123/140 (88%) → 123/140 (88%) | 98% → 98% | 1 → 1 | 33 → 33 | 0 → 9 | 27 → 18 | 0 | 0 |
+
+Done detection with no model, ticked or asked of the 60 really done: 33 (55%) → 42 (70%). The new asks are GitHub's visibility (3 scenarios), Google's Authorized redirect URIs (2), Vercel's Domains (2), Supabase's Redirect URLs (1) and a Vercel env row whose step does not name Vercel itself, only its conversation (1): steps with no exact marker to tick on. No marker tick was lost to the stricter rule on catalogued sites.
+
 ## How fast it is (SCR-75)
 
 Targets, at the 90th percentile on the maintainer's Mac, from the moment the screen showed it:
