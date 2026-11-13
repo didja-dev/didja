@@ -4,6 +4,13 @@ Choices made while building ScrolledAway, with the reason, so they are not re-ar
 
 ## 2026-11-13
 
+- **Agent hooks for Claude Code, Cursor and Windsurf only** (SCR-88). Copilot in VS Code's hooks are `.github/hooks/*.json` in a repository, and the issue says never a repository's file. Left out until it has a user-level place.
+- **Our entries are known by their command** (` hook <tool> ` and `didja` in it): hooks files are JSON, which has no comments to mark a block with, as the issue asked. A file that is not JSON is never touched.
+- **A hook only takes steps back, from its own tool's source.** The same command asked of you in the Claude app stays yours even if Claude Code ran it: the hook says the agent ran it, not that your step was done or not yours. Nothing from a hook ticks a task.
+- **Edits are not recorded**: a file path is not among the fields the issue allows (tool, event, time, a command line and exit code, plan titles), so "the agent edited the file a step names" stays SCR-65's screen rule for Claude Code.
+- **`didja hook` never opens the database and never fails**: it runs on every tool call of the agent, so it only appends a line and exits 0, whatever it is given; the engine checks which tools are on when it reads.
+- **Off forgets what that tool said**: its events are removed from the log, not left for 24 hours.
+
 - **The shell hook is a new local file, opt-in** (SCR-87, as the issue decides): `shell.log` beside Didja's database, kept 24 hours like observations, listed in Privacy, removed with the hook. It holds commands as typed (a key- or token-looking one as a hash only), exit codes and a hash of the folder, never output. Nothing of it leaves the Mac.
 - **The engine installs and removes the hook** (`didja shell-hook on|off`), not Swift: it is testable with a made-up home folder, and the app's switch only runs it. ~/.zshrc is created if missing (zsh is macOS's shell); ~/.bashrc and fish only if you already use them. The fish function is a file of its own in conf.d, so config.fish is never edited.
 - **Settings › General › Commands, not a new Settings page**: one switch did not need a page of its own.
