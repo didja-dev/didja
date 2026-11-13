@@ -378,6 +378,19 @@ final class PrivacyTests2: XCTestCase {
         XCTAssertEqual(facts().shellHook.on, false, "off unless you turn it on")
     }
 
+    /// SCR-88: each tool's switch reads the engine's status and says exactly what it writes.
+    func testAgentHooksStatusAndWords() throws {
+        let json = #"[{"tool":"cursor","name":"Cursor","file":"~/.cursor/hooks.json","on":true,"installed":true,"events":2}]"#
+        let tools = try JSONDecoder().decode([AgentHooks.Tool].self, from: Data(json.utf8))
+        XCTAssertEqual(tools.first?.name, "Cursor")
+        let words = AgentHooks.explanation(tools[0])
+        XCTAssertTrue(words.contains("afterShellExecution"))
+        XCTAssertTrue(words.contains("~/.cursor/hooks.json"))
+        XCTAssertTrue(words.contains("never files, prompts, replies or output"))
+        XCTAssertTrue(words.hasSuffix("On: 2 events in the last 24 hours."))
+        XCTAssertTrue(facts().agentHooks.isEmpty, "none on unless you turn one on")
+    }
+
     func testTheModelStatusIsWordedForPeople() {
         XCTAssertFalse(Judge.modelStatus.isEmpty)
         XCTAssertFalse(Judge.modelStatus.contains("unavailable("), "never a raw enum description")

@@ -177,3 +177,46 @@ enum ShellHook {
         s.on ? "On: \(s.runs) \(s.runs == 1 ? "command" : "commands") in the last 24 hours." : "Off."
     }
 }
+
+/// Agent hooks (SCR-88): one switch per tool, off by default. On adds an entry to that tool's
+/// user-level hooks file (a copy of it as it was is kept beside it) that runs this app's engine as
+/// `didja hook <tool> <event>`; the engine keeps only the tool, the event, the time, a command line
+/// and its exit code, and the agent's plan titles, 24 hours. Steps from that tool that it ran itself,
+/// or that are its own plan items, leave your list; nothing from a hook ever ticks a task.
+enum AgentHooks {
+    struct Tool: Decodable, Equatable, Identifiable {
+        var tool: String
+        var name: String
+        var file: String
+        var on: Bool
+        var installed: Bool
+        var events: Int
+        var id: String { tool }
+    }
+
+    /// The tools, as the engine knows them; the three it supports when it cannot be asked.
+    static func status() -> [Tool] {
+        let output = EngineRunner.output(["agent-hooks", "status", "--json"]) ?? ""
+        return (try? JSONDecoder().decode([Tool].self, from: Data(output.utf8))) ?? [
+            Tool(tool: "claude-code", name: "Claude Code", file: "~/.claude/settings.json", on: false, installed: false, events: 0),
+            Tool(tool: "cursor", name: "Cursor", file: "~/.cursor/hooks.json", on: false, installed: false, events: 0),
+            Tool(tool: "windsurf", name: "Windsurf", file: "~/.codeium/windsurf/hooks.json", on: false, installed: false, events: 0),
+        ]
+    }
+
+    @discardableResult
+    static func set(_ tool: String, _ on: Bool) -> Bool { EngineRunner.run(["agent-hooks", on ? "on" : "off", tool]) }
+
+    /// Exactly what turning it on writes, for the switch.
+    static func explanation(_ t: Tool) -> String {
+        let engine = Bundle.main.bundleURL.appendingPathComponent("Contents/Helpers/didja").path
+        let event: String
+        switch t.tool {
+        case "claude-code": event = "a PostToolUse hook for Bash and TodoWrite"
+        case "cursor": event = "an afterShellExecution hook"
+        default: event = "a post_run_command hook"
+        }
+        let state = t.on ? "On: \(t.events) \(t.events == 1 ? "event" : "events") in the last 24 hours." : "Off."
+        return "Adds \(event) to \(t.file) (a copy of it as it was is kept beside it) that runs \"\(engine)\" hook \(t.tool). Didja keeps only the tool, the time, a command it ran and its exit code, and its plan's titles, for 24 hours: never files, prompts, replies or output. A step from \(t.name) that it then runs itself, or that is its own plan item, leaves your list. \(state)"
+    }
+}

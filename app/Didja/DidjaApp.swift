@@ -666,7 +666,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             screenRecordingGranted: OCRCapture.isPermitted && OCRCapture.isEnabled, modelStatus: Judge.modelStatus,
             dataFolder: folder.appendingPathComponent("didja.db").path, isPaused: capture.isPaused,
             connections: Self.connectedTools(), profiles: AppProfiles.builtIn.map(\.summary), ownClaude: OwnClaude.status(),
-            localModel: LocalModel.status().model, shellHook: ShellHook.status())
+            localModel: LocalModel.status().model, shellHook: ShellHook.status(), agentHooks: AgentHooks.status())
     }
 
     /// The names of the connected task tools, from the engine.

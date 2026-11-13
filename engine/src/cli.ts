@@ -6,6 +6,11 @@ import { canvasMarkdown, canvasText, parseCanvasLine } from './canvas.ts';
 import { doneAt, missedReport, rewordPlacesOnce, wordForPlace } from './missed.ts';
 import { enabled, places, readLog, serve } from './mcp.ts';
 import { hookFiles, hookInstalled, installHook, readShellLog, removeHook } from './shellhook.ts';
+import { agentHookInstalled, appendAgentEvent, HOOK_TOOLS, installAgentHook, parseHookEvent, readAgentEvents, removeAgentHook, TOOLS } from './agenthooks.ts';
+import type { HookTool } from './agenthooks.ts';
+import { DEFAULT_DB_PATH } from './store.ts';
+import { basename, dirname as dirOf, join as joinPath } from 'node:path';
+import { writeFileSync as writeFile } from 'node:fs';
 import { localField, localModelOf, setLocalModel } from './localmodel.ts';
 import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -40,6 +45,10 @@ const USAGE = `didja <command>
   mcp on|off|status|log [--json]
   shell-hook on|off|status [--json]
                       the opt-in shell hook: exact exit codes of the commands you run (SCR-87)
+  agent-hooks on|off <claude-code|cursor|windsurf> | status [--json]
+                      opt-in hooks in your AI tools: what they ran and planned (SCR-88)
+  hook <tool> <event> what a tool's hook runs; reads the event on standard input, keeps only
+                      the tool, event, time, a command line and exit code, and plan titles
                       let your Claude read Didja (masked), or not; and what it has asked
   local-model [status [--json] | on <model> | off]
                       use a model in Ollama on this Mac (127.0.0.1) for emails and "looks done?", before Apple's
@@ -362,6 +371,9 @@ async function main(argv: string[]): Promise<number> {
     return command ? 0 : 1;
   }
 
+  // A tool's hook (SCR-88): quick and silent, without opening the database.
+  if (command === 'hook') return agentHookEvent(args[0] ?? '', args[1] ?? '');
+
   const store = new Store();
   try {
     switch (command) {
@@ -450,6 +462,45 @@ async function main(argv: string[]): Promise<number> {
           return 0;
         }
         console.error('usage: didja shell-hook [on|off|status [--json]]');
+        return 1;
+      }
+      case 'agent-hooks': {
+        const [sub, tool] = args;
+        if ((sub === 'on' || sub === 'off') && HOOK_TOOLS.includes(tool as HookTool)) {
+          const t = tool as HookTool;
+          if (sub === 'on') {
+            // The command the tool will run is this engine, so it must be the app's own.
+            if (basename(process.execPath) !== 'didja') {
+              console.error('Turn this on from the app, or run the app\'s own engine (Didja.app/Contents/Helpers/didja).');
+              return 1;
+            }
+            const done = installAgentHook(t, process.execPath);
+            if ('error' in done) {
+              console.error(done.error);
+              return 1;
+            }
+            store.setMeta(`agent_hook_${t}`, 'on');
+            console.log(`${TOOLS[t].name}'s hook is on: ${done.file} (a copy of it as it was: ${done.file}.didja-backup).`);
+          } else {
+            removeAgentHook(t);
+            store.setMeta(`agent_hook_${t}`, 'off');
+            // What it said is forgotten with it.
+            const log = agentLogPath();
+            writeFile(log, readAgentEvents(log, new Date()).filter((e) => e.tool !== t).map((e) => `${JSON.stringify(e)}\n`).join(''));
+            console.log(`${TOOLS[t].name}'s hook is off.`);
+          }
+          return 0;
+        }
+        if (sub === 'status') {
+          const events = readAgentEvents(agentLogPath(), new Date());
+          const status = HOOK_TOOLS.map((t) => ({
+            tool: t, name: TOOLS[t].name, file: `~/${TOOLS[t].file}`, on: store.getMeta(`agent_hook_${t}`) === 'on',
+            installed: agentHookInstalled(t), events: events.filter((e) => e.tool === t).length,
+          }));
+          console.log(args.includes('--json') ? JSON.stringify(status) : status.map((s) => `${s.name}: ${s.on ? 'on' : 'off'} (${s.file}), ${s.events} events in 24 h`).join('\n'));
+          return 0;
+        }
+        console.error('usage: didja agent-hooks [on|off <claude-code|cursor|windsurf> | status [--json]]');
         return 1;
       }
       case 'profiles': {
@@ -926,4 +977,25 @@ if (import.meta.main) {
       process.exit(1);
     },
   );
+}
+
+/** Where the agent hooks' events are kept: beside the database. */
+function agentLogPath(): string {
+  return joinPath(dirOf(process.env.DIDJA_DB ?? DEFAULT_DB_PATH), 'agent-hooks.jsonl');
+}
+
+/**
+ * One event from a tool's hook (SCR-88): only the listed fields are kept, and it never fails the
+ * tool: whatever happens, it prints nothing and exits 0.
+ */
+async function agentHookEvent(tool: string, event: string): Promise<number> {
+  try {
+    if (!HOOK_TOOLS.includes(tool as HookTool)) return 0;
+    const input = await Bun.stdin.text();
+    const e = parseHookEvent(tool as HookTool, event, input.trim() ? JSON.parse(input) : {}, new Date());
+    if (e) appendAgentEvent(agentLogPath(), e);
+  } catch {
+    // Never in the tool's way.
+  }
+  return 0;
 }

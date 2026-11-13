@@ -7,6 +7,9 @@ import type { ChatMessage, ChatReader, ReplyJudge } from './chat.ts';
 import { agentWork, assistantFor, hasTurns } from './assistants.ts';
 import { followUpOn, listedOn, targetsOf } from './done.ts';
 import { hookFiles, readShellLog, shellOutcome } from './shellhook.ts';
+import { agentPlanKeys, agentRanCommand, HOOK_TOOLS, readAgentEvents, SOURCE_KIND, TOOLS } from './agenthooks.ts';
+import { DEFAULT_DB_PATH } from './store.ts';
+import { dirname, join } from 'node:path';
 import type { Listed } from './done.ts';
 import { agentCommands, agentTodos, ranByAgent, todoKey, withoutAgentWork } from './agents.ts';
 import { normalizeSteps } from './steps.ts';
@@ -92,6 +95,8 @@ export interface PollOptions {
   criteria?: CriteriaWriter;
   /** The shell hook's log to read (SCR-87); by default the one in your home, only while the hook is on. */
   shellLog?: string | null;
+  /** The agent hooks' log to read (SCR-88); by default the one beside the database, only while a hook is on. */
+  agentLog?: string | null;
 }
 
 const EMAILS_PER_POLL = 2;
@@ -527,7 +532,27 @@ function pass(store: Store, now: Date, options: PollOptions): PollStats {
       }
     }
   }
-  for (const s of findSightings(watchable, elsewhere, [...terminalHistory, ...elsewhere.filter((o) => !terminalHistory.some((h) => h.id === o.id))])) {
+  // Agent hooks (SCR-88): what Claude Code, Cursor or Windsurf said it ran, or keeps as its plan, makes
+  // a step from that same tool the agent's: taken back with why, never ticked.
+  const hooksOn = HOOK_TOOLS.filter((t) => store.getMeta(`agent_hook_${t}`) === 'on');
+  const agentPath = opts.agentLog !== undefined ? opts.agentLog
+    : hooksOn.length > 0 ? join(dirname(process.env.DIDJA_DB ?? DEFAULT_DB_PATH), 'agent-hooks.jsonl') : null;
+  const agentEvents = agentPath ? readAgentEvents(agentPath, now).filter((e) => opts.agentLog !== undefined || hooksOn.includes(e.tool)) : [];
+  for (const tool of HOOK_TOOLS) {
+    if (!agentEvents.some((e) => e.tool === tool)) continue;
+    const plan = agentPlanKeys(agentEvents, tool);
+    for (const task of watchable.filter((t) => t.status === 'open' && t.sourceKind === SOURCE_KIND[tool])) {
+      const ran = task.markers.some((m) => m.kind === 'command' && agentRanCommand(agentEvents, tool, m.value, Date.parse(task.createdAt)));
+      const planned = plan.has(todoKey(task.title));
+      if (!ran && !planned) continue;
+      const why = ran
+        ? `${TOOLS[tool].name} ran this itself (its hook said so), so it was not yours to do`
+        : `This is one of ${TOOLS[tool].name}'s own plan items (its hook said so), not a step for you`;
+      stats.retracted += dismissOpen(store, task.id, why, now);
+      task.status = 'dismissed';
+    }
+  }
+  for (const s of findSightings(watchable.filter((t) => t.status !== 'dismissed'), elsewhere, [...terminalHistory, ...elsewhere.filter((o) => !terminalHistory.some((h) => h.id === o.id))])) {
     if (shellFailed.has(`${s.taskId}\u0000${s.marker.value}`)) continue;
     if (store.addSighting(s.taskId, s.marker.value, s.observationId, s.ts, s.detail)) {
       stats.sightings++;

@@ -25,6 +25,8 @@ struct PrivacyFacts: Equatable {
     var localModel: String?
     /// The shell hook (SCR-87): your shell writing the commands you run to a log of Didja's.
     var shellHook = ShellHook.Status(on: false, installed: false, runs: 0)
+    /// Agent hooks (SCR-88): your AI tools telling Didja what they ran and planned.
+    var agentHooks: [AgentHooks.Tool] = []
 
     /// "WhatsApp, Teams (community, new) for chats; Gmail, Outlook for email".
     var profileSummary: String {
@@ -165,6 +167,13 @@ struct PrivacyContent: View {
                     line(facts.shellHook.on
                          ? "Shell hook on (Settings › General › Commands): your shell writes each command you run, its exit code and a hash of its folder to shell.log in Didja's data folder, kept 24 hours; key-looking commands only as a hash. \(ShellHook.words(facts.shellHook)) Nothing of it leaves this Mac."
                          : "Shell hook off. Turned on in Settings › General › Commands, a few marked lines in ~/.zshrc and ~/.bashrc would write the commands you run, with their exit codes, to a log Didja reads, kept 24 hours.")
+                }
+
+                section("cpu", "What your AI tools tell Didja") {
+                    let on = facts.agentHooks.filter(\.on)
+                    line(on.isEmpty
+                         ? "Nothing. Turned on per tool in Settings › General › Assistants, Claude Code, Cursor or Windsurf would tell Didja, through a hook in their own settings, the commands they ran and their plan's titles."
+                         : "On for \(on.map(\.name).joined(separator: ", ")) (Settings › General › Assistants): a hook in their own settings tells Didja the commands they ran, with exit codes, and their plan's titles, kept 24 hours in agent-hooks.jsonl in Didja's data folder: \(on.map { "\($0.name) \($0.events)" }.joined(separator: ", ")) events. Never files, prompts, replies or output. Nothing of it leaves this Mac.")
                 }
 
                 section("person.badge.key", "Your own Claude") {

@@ -103,6 +103,7 @@ struct GeneralSettingsView: View {
     @State private var ocrOn = OCRCapture.isEnabled
     @State private var ownClaude = OwnClaude.Status(on: false, calls: 0, last: nil)
     @State private var shellHook = ShellHook.Status(on: false, installed: false, runs: 0)
+    @State private var agentHooks: [AgentHooks.Tool] = []
     @State private var local = LocalModel.Status(on: false, model: nil)
     /// The models Ollama has, or nil when it is not running.
     @State private var ollamaModels: [String]?
@@ -207,6 +208,19 @@ struct GeneralSettingsView: View {
                 }
             }
             .onAppear { shellHook = ShellHook.status() }
+
+            section("Assistants") {
+                ForEach(agentHooks) { tool in
+                    row("Let \(tool.name) tell Didja what it ran", AgentHooks.explanation(tool)) {
+                        Toggle("", isOn: Binding(get: { tool.on }, set: { on in
+                            AgentHooks.set(tool.tool, on)
+                            agentHooks = AgentHooks.status()
+                        }))
+                        .toggleStyle(.switch).labelsHidden()
+                    }
+                }
+            }
+            .onAppear { agentHooks = AgentHooks.status() }
 
             section("Your Own Claude") {
                 row("Let my own Claude read Didja", "For fixing how Didja reads an app: Claude Code or Claude Desktop, set up with `\(OwnClaude.command)`, can read the reports you give it, the text Didja kept (masked), and draft an app profile with you. What it reads goes to your AI provider. \(OwnClaude.words(ownClaude))") {
