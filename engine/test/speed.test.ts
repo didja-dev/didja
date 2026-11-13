@@ -57,19 +57,27 @@ test('a sure tick is timed from the screen that showed it done', () => {
   store.close();
 });
 
-test('time spent on a model inside the pass counts, and a list judged by the model is held to the model target', () => {
+test('an unclear list is timed when it is shown as checking, not when the model has judged it (SCR-78)', () => {
   const { store, spend } = fresh();
   const judge: Judge = () => { spend(1500); return { audience: 'user', model: 'test-model' }; };
   claude(store, T0, 'Claude responded: Almost there.\nNext steps:\n1. Add the redirect URL in the Supabase dashboard\n2. Run the smoke test\nThat should be it.');
   pollOnce(store, at(1), { judge });
-  expect(store.timingsSince('')).toEqual([]);
   pollOnce(store, at(8), { judge });
   const timings = store.timingsSince('');
   expect(timings.length).toBe(2);
-  for (const t of timings) {
-    expect(t).toMatchObject({ event: 'task', path: 'model', seenAt: T0.toISOString(), engineAt: at(8).toISOString(), shownAt: new Date(at(8).getTime() + 1500).toISOString() });
-    expect(speedKind(t)).toBe('model');
-  }
+  for (const t of timings) expect(t).toMatchObject({ event: 'task', path: 'fast', seenAt: T0.toISOString(), shownAt: at(1).toISOString() });
+  store.close();
+});
+
+test('time spent on a model inside the pass counts toward when it was shown', () => {
+  const { store, spend } = fresh();
+  store.pass = { at: at(8), started: store.clock(), seen: null, path: 'model' };
+  spend(1500);
+  store.recordTiming(1, 'task', 'model', T0.toISOString());
+  store.pass = null;
+  const [t] = store.timingsSince('');
+  expect(t).toMatchObject({ path: 'model', seenAt: T0.toISOString(), engineAt: at(8).toISOString(), shownAt: new Date(at(8).getTime() + 1500).toISOString() });
+  expect(speedKind(t!)).toBe('model');
   store.close();
 });
 

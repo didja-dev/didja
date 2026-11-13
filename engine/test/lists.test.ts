@@ -2,7 +2,7 @@ import { expect, test } from 'bun:test';
 import { MAYBE_CONFIDENCE, pollOnce } from '../src/engine.ts';
 import type { Judge } from '../src/engine.ts';
 import { extractChecklists, planActor, replyAround, stepLeaning } from '../src/extract.ts';
-import { Store } from '../src/store.ts';
+import { CHECKING_CONFIDENCE, Store } from '../src/store.ts';
 
 // SCR-70: unclear lists wait for the verdict; with no model they are "maybe"; Claude's own plans are
 // recognised from their steps. All lists here are made up.
@@ -18,12 +18,13 @@ function judge(answer: 'user' | 'assistant' | null) {
   return { judge: j, asked };
 }
 
-test('an unclear list shows nothing until judged yours, then its steps at full confidence', () => {
+test('an unclear list is shown as checking until judged yours, then its steps at full confidence (SCR-78)', () => {
   const store = new Store(':memory:');
   const { judge: j, asked } = judge('user');
   observe(store, UNCLEAR);
   pollOnce(store, NOW, { judge: j });
-  expect(store.listTasks()).toEqual([]);
+  expect(store.listTasks().filter((t) => !t.isGroup).every((t) => t.confidence === CHECKING_CONFIDENCE)).toBe(true);
+  expect(store.listTasks().filter((t) => !t.isGroup).length).toBe(3);
   expect(pollOnce(store, at(7), { judge: j }).judged).toBe(1);
   expect(store.listTasks().map((t) => t.title)).toEqual(['Add the redirect URL in the Supabase dashboard', 'Run the smoke test', 'Tell Noa it is live']);
   expect(store.listTasks().every((t) => t.confidence > MAYBE_CONFIDENCE)).toBe(true);

@@ -16,7 +16,7 @@ import { findSightings, isComplete, RUN_WINDOW_MS } from './match.ts';
 import { splitSession, terminalLines } from './terminal.ts';
 import type { Checklist, ChecklistItem } from './extract.ts';
 import type { Job, NewChecklist, NewNode, Observation, Outcome, PendingChatAsk, Store, Task, Teaching, TimingPath } from './store.ts';
-import { KEPT_KIND, KEPT_LIST } from './store.ts';
+import { CHECKING_CONFIDENCE, KEPT_KIND, KEPT_LIST } from './store.ts';
 
 export interface PollStats {
   observations: number;
@@ -363,10 +363,14 @@ function pass(store: Store, now: Date, options: PollOptions): PollStats {
       };
       if (unclear && verdict === null) {
         if (opts.judge || opts.judging) {
+          // Shown at once as "checking…" while the model decides (SCR-78): greyed, not counted.
+          const shown = store.upsertChecklist({ ...checklist, confidence: CHECKING_CONFIDENCE });
+          stats.newTasks += shown.created;
           const slot = `${sourceRef(latest, kind)}\u0000${list.title ?? ''}`;
           const payload = JSON.stringify({
             leadIn: list.title ?? '', steps: list.items.map((i) => i.title), after: list.after.slice(0, 3),
             ...(list.asked ? { asked: list.asked } : {}), reply: replyAround(source, list.items[0]!.title), list: checklist,
+            ...(shown.rootId !== null ? { rootId: shown.rootId } : {}),
           });
           store.setPendingJudgement(slot, key, payload, now);
           continue;
@@ -1161,19 +1165,26 @@ function judgePending(store: Store, judge: Judge, now: Date): number {
   let judged = 0;
   const settled = store.settledPendingJudgements(new Date(now.getTime() - JUDGE_SETTLE_MS), JUDGE_PER_POLL);
   for (const row of settled) {
-    // Judged already, under another window (SCR-76): nothing to ask; the lists are made from that verdict.
-    if (store.getJudgement(row.key) !== null) {
+    const list = JSON.parse(row.payload) as PendingList;
+    // Judged already, under another window (SCR-76): nothing to ask; that verdict is applied.
+    const known = store.getJudgement(row.key);
+    if (known !== null) {
       store.clearPendingJudgement(row.slot);
+      applyVerdict(store, list, known, now);
       continue;
     }
-    const list = JSON.parse(row.payload) as PendingList;
     const reply = judge({ leadIn: list.leadIn, steps: list.steps, after: list.after, ...(list.asked ? { asked: list.asked } : {}),
       ...(list.reply ? { reply: list.reply } : {}), ...taught(store, 'lists') });
     if (!reply) {
       // No model on this machine (or it is switched off): what waits is kept, marked "maybe" (SCR-70).
       for (const waiting of store.settledPendingJudgements(new Date(now.getTime() + 86_400_000), 1000)) {
         const held = JSON.parse(waiting.payload) as PendingList;
-        if (held.list) store.upsertChecklist({ ...held.list, confidence: MAYBE_CONFIDENCE });
+        if (held.list) {
+          const { rootId } = store.upsertChecklist({ ...held.list, confidence: MAYBE_CONFIDENCE });
+          // Shown as "checking…" until now (SCR-78): no model could say, so it is "maybe".
+          const root = rootId ?? held.rootId ?? null;
+          if (root !== null) store.unmarkMaybe(root, MAYBE_CONFIDENCE, CHECKING_CONFIDENCE);
+        }
       }
       store.clearPendingJudgement();
       return judged;
@@ -1181,18 +1192,52 @@ function judgePending(store: Store, judge: Judge, now: Date): number {
     judged++;
     store.saveJudgement(row.key, reply.audience, reply.model, now);
     store.clearPendingJudgement(row.slot);
-    if (reply.audience === 'assistant') {
-      // Queued before SCR-70, when a list was kept before its verdict: take it back.
-      const root = list.rootId === undefined ? null : store.getTask(list.rootId);
-      if (root) dismissOpen(store, root.id, NOT_FOR_YOU, now);
-      continue;
-    }
-    if (list.list) {
-      const { rootId } = store.upsertChecklist(list.list);
-      if (rootId !== null) store.unmarkMaybe(rootId, list.list.confidence, MAYBE_CONFIDENCE);
-    }
+    applyVerdict(store, list, reply.audience, now);
   }
   return judged;
+}
+
+/**
+ * A verdict on a queued list. Claude's: what is shown of it ("checking…", SCR-78, or a list kept
+ * before SCR-70) is taken back, leaving what you ticked yourself. Yours: kept, at full confidence.
+ */
+function applyVerdict(store: Store, list: PendingList, audience: 'user' | 'assistant', now: Date): void {
+  if (audience === 'assistant') {
+    const root = list.rootId === undefined ? null : store.getTask(list.rootId);
+    if (root) dismissOpen(store, root.id, NOT_FOR_YOU, now);
+    return;
+  }
+  if (list.list) {
+    const { rootId } = store.upsertChecklist(list.list);
+    if (rootId !== null) store.unmarkMaybe(rootId, list.list.confidence, MAYBE_CONFIDENCE);
+  } else if (list.rootId !== undefined) {
+    store.unmarkMaybe(list.rootId, MIN_SHOWN_CONFIDENCE, MAYBE_CONFIDENCE);
+  }
+}
+
+/**
+ * You ticked a step of a list still being checked (SCR-78): that says the list is yours. It is
+ * kept as yours, at full confidence, and the model is not asked about it any more.
+ */
+export function confirmChecking(store: Store, id: number, now: Date = new Date()): boolean {
+  let task = store.getTask(id);
+  if (!task || task.confidence > CHECKING_CONFIDENCE) return false;
+  while (task.parentId !== null) {
+    const parent = store.getTask(task.parentId);
+    if (!parent) break;
+    task = parent;
+  }
+  const root = task.id;
+  for (const row of store.settledPendingJudgements(new Date('9999-12-31T00:00:00Z'), 1000)) {
+    const list = JSON.parse(row.payload) as PendingList;
+    if (list.rootId !== root) continue;
+    store.saveJudgement(row.key, 'user', 'you', now);
+    store.clearPendingJudgement(row.slot);
+    store.unmarkMaybe(root, list.list?.confidence ?? MIN_SHOWN_CONFIDENCE, MAYBE_CONFIDENCE);
+    return true;
+  }
+  store.unmarkMaybe(root, MIN_SHOWN_CONFIDENCE, MAYBE_CONFIDENCE);
+  return true;
 }
 
 /**

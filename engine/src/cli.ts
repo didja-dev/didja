@@ -6,7 +6,7 @@ import { enabled, places, readLog, serve } from './mcp.ts';
 import { localField, localModelOf, setLocalModel } from './localmodel.ts';
 import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { addManualTask, keepTask, lookAgainAt, myNames, namesOf, pollOnce, runLoop, Waker } from './engine.ts';
+import { addManualTask, confirmChecking, keepTask, lookAgainAt, myNames, namesOf, pollOnce, runLoop, Waker } from './engine.ts';
 import { startModelLane, wakeOnInput } from './lanes.ts';
 import { judgeServerFor } from './judgeserver.ts';
 import { ADAPTERS } from './adapters.ts';
@@ -858,6 +858,8 @@ async function main(argv: string[]): Promise<number> {
           return 1;
         }
         const status = command === 'done' ? 'done' : command === 'dismiss' ? 'dismissed' : 'open';
+        // Ticking a step of a list still being checked says it is yours (SCR-78).
+        if (status === 'done') confirmChecking(store, id);
         // Counted in "How Didja is doing" (SCR-73).
         if (!store.changeByYou(id, status)) {
           console.error(`No task #${id}`);

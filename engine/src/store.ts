@@ -130,6 +130,12 @@ export type Outcome =
   | 'asked' | 'yes' | 'not-yet' | 'done-by-hand' | 'shown-done'
   | 'dismissed' | 'not-an-action' | 'fresh-start' | 'reopened-after-tick';
 
+/**
+ * The confidence of a list shown while the model decides whose it is: "checking…" (SCR-78). Below
+ * "maybe" (0.2, no model) and every list judged or clear (0.3 and up); not counted, never nudged.
+ */
+export const CHECKING_CONFIDENCE = 0.1;
+
 /** What a timed event is measured against (SCR-75): ≤3 s, ≤10 s, or a chat ask's wait for your reply. */
 export type TimingPath = 'fast' | 'model' | 'wait';
 export type TimingEvent = 'task' | 'tick' | 'asked';
@@ -2014,6 +2020,8 @@ export class Store {
         const steps = node.children.length > 0 ? this.stepsUnder(node.task.id) : [node.task];
         const lastActivity = [node.task.createdAt, ...steps.map((s) => s.doneAt ?? '')].sort().at(-1)!;
         const nudged = this.db.query('SELECT nudged_at FROM tasks WHERE id = ?').get(node.task.id) as { nudged_at: string | null };
+        // A list still being checked is not yours yet: never a nudge (SCR-78).
+        if (node.task.confidence <= CHECKING_CONFIDENCE) return false;
         return nudged.nudged_at === null && lastActivity <= cutoff && steps.some((s) => s.status === 'open');
       });
       for (const node of due) this.db.query('UPDATE tasks SET nudged_at = ? WHERE id = ?').run(now.toISOString(), node.task.id);

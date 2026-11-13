@@ -3,7 +3,7 @@ import { expect, test } from 'bun:test';
 import { formatObservation, formatTasks, formatWhy, parseSnooze } from '../src/cli.ts';
 import { MANUAL_SOURCE, addManualTask, cleanModelTitle, needsShortTitle, pollOnce } from '../src/engine.ts';
 import type { Judge } from '../src/engine.ts';
-import { dedupeKey, Store, similarity } from '../src/store.ts';
+import { CHECKING_CONFIDENCE, dedupeKey, Store, similarity } from '../src/store.ts';
 import type { Observation } from '../src/store.ts';
 
 const NOW = new Date('2026-11-10T10:05:00Z');
@@ -416,23 +416,28 @@ function fakeJudge(audience: 'user' | 'assistant' | null) {
   return { judge, asked };
 }
 
-test('an unclear list makes no task until judged, and none at all if the model says it is Claude\'s own (SCR-70)', () => {
+test('an unclear list is shown as checking until judged, and taken back if the model says it is Claude\'s own (SCR-70, SCR-78)', () => {
   const store = new Store(':memory:');
   const { judge, asked } = fakeJudge('assistant');
   observe(store, { text: PLAN });
-  expect(pollOnce(store, NOW, { judge })).toMatchObject({ newTasks: 0, judged: 0 }); // held while it settles
-  expect(store.listTasks()).toEqual([]);
+  // Shown at once while it settles, as "checking…".
+  expect(pollOnce(store, NOW, { judge })).toMatchObject({ newTasks: 3, judged: 0 });
+  expect(store.listTasks().filter((t) => !t.isGroup).map((t) => t.confidence)).toEqual([CHECKING_CONFIDENCE, CHECKING_CONFIDENCE, CHECKING_CONFIDENCE]);
 
   expect(pollOnce(store, at(7), { judge }).judged).toBe(1);
   expect(asked).toEqual([{ leadIn: 'Order of work', steps: ['Add parent tasks to the schema', 'Run the tests', 'Update the docs'], after: [],
     reply: 'x\nOrder of work\n1. Add parent tasks to the schema\n2. Run the tests\n3. Update the docs' }]);
-  expect(store.listTasks({ all: true })).toEqual([]); // never shown, so nothing to take back
+  // Gone from the list; in the dismissed view only, with why.
+  expect(store.listTasks()).toEqual([]);
+  const steps = store.listTasks({ all: true }).filter((t) => !t.isGroup);
+  expect(steps.map((t) => t.status)).toEqual(['dismissed', 'dismissed', 'dismissed']);
+  expect(store.listEvidence(steps[0]!.id).some((e) => (e.detail ?? '').includes("Claude's own plan"))).toBe(true);
 
   // Seen again: the verdict is remembered, nothing comes back and the model is not asked twice.
   observe(store, { ts: LATER, text: PLAN });
   expect(pollOnce(store, at(30), { judge })).toMatchObject({ newTasks: 0, judged: 0 });
   expect(asked.length).toBe(1);
-  expect(store.listTasks({ all: true })).toEqual([]);
+  expect(store.listTasks()).toEqual([]);
   store.close();
 });
 

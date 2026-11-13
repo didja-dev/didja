@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { MAYBE_CONFIDENCE, pollOnce, runLoop, Waker } from '../src/engine.ts';
 import type { Judge, PollOptions } from '../src/engine.ts';
 import { startModelLane, wakeOnInput } from '../src/lanes.ts';
-import { Store } from '../src/store.ts';
+import { CHECKING_CONFIDENCE, Store } from '../src/store.ts';
 
 const claude = (store: Store, text: string, ts = new Date()) => store.insertObservation({
   ts: ts.toISOString(), bundleId: 'com.anthropic.claudefordesktop', app: 'Claude', windowTitle: 'Launch', url: null, source: 'ax', text });
@@ -42,8 +42,10 @@ test('the fast lane asks no model, leaves mail to the full pass, and holds an un
     text: 'Inbox\nSent Items\n⟦Email⟧\nSubject: Q4 budget\nFrom: Dana Levi, dana@acme.com\nDate: Today at 11:58\nTo: me@example.com\nHi, can you approve the Q4 budget by Friday?' });
   pollOnce(store, now, { ...opts, lane: 'fast', judging: true });
   expect(calls).toEqual([]);
-  // The clear list is made at once; the unclear one waits for the judge, not kept as "maybe".
-  expect(store.listTasks().map((t) => t.title)).toEqual(['Set STRIPE_WEBHOOK_SECRET in Vercel prod', 'Run the migration with `supabase db push`']);
+  // The clear list is made at once; the unclear one is shown as "checking…" for the judge, not kept as "maybe".
+  const steps = store.listTasks().filter((t) => !t.isGroup);
+  expect(steps.filter((t) => t.confidence > MAYBE_CONFIDENCE).map((t) => t.title)).toEqual(['Set STRIPE_WEBHOOK_SECRET in Vercel prod', 'Run the migration with `supabase db push`']);
+  expect(steps.filter((t) => t.confidence === CHECKING_CONFIDENCE).length).toBe(3);
   expect(store.listTasks({ all: true }).some((t) => t.confidence === MAYBE_CONFIDENCE)).toBe(false);
   expect(store.settledPendingJudgements(new Date(now.getTime() + 60_000), 10).length).toBe(1);
   // The full pass still reads everything from its own place, mail included.
