@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import { doctorReport, formatDoctor } from './doctor.ts';
 import { profiles, profilesDir } from './profiles.ts';
 import { canvasMarkdown, canvasText, parseCanvasLine } from './canvas.ts';
 import { doneAt, missedReport, rewordPlacesOnce, wordForPlace } from './missed.ts';
@@ -31,6 +32,7 @@ const USAGE = `didja <command>
   tasks [--all] [--json]
                       show open tasks (--all includes done/dismissed)
   status              is capture running, and when did it last see something
+  doctor [--json]     troubleshooting report: why Didja reads nothing or makes no tasks (counts only)
   profiles [--json]   the app profiles: how each chat and email app is read
   mcp                 serve your own Claude over MCP (stdio), when turned on; see docs/AGENTS.md
   mcp on|off|status|log [--json]
@@ -370,6 +372,11 @@ async function main(argv: string[]): Promise<number> {
         console.log(`Capture: ${store.getMeta('capture_status') ?? 'the app has not reported yet'}`);
         console.log(`Last observation: ${last ? `${ago(last.ts)} (${last.app})` : 'none'}`);
         console.log(`Open tasks: ${store.listTasks().length}`);
+        return 0;
+      }
+      case 'doctor': {
+        const report = doctorReport(store);
+        console.log(args.includes('--json') ? JSON.stringify(report, null, 2) : formatDoctor(report));
         return 0;
       }
       case 'local-model': {

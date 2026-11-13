@@ -45,6 +45,9 @@ export interface PollStats {
   expired: number;
 }
 
+/** Counts why something read made no task (SCR-79): a source kind, a reason code, how many. */
+export type Drop = (source: string, reason: string, n?: number) => void;
+
 /** What the on-device model said about a list, or null if it could not be asked. */
 export interface JudgeReply {
   audience: 'user' | 'assistant';
@@ -281,6 +284,14 @@ function pass(store: Store, now: Date, options: PollOptions): PollStats {
     expired: 0,
   };
 
+  // Why what was read made no task, counted per source (SCR-79): codes and counts, no text.
+  const drops = new Map<string, number>();
+  const drop: Drop = (source, reason, n = 1) => {
+    if (n <= 0) return;
+    const key = `${source}\t${reason}`;
+    drops.set(key, (drops.get(key) ?? 0) + n);
+  };
+
   // Latest new observation per window.
   const windows = new Map<string, Observation>();
   for (const o of fresh) windows.set(windowKey(o), o);
@@ -295,7 +306,8 @@ function pass(store: Store, now: Date, options: PollOptions): PollStats {
     // Mail and chats are read by the full pass: what they make depends on a model (SCR-76).
     if (fast && (mailbox || chatApp(latest))) continue;
     if (mailbox) {
-      const mail = readMail(store, text, latest, mailbox, opts.mailReader, now);
+      drop('email', 'read');
+      const mail = readMail(store, text, latest, mailbox, opts.mailReader, now, drop);
       stats.emails += mail.created;
       stats.completed += mail.completed;
       stats.suggested += mail.suggested;
@@ -303,14 +315,19 @@ function pass(store: Store, now: Date, options: PollOptions): PollStats {
     }
     const app = chatApp(latest);
     if (app) {
-      const chat = readChat(store, text, latest, app, opts, now);
+      drop('chat', 'read');
+      const chat = readChat(store, text, latest, app, opts, now, drop);
       stats.chats += chat.created;
       stats.completed += chat.completed;
       stats.suggested += chat.suggested;
       continue;
     }
     const kind = classifySource(latest, text);
-    if (!kind) continue;
+    if (!kind) {
+      drop(TERMINALS.has(latest.bundleId) ? 'terminal' : 'other', 'read');
+      continue;
+    }
+    drop(kind, 'read');
     stats.claudeWindows++;
     claudeWindows.add(windowKey(latest));
 
@@ -331,8 +348,11 @@ function pass(store: Store, now: Date, options: PollOptions): PollStats {
       commands.items = commands.items.filter((i) => !listed.includes(i.fragments[0]!));
       if (commands.items.length > 0) lists.push(commands);
     }
+    if (lists.length === 0) drop(kind, 'no-list');
     for (const list of lists) {
+      drop(kind, 'seen');
       if (list.actor === 'assistant') {
+        drop(kind, 'claude-own');
         // Claude's own plan. It may have been taken as yours before the telling line arrived: take it back.
         stats.retracted += retract(store, list.items.map((i) => i.title), CLAUDE_SAID_SO, now, sourceRef(latest, kind));
         continue;
@@ -342,12 +362,18 @@ function pass(store: Store, now: Date, options: PollOptions): PollStats {
       const unclear = list.actor === null;
       const key = unclear ? judgementKey(list) : '';
       const verdict = unclear ? store.getJudgement(key) : null;
-      if (verdict === 'assistant') continue;
+      if (verdict === 'assistant') {
+        drop(kind, 'claude-own');
+        continue;
+      }
       // Steps you said are not actions are not captured again.
       const keep = (items: ChecklistItem[]): ChecklistItem[] =>
         items.filter((i) => !store.isNotAnAction(i.title)).map((i) => ({ ...i, children: keep(i.children) }));
       list.items = keep(list.items);
-      if (list.items.length === 0) continue;
+      if (list.items.length === 0) {
+        drop(kind, 'not-an-action');
+        continue;
+      }
 
       const only = list.items.length === 1 ? list.items[0]! : null;
       const checklist: NewChecklist = {
@@ -366,6 +392,7 @@ function pass(store: Store, now: Date, options: PollOptions): PollStats {
           // Shown at once as "checking…" while the model decides (SCR-78): greyed, not counted.
           const shown = store.upsertChecklist({ ...checklist, confidence: CHECKING_CONFIDENCE });
           stats.newTasks += shown.created;
+          drop(kind, 'checking');
           const slot = `${sourceRef(latest, kind)}\u0000${list.title ?? ''}`;
           const payload = JSON.stringify({
             leadIn: list.title ?? '', steps: list.items.map((i) => i.title), after: list.after.slice(0, 3),
@@ -376,6 +403,7 @@ function pass(store: Store, now: Date, options: PollOptions): PollStats {
           continue;
         }
         checklist.confidence = MAYBE_CONFIDENCE;
+        drop(kind, 'no-model');
       }
 
       stats.checklists++;
@@ -476,6 +504,7 @@ function pass(store: Store, now: Date, options: PollOptions): PollStats {
   stats.chats += timedAs(store, 'wait', () => promotePendingChatAsks(store, now));
   stats.expired = store.pruneObservations(now);
   store.pruneContext();
+  store.recordDrops(drops, now);
   return stats;
 }
 
@@ -487,7 +516,7 @@ const EMAIL_CHECKS_VERSION = '3';
  * that says what to do, and notice when a reply has gone out.
  */
 function readMail(
-  store: Store, text: string, latest: Observation, mailbox: string, reader: MailReader | undefined, now: Date,
+  store: Store, text: string, latest: Observation, mailbox: string, reader: MailReader | undefined, now: Date, drop: Drop = () => {},
 ): { created: number; completed: number; suggested: number } {
   const emails = parseEmails(text);
   const me = learnIdentity(store, latest, mailbox, emails);
@@ -543,7 +572,10 @@ function readMail(
     }
   }
 
-  if (!reader) return { created, completed, suggested };
+  if (!reader) {
+    drop('email', 'no-model');
+    return { created, completed, suggested };
+  }
   store.forgetEmailChecksBefore(EMAIL_CHECKS_VERSION);
   // Only new messages: leave out mail plainly sent before capture started.
   const start = store.onlyNewMessages() ? store.captureStartedAt() : null;
@@ -552,7 +584,10 @@ function readMail(
     // Fresh mail from people, with a body to read: not old mail, not machines.
     if (!isRecent(email.date, now) || isAutomatic(email) || email.body.length === 0) continue;
     const sent = startMinute ? mailTime(email.date, now) : null;
-    if (startMinute && sent && sent.getTime() < startMinute.getTime()) continue;
+    if (startMinute && sent && sent.getTime() < startMinute.getTime()) {
+      drop('email', 'older');
+      continue;
+    }
     // Your own message asks nothing of you: an answer just noticed above, or,
     // where the page says who it went to (Gmail's "to me"), one not sent to you.
     // Outlook shows names, not "me": a message sent as the account the window
@@ -566,12 +601,22 @@ function readMail(
     if (asked >= EMAILS_PER_POLL) break;
     asked++;
     const answer = reader({ ...mailSnippet(email), ...taught(store, 'emails') });
-    if (answer === null) break; // no model
+    if (answer === null) {
+      drop('email', 'no-model');
+      break;
+    }
     const verdict = settleNeed(email, answer);
     store.recordEmailCheck(key, verdict.need, now);
-    if (verdict.need === 'none') continue;
+    drop('email', 'seen');
+    if (verdict.need === 'none') {
+      drop('email', 'not-for-you');
+      continue;
+    }
     // You said an email in this conversation asks nothing of you.
-    if (store.isNotAnActionEmail(email.fromName, email.subject)) continue;
+    if (store.isNotAnActionEmail(email.fromName, email.subject)) {
+      drop('email', 'not-an-action');
+      continue;
+    }
     const title = mailTaskTitle(email, verdict);
     const origin = mailOrigin(email, signedName(email, verdict.asker));
     const links = mailLinks(email);
@@ -660,7 +705,7 @@ export function myNames(store: Store): string[] {
  * it, unless the reply puts it off. See chat.ts for the rules.
  */
 function readChat(
-  store: Store, text: string, latest: Observation, app: string, opts: PollOptions, now: Date,
+  store: Store, text: string, latest: Observation, app: string, opts: PollOptions, now: Date, drop: Drop = () => {},
 ): { created: number; completed: number; suggested: number } {
   const messages = parseChatMessages(text);
   const me = myNames(store);
@@ -734,7 +779,10 @@ function readChat(
   }
 
   const reader = opts.chatReader;
-  if (!reader) return { created, completed, suggested };
+  if (!reader) {
+    drop('chat', 'no-model');
+    return { created, completed, suggested };
+  }
   let asked = 0;
   // Only new messages: leave out what was plainly sent before capture started.
   const start = store.onlyNewMessages() ? store.captureStartedAt() : null;
@@ -746,7 +794,10 @@ function readChat(
       store.touch(shown.id, latest.ts);
       continue;
     }
-    if (start && sentBefore(m, start, now)) continue;
+    if (start && sentBefore(m, start, now)) {
+      drop('chat', 'older');
+      continue;
+    }
     if (store.emailVerdict(key) !== null) continue;
     // Already answered on screen: a reply of yours sent after it that does not put it off.
     const sent = chatTime(m.time, now);
@@ -766,12 +817,22 @@ function readChat(
       app, chat: m.chat, group: m.kind !== 'direct', me, from: m.from,
       ...(m.kind !== 'direct' ? { addressed: namesMe(m, me) ? 'named' as const : 'everyone' as const } : {}), message: m.body.slice(0, 1200), before, ...taught(store, 'chats'),
     });
-    if (answer === null) break; // no model
+    if (answer === null) {
+      drop('chat', 'no-model');
+      break;
+    }
     store.recordEmailCheck(key, answer.asks ? 'ask' : 'none', now);
-    if (!answer.asks) continue;
+    drop('chat', 'seen');
+    if (!answer.asks) {
+      drop('chat', 'not-for-you');
+      continue;
+    }
     const title = chatTaskTitle(answer.task) ?? `Reply to ${m.from}`;
     // Chat lessons are the chat job's (SCR-71); ones taught before that were stored with lists.
-    if (store.isNotAnAction(title, 'chats') || store.isNotAnAction(title)) continue;
+    if (store.isNotAnAction(title, 'chats') || store.isNotAnAction(title)) {
+      drop('chat', 'not-an-action');
+      continue;
+    }
     // Worded around you ("Lena asks Mike to respond…"): the model misread who asks whom.
     if (namesMe({ body: title, mentionsMe: false }, me)) {
       store.recordEmailCheck(key, 'none', now);
@@ -785,6 +846,7 @@ function readChat(
     // cannot be read cannot be waited on, so it is not.
     if (sentAt !== null && now.getTime() - sentAt.getTime() < CHAT_ASK_WAIT_MS) {
       store.addPendingChatAsk(ask, now);
+      drop('chat', 'waiting');
       continue;
     }
     if (addChatAsk(store, ask, now)) created++;
@@ -1338,6 +1400,7 @@ export async function runLoop(store: Store, log: (line: string) => void, opts: L
     }
     try {
       const s = pollOnce(store, new Date(), poll);
+      store.notePass(new Date());
       lastError = '';
       afterPass?.(s);
       if (s.newTasks > 0 || s.completed > 0 || s.suggested > 0 || s.emails > 0 || s.chats > 0) {
@@ -1345,7 +1408,11 @@ export async function runLoop(store: Store, log: (line: string) => void, opts: L
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      if (message !== lastError) log(`poll failed (will keep retrying): ${message}`);
+      if (message !== lastError) {
+        log(`poll failed (will keep retrying): ${message}`);
+        // Kept for the troubleshooting report (SCR-79); a database too busy to write it is let be.
+        try { store.noteEngineError(message, new Date()); } catch { /* the same failure */ }
+      }
       lastError = message;
     }
     if (await waker.sleep(interval, signal)) await Bun.sleep(WAKE_COALESCE_MS);

@@ -29,6 +29,7 @@ import schema24 from '../../schema/024_window_key.sql' with { type: 'text' };
 import schema25 from '../../schema/025_outcomes.sql' with { type: 'text' };
 import schema26 from '../../schema/026_timings.sql' with { type: 'text' };
 import schema27 from '../../schema/027_trust.sql' with { type: 'text' };
+import schema28 from '../../schema/028_troubleshooting.sql' with { type: 'text' };
 import { contextLines } from './context.ts';
 import { parseCriteria } from './donecriteria.ts';
 import type { DoneCriteria } from './donecriteria.ts';
@@ -484,7 +485,7 @@ export class Store {
     // The app migrates the same file. Take the write lock first so only one side runs each step.
     this.db.transaction(() => {
       const { user_version } = this.db.query('PRAGMA user_version').get() as { user_version: number };
-      [schema1, schema2, schema3, schema4, schema5, schema6, schema7, schema8, schema9, schema10, schema11, schema12, schema13, schema14, schema15, schema16, schema17, schema18, schema19, schema20, schema21, schema22, schema23, schema24, schema25, schema26, schema27].forEach((sql, i) => {
+      [schema1, schema2, schema3, schema4, schema5, schema6, schema7, schema8, schema9, schema10, schema11, schema12, schema13, schema14, schema15, schema16, schema17, schema18, schema19, schema20, schema21, schema22, schema23, schema24, schema25, schema26, schema27, schema28].forEach((sql, i) => {
         if (user_version < i + 1) this.db.exec(sql);
       });
     }).immediate();
@@ -2213,6 +2214,85 @@ export class Store {
   clearPendingJudgement(slot?: string): void {
     if (slot === undefined) this.db.exec('DELETE FROM pending_judgements');
     else this.db.query('DELETE FROM pending_judgements WHERE slot = ?').run(slot);
+  }
+
+  // --- troubleshooting (SCR-79): codes and counts only, kept 24 hours
+
+  /** Add this pass's counts of why what was read made no task (keys are `source\treason`). */
+  recordDrops(drops: Map<string, number>, now: Date): void {
+    const hour = now.toISOString().slice(0, 13);
+    const add = this.db.query(
+      'INSERT INTO engine_drops (hour, source, reason, n) VALUES (?, ?, ?, ?) ON CONFLICT(hour, source, reason) DO UPDATE SET n = n + excluded.n',
+    );
+    const cutoff = new Date(now.getTime() - 24 * 3600_000).toISOString().slice(0, 13);
+    this.db.transaction(() => {
+      for (const [key, n] of drops) {
+        const [source, reason] = key.split('\t');
+        add.run(hour, source!, reason!, n);
+      }
+      this.db.query('DELETE FROM engine_drops WHERE hour < ?').run(cutoff);
+    })();
+  }
+
+  /** Drop counts since `since` (an ISO time; counted by the hour it falls in), summed per source and reason. */
+  drops(since: string): { source: string; reason: string; n: number }[] {
+    return this.db
+      .query('SELECT source, reason, SUM(n) AS n FROM engine_drops WHERE hour >= ? GROUP BY source, reason ORDER BY source, reason')
+      .all(since.slice(0, 13)) as { source: string; reason: string; n: number }[];
+  }
+
+  /**
+   * What capture did when it tried an app (the app writes these; tests and fixtures use this).
+   * A repeat of the app's last result moves that row on instead of adding one. Never any text.
+   */
+  recordCaptureOutcome(bundleId: string, app: string, result: string, lines: number, now: Date = new Date()): void {
+    const ts = now.toISOString();
+    const last = this.db
+      .query('SELECT id, result FROM capture_outcomes WHERE bundle_id = ? ORDER BY id DESC LIMIT 1')
+      .get(bundleId) as { id: number; result: string } | null;
+    if (last && last.result === result) {
+      this.db.query('UPDATE capture_outcomes SET last_ts = ?, lines = ?, n = n + 1 WHERE id = ?').run(ts, lines, last.id);
+      return;
+    }
+    this.db
+      .query('INSERT INTO capture_outcomes (ts, last_ts, bundle_id, app, result, lines, n) VALUES (?, ?, ?, ?, ?, ?, 1)')
+      .run(ts, ts, bundleId, app, result, lines);
+    this.db.query('DELETE FROM capture_outcomes WHERE last_ts < ? OR id <= (SELECT MAX(id) FROM capture_outcomes) - 500')
+      .run(new Date(now.getTime() - 24 * 3600_000).toISOString());
+  }
+
+  /** Capture's outcomes since `since`, newest first. */
+  captureOutcomes(since: string): { ts: string; lastTs: string; bundleId: string; app: string; result: string; lines: number; n: number }[] {
+    return this.db
+      .query('SELECT ts, last_ts AS lastTs, bundle_id AS bundleId, app, result, lines, n FROM capture_outcomes WHERE last_ts >= ? ORDER BY id DESC')
+      .all(since) as { ts: string; lastTs: string; bundleId: string; app: string; result: string; lines: number; n: number }[];
+  }
+
+  /** How many observations each app gave since `since`. Counts only. */
+  observationCountsByApp(since: string): { app: string; bundleId: string; n: number }[] {
+    return this.db
+      .query('SELECT app, bundle_id AS bundleId, COUNT(*) AS n FROM observations WHERE ts >= ? GROUP BY bundle_id ORDER BY n DESC')
+      .all(since) as { app: string; bundleId: string; n: number }[];
+  }
+
+  /** The engine's last pass and its recent errors, for the troubleshooting report (messages only, at most 20). */
+  notePass(now: Date): void {
+    this.setMeta('engine_last_pass', now.toISOString());
+  }
+
+  noteEngineError(message: string, now: Date): void {
+    const errors = this.engineErrors();
+    errors.push({ at: now.toISOString(), message: message.slice(0, 300) });
+    this.setMeta('engine_errors', JSON.stringify(errors.slice(-20)));
+  }
+
+  engineErrors(): { at: string; message: string }[] {
+    try {
+      const parsed = JSON.parse(this.getMeta('engine_errors') ?? '[]');
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
   }
 
   // --- engine state

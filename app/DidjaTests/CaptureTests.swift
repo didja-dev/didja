@@ -301,7 +301,7 @@ final class ObservationStoreTests: XCTestCase {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: dir) }
         let migrations = ObservationStore.bundledMigrations()
-        XCTAssertEqual(migrations.map(\.version).sorted(), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27], "every schema step must be bundled with the app")
+        XCTAssertEqual(migrations.map(\.version).sorted(), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28], "every schema step must be bundled with the app")
         let store = try ObservationStore(directory: dir, migrations: migrations)
 
         let now = Date()
