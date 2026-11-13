@@ -99,16 +99,19 @@ final class ObservationStore {
         }
     }
 
+    /// Stores one observation. `windowKey` is the window it was seen in (`Differ.windowKey`, SCR-72);
+    /// the engine reads a window's history by it.
     func insert(bundleID: String, app: String, windowTitle: String, url: String?, source: Source,
-                text: String, at date: Date = Date()) throws {
+                text: String, windowKey: String? = nil, at date: Date = Date()) throws {
         let sql = """
-            INSERT INTO observations (ts, bundle_id, app, window_title, url, source, text)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO observations (ts, bundle_id, app, window_title, url, source, text, window_key)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """
         var statement: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK else { throw lastError("prepare") }
         defer { sqlite3_finalize(statement) }
-        let values: [String?] = [Self.timestamp.string(from: date), bundleID, app, windowTitle, url, source.rawValue, text]
+        let key = windowKey ?? Differ.windowKey(bundleID: bundleID, title: windowTitle, url: url)
+        let values: [String?] = [Self.timestamp.string(from: date), bundleID, app, windowTitle, url, source.rawValue, text, key]
         for (index, value) in values.enumerated() {
             if let value {
                 sqlite3_bind_text(statement, Int32(index + 1), value, -1, transient)

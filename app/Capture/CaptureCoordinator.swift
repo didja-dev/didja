@@ -550,7 +550,8 @@ final class CaptureCoordinator: ObservableObject {
             if !fresh.isEmpty {
                 try store.insert(
                     bundleID: bundleID, app: target.name, windowTitle: text.windowTitle, url: text.url,
-                    source: source, text: String(fresh.joined(separator: "\n").prefix(Self.maxObservationChars)))
+                    source: source, text: String(fresh.joined(separator: "\n").prefix(Self.maxObservationChars)),
+                    windowKey: key)
             }
             if Date().timeIntervalSince(lastPrune) > 600 {
                 lastPrune = Date()

@@ -1,12 +1,23 @@
 import Foundation
 
-/// Remembers each window's last snapshot and reports only the lines that are
-/// new since then, so the same text is not stored over and over.
+/// Remembers each window's recent lines and reports only the lines that are
+/// new, so the same text is not stored over and over.
+///
+/// A line counts as seen while it is on screen and for `memory` after it left
+/// (SCR-72): scrolling away and back, a terminal re-wrap or a list re-render
+/// does not report it again. After that it is new again.
 struct Differ {
     private struct Snapshot {
         var hash: Int
         var lines: Set<String>
+        /// Lines no longer on screen, with when they left.
+        var gone: [String: Date] = [:]
     }
+
+    /// How long a line that left the screen is still remembered.
+    static let memory: TimeInterval = 10 * 60
+    /// At most this many departed lines are remembered per window; the oldest go first.
+    static let maxGone = 4000
 
     private var snapshots: [String: Snapshot] = [:]
     /// Least recently used first.
@@ -17,14 +28,14 @@ struct Differ {
         self.capacity = capacity
     }
 
-    /// Lines of `lines` that were not in this window's previous snapshot, in
+    /// Lines of `lines` that were not in this window's recent snapshots, in
     /// order and without repeats. Updates the snapshot.
     ///
     /// A line is the same line only within its section and only as the same
     /// occurrence (SCR-63): the second "Done" in a window, or "Done" under a new
     /// chat message, is new even though "Done" is already on screen, and a
     /// command typed again after its output (a re-run) is new too.
-    mutating func newLines(windowKey: String, lines: [String]) -> [String] {
+    mutating func newLines(windowKey: String, lines: [String], now: Date = Date()) -> [String] {
         var hasher = Hasher()
         lines.forEach { hasher.combine($0) }
         let hash = hasher.finalize()
@@ -32,6 +43,7 @@ struct Differ {
         touch(windowKey)
         let previous = snapshots[windowKey]
         if let previous, previous.hash == hash { return [] }
+        let gone = previous.map { Self.departed(from: $0, now: now) } ?? [:]
 
         var keys = Set<String>()
         var counts: [String: Int] = [:]
@@ -54,15 +66,28 @@ struct Differ {
             let key = "\(unit)\u{1F}\(occurrence)"
             keys.insert(key)
             // Already seen as this occurrence, or already reported in this batch: not news.
-            guard previous?.lines.contains(key) != true, reported.insert(unit).inserted else { continue }
+            guard previous?.lines.contains(key) != true, gone[key] == nil, reported.insert(unit).inserted else { continue }
             if let section, !sectionReported {
                 fresh.append(section)
                 sectionReported = true
             }
             fresh.append(line)
         }
-        snapshots[windowKey] = Snapshot(hash: hash, lines: keys)
+        var remembered = gone
+        for key in keys { remembered[key] = nil }
+        snapshots[windowKey] = Snapshot(hash: hash, lines: keys, gone: remembered)
         return fresh
+    }
+
+    /// The lines remembered from before: those that left earlier and still count,
+    /// and those on screen last time (leaving now).
+    private static func departed(from snapshot: Snapshot, now: Date) -> [String: Date] {
+        var gone = snapshot.gone.filter { now.timeIntervalSince($0.value) < memory }
+        for key in snapshot.lines { gone[key] = now }
+        if gone.count > maxGone {
+            for (key, _) in gone.sorted(by: { $0.value < $1.value }).prefix(gone.count - maxGone) { gone[key] = nil }
+        }
+        return gone
     }
 
     /// What makes a line the same line: its text, under the section it sits in.
@@ -79,15 +104,29 @@ struct Differ {
     }
 
     /// Identifies a window across captures: the app plus its page (for web
-    /// content) or its title. Query strings and decorative title prefixes
-    /// (spinners, unread dots) are ignored so they don't look like new windows.
+    /// content, query and fragment dropped) or its title without the parts that
+    /// change while it is the same window: a spinner or unread dot in front, an
+    /// unread count, "— Edited" (SCR-72). Written on every observation as
+    /// `window_key`; the engine's `windowKeyFor` is the same rule, tested on the
+    /// same cases.
     static func windowKey(bundleID: String, title: String, url: String?) -> String {
-        if let url, var parts = URLComponents(string: url) {
-            parts.query = nil
-            parts.fragment = nil
-            if let page = parts.string, !page.isEmpty { return "\(bundleID)|\(page)" }
+        if let url, let page = url.split(whereSeparator: { $0 == "?" || $0 == "#" }).first, !url.hasPrefix("?"), !url.hasPrefix("#") {
+            return "\(bundleID)|\(page)"
         }
-        let stable = title.drop { !$0.isLetter && !$0.isNumber }
-        return "\(bundleID)|\(stable)"
+        return "\(bundleID)|\(stableTitle(title))"
+    }
+
+    private static let leading = try! NSRegularExpression(pattern: #"^(?:\s|\([0-9]+\)|[^\p{L}\p{N}])+"#)
+    private static let trailing = try! NSRegularExpression(pattern: #"(?:\s*[—–-]\s*edited|\s*\([0-9]+\)|\s)+$"#,
+                                                           options: .caseInsensitive)
+
+    /// A window title without decorations that come and go: see `windowKey`.
+    static func stableTitle(_ title: String) -> String {
+        var text = title
+        for pattern in [leading, trailing] {
+            let range = NSRange(text.startIndex..., in: text)
+            text = pattern.stringByReplacingMatches(in: text, range: range, withTemplate: "")
+        }
+        return text
     }
 }

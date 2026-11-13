@@ -111,9 +111,34 @@ final class DifferTests: XCTestCase {
         XCTAssertEqual(differ.newLines(windowKey: "w", lines: ["a", "b"]), ["a", "b"])
         XCTAssertEqual(differ.newLines(windowKey: "w", lines: ["a", "b"]), [])
         XCTAssertEqual(differ.newLines(windowKey: "w", lines: ["a", "b", "c", "c"]), ["c"])
-        // "a" scrolled away and came back: it was not in the last snapshot, so it is new again.
         XCTAssertEqual(differ.newLines(windowKey: "w", lines: ["c", "d"]), ["d"])
-        XCTAssertEqual(differ.newLines(windowKey: "w", lines: ["a", "d"]), ["a"])
+    }
+
+    /// SCR-72: a line that scrolled away and came back is not new; ten minutes after it left, it is.
+    func testALineThatScrolledAwayAndBackIsNotNewUntilItIsForgotten() {
+        var differ = Differ()
+        let t0 = Date(timeIntervalSince1970: 1_794_312_000)
+        XCTAssertEqual(differ.newLines(windowKey: "w", lines: ["a", "b"], now: t0), ["a", "b"])
+        XCTAssertEqual(differ.newLines(windowKey: "w", lines: ["c", "d"], now: t0.addingTimeInterval(5)), ["c", "d"])
+        XCTAssertEqual(differ.newLines(windowKey: "w", lines: ["a", "b"], now: t0.addingTimeInterval(60)), [])
+        // A list re-rendered in another order: nothing new.
+        XCTAssertEqual(differ.newLines(windowKey: "w", lines: ["d", "c", "b", "a"], now: t0.addingTimeInterval(70)), [])
+        XCTAssertEqual(differ.newLines(windowKey: "w", lines: ["e"], now: t0.addingTimeInterval(80)), ["e"])
+        // Ten minutes after "a" left the screen it is new again.
+        XCTAssertEqual(differ.newLines(windowKey: "w", lines: ["a"], now: t0.addingTimeInterval(80 + Differ.memory)), ["a"])
+    }
+
+    /// SCR-72: a scrolled-back chat message is not new, and a new message saying the same words still is.
+    func testAScrolledBackMessageIsNotNewButTheSameWordsInANewMessageAre() {
+        var differ = Differ()
+        let t0 = Date(timeIntervalSince1970: 1_794_312_000)
+        let old = ["⟦Chat message: Sam (direct) — from me — 9:55⟧", "Done"]
+        XCTAssertEqual(differ.newLines(windowKey: "w", lines: old, now: t0), old)
+        XCTAssertEqual(differ.newLines(windowKey: "w", lines: ["⟦Chat message: Sam (direct) — from Sam — 10:05⟧", "Can you send the deck?"],
+                                       now: t0.addingTimeInterval(30)).count, 2)
+        XCTAssertEqual(differ.newLines(windowKey: "w", lines: old, now: t0.addingTimeInterval(60)), [])
+        let new = ["⟦Chat message: Sam (direct) — from me — 10:20⟧", "Done"]
+        XCTAssertEqual(differ.newLines(windowKey: "w", lines: old + new, now: t0.addingTimeInterval(90)), new)
     }
 
     func testANewLineComesWithItsSectionLineEvenIfThatSectionIsOld() {
@@ -176,6 +201,29 @@ final class DifferTests: XCTestCase {
                        "b|https://vercel.com/a/env")
         XCTAssertEqual(Differ.windowKey(bundleID: "b", title: "✳ Fix auth", url: nil),
                        Differ.windowKey(bundleID: "b", title: "⠂ Fix auth", url: nil))
+    }
+
+    /// SCR-72: the same cases as engine/test/window.test.ts, so capture and the engine agree on a window.
+    func testWindowKeyMatchesTheEngine() {
+        let cases: [(String, String?, String)] = [
+            ("t", "https://vercel.com/a/env?tab=1#x", "b|https://vercel.com/a/env"),
+            ("✳ Fix auth", nil, "b|Fix auth"),
+            ("✻ Fix auth", nil, "b|Fix auth"),
+            ("⠂ Fix auth", nil, "b|Fix auth"),
+            ("(3) Inbox", nil, "b|Inbox"),
+            ("Inbox (12)", nil, "b|Inbox"),
+            ("Notes.txt — Edited", nil, "b|Notes.txt"),
+            ("Notes.txt - edited", nil, "b|Notes.txt"),
+            ("• קבוצת הבית", nil, "b|קבוצת הבית"),
+            ("Q3 plan (draft)", nil, "b|Q3 plan (draft)"),
+            ("Inbox", "", "b|Inbox"),
+        ]
+        for (title, url, key) in cases {
+            XCTAssertEqual(Differ.windowKey(bundleID: "b", title: title, url: url), key, title)
+        }
+        // Two pages with the same title are two windows.
+        XCTAssertNotEqual(Differ.windowKey(bundleID: "b", title: "Inbox", url: "https://mail.example.com/inbox"),
+                          Differ.windowKey(bundleID: "b", title: "Inbox", url: "https://tracker.example.com/inbox"))
     }
 }
 
@@ -253,7 +301,7 @@ final class ObservationStoreTests: XCTestCase {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: dir) }
         let migrations = ObservationStore.bundledMigrations()
-        XCTAssertEqual(migrations.map(\.version).sorted(), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23], "every schema step must be bundled with the app")
+        XCTAssertEqual(migrations.map(\.version).sorted(), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24], "every schema step must be bundled with the app")
         let store = try ObservationStore(directory: dir, migrations: migrations)
 
         let now = Date()
@@ -261,6 +309,16 @@ final class ObservationStoreTests: XCTestCase {
                          at: now.addingTimeInterval(-25 * 3600))
         try store.insert(bundleID: "a", app: "A", windowTitle: "w", url: "https://x.test", source: .ocr, text: "new", at: now)
         XCTAssertEqual(try store.observationCount(), 2)
+        // Each observation carries its window key (SCR-72).
+        var keys: OpaquePointer?
+        XCTAssertEqual(sqlite3_open(dir.appendingPathComponent("didja.db").path, &keys), SQLITE_OK)
+        var select: OpaquePointer?
+        XCTAssertEqual(sqlite3_prepare_v2(keys, "SELECT window_key FROM observations ORDER BY id", -1, &select, nil), SQLITE_OK)
+        var written: [String] = []
+        while sqlite3_step(select) == SQLITE_ROW { written.append(String(cString: sqlite3_column_text(select, 0))) }
+        sqlite3_finalize(select)
+        sqlite3_close(keys)
+        XCTAssertEqual(written, ["a|w", "a|https://x.test"])
         XCTAssertEqual(try store.deleteObservations(olderThan: now.addingTimeInterval(-24 * 3600)), 1)
         XCTAssertEqual(try store.observationCount(), 1)
 
