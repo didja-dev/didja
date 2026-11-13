@@ -6,6 +6,14 @@ Each entry says what changed, and what was **not verified** where that applies: 
 
 ## 2026-11-13
 
+### Unclear lists wait for the verdict; Claude's own plans are recognised; the local model judges lists (SCR-70)
+- A list whose lead-in does not say who it is for ("Next steps:") makes no task until the model says it is yours (about six seconds after it stops changing). Before, it was taken at once and taken back if the model said it was Claude's.
+- With no model, such a list is kept as **maybe**: greyed, with a quiet "maybe" tag on its checklist (confidence 0.2); a later "yours" lifts it.
+- Claude's own plans are recognised from their steps: "I'll …", or most steps changing code (a function, a file of the repo, tests, a schema) with none only you can do (a dashboard, a site, a credential, a person).
+- The judge is shown the whole reply the list is in (up to 2,000 characters).
+- `bun eval/lists.ts`: 44 made-up lists. Apple 42/44 (1 false "yours"); qwen3.8 in Ollama 44/44 (no false "yours"). So with Ollama on, it is now asked first for lists too (CLAUDE.md updated).
+- Tests: held until judged, made when judged yours, never when Claude's; maybe without a model, lifted by a later verdict; plan signals both ways; the whole reply; Swift: maybe is read from the store, the local list verdict and an odd answer, the request carries the reply and the model. Two benchmark scenarios; no model, on the same 37: precision 83% → 95%, recall unchanged, wrong ticks 0. Two older tests that said an unclear list is taken at once were rewritten for the new rule. **Not verified:** live Claude windows; the benchmark with a model.
+
 ### Terminals: commands read with their outcome, close variants tick, editor terminals count (SCR-69)
 - One place reads a terminal (`engine/src/terminal.ts`): each command with its prompt, its output and whether it went well, failed, or was only typed. It knows zsh, oh-my-zsh (its ✗ for a dirty tree is no longer read as a failure), starship-like, bash and fish prompts, and leaves out a right-side prompt and a `# comment`.
 - A run ticks a step when it is the same command up to flag order and extra flags that still do it: `git push -u origin main` ticks `git push origin main`. Other arguments, a missing flag, `--dry-run`, `-n`, `--help` and the like do not.

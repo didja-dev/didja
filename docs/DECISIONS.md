@@ -289,3 +289,11 @@ A live back-and-forth made a task per message. Waiting before an ask becomes a t
 - `commandAtPrompt` keeps its exact rule (its test says "nothing after it"); ticking goes through `commandOutcome`, which now uses `sameCommand`.
 - The fallback to "looks done?" waits two hours (the issue's N), and looks back at earlier terminal screens only in the five minutes after a step joins, so a run you made early with a different form is still seen without re-reading every screen on every pass. It is never accepted automatically: the issue says such a step "can still only be suggested", and a command is where a wrong tick is easiest to make.
 - Editor terminals need focus: the terminal's text is marked only when its input is the focused element, as the issue asks. Output that arrives after you leave the terminal is not marked, so such a run may be missed, never wrongly ticked.
+
+## Unclear lists wait; "maybe" without a model; the local model judges lists (SCR-70, 2026-11-13)
+- An unclear list is held until judged rather than shown and taken back: a list that appears and vanishes a few seconds later is worse than one that appears a few seconds late. The checklist to keep is stored in the pending row, so it is made the moment the verdict comes, even if the window is gone.
+- "Maybe" is stored as confidence (0.2, every other list at least 0.3), as the issue asked, so no schema change was needed.
+- Plan signals only ever decide "Claude's", and only with no step only you can do; anything mixed is left to the model. A missed list is cheaper than a list of Claude's work in your tasks, but a list that names a dashboard or a person is never dropped by wording.
+- The local model may judge lists: on 44 made-up lists it was right on all, with no false "yours", against 42 and one false "yours" for Apple's model. This is the rule in CLAUDE.md ("measures better with no new wrong ticks"), so the job list there now includes it. Titles still use Apple's model only.
+- The sample set is 24 yours and 20 Claude's, not exactly half: the extra four are the hard mixed kind (a coding word in a step that is still yours).
+
