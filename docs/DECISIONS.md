@@ -4,6 +4,14 @@ Choices made while building ScrolledAway, with the reason, so they are not re-ar
 
 ## 2026-11-13
 
+- **The shell hook is a new local file, opt-in** (SCR-87, as the issue decides): `shell.log` beside Didja's database, kept 24 hours like observations, listed in Privacy, removed with the hook. It holds commands as typed (a key- or token-looking one as a hash only), exit codes and a hash of the folder, never output. Nothing of it leaves the Mac.
+- **The engine installs and removes the hook** (`didja shell-hook on|off`), not Swift: it is testable with a made-up home folder, and the app's switch only runs it. ~/.zshrc is created if missing (zsh is macOS's shell); ~/.bashrc and fish only if you already use them. The fish function is a file of its own in conf.d, so config.fish is never edited.
+- **Settings › General › Commands, not a new Settings page**: one switch did not need a page of its own.
+- **With the hook on, its failure beats the screen**: when every exact run since the step failed, a screen that looked fine does not tick it (a missed tick is cheap). A success in the log ticks like a run seen on screen.
+- **A command typed twice in a row in bash is written once**: bash's lines read the last history line and skip it when it has not changed (so an empty Return writes nothing). zsh and fish write every run.
+- **p10k's right-side "✘ 1" counts as the previous command's status** only when the line holds nothing else (a status mark or a time is required, so a command such as `at` is not taken for one).
+- **Text outcomes needed no new rule for Codex**: its "✓"/"✗" lines are the agent's own runs (SCR-85), and agent windows never tick.
+
 - **While the menu bar is hidden, the Quick View opens as the pinned panel's window, not a popover** (LOCAL-1): a popover needs an anchor on screen, and the icon is not. The window is placed fresh each time (not saved as pinned), so with the menu bar back the icon opens the popover as before. The same happens when the icon is off every screen with the menu bar showing (hidden behind the notch, say), where the hot key used to do nothing.
 - **Outside activity is ignored for 0.5 s after opening** (was 0.4 s), as the issue asks, so the menu bar sliding in or out as the panel opens does not close it.
 
