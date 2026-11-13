@@ -164,6 +164,9 @@ final class CaptureCoordinator: ObservableObject {
     private var policy: PrivacyPolicy?
     private var differ = Differ()
     private var archives = ArchiveWatcher()
+    private var notices = NoticeWatcher()
+    /// Notices heard from the app in front and not yet written (SCR-68): in memory, a few seconds at most.
+    private var heardNotices: [HeardNotice] = []
     private var preparedPIDs = Set<pid_t>()
     private var lastOCR = Date.distantPast
     /// The last app other than Didja that was in front: what Report a Problem describes.
@@ -391,18 +394,89 @@ final class CaptureCoordinator: ObservableObject {
         guard pid != ProcessInfo.processInfo.processIdentifier else { return }
 
         var created: AXObserver?
-        let callback: AXObserverCallback = { _, _, _, refcon in
+        let callback: AXObserverCallbackWithInfo = { _, element, name, info, refcon in
             guard let refcon else { return }
-            Unmanaged<CaptureCoordinator>.fromOpaque(refcon).takeUnretainedValue().requestCapture()
+            let me = Unmanaged<CaptureCoordinator>.fromOpaque(refcon).takeUnretainedValue()
+            me.heard(element: element, name: name as String, info: info as NSDictionary)
+            me.requestCapture()
         }
-        guard AXObserverCreate(pid, callback, &created) == .success, let created else { return }
+        guard AXObserverCreateWithInfoCallback(pid, callback, &created) == .success, let created else { return }
         let element = AXUIElementCreateApplication(pid)
         let refcon = Unmanaged.passUnretained(self).toOpaque()
-        for name in ["AXFocusedWindowChanged", "AXFocusedUIElementChanged", "AXTitleChanged", "AXValueChanged"] {
+        for name in ["AXFocusedWindowChanged", "AXFocusedUIElementChanged", "AXTitleChanged", "AXValueChanged"]
+            + Self.noticeNotifications {
             AXObserverAddNotification(created, element, name as CFString, refcon)
         }
         CFRunLoopAddSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(created), .defaultMode)
         observer = created
+    }
+
+    /// Notices an app announces: "Message sent", "Saved", "Merged" (SCR-68). Not `AXCreated`: web
+    /// apps post it for every new element. A new sheet is read by the next ordinary capture.
+    private static let noticeNotifications = ["AXAnnouncementRequested", "AXLiveRegionChanged", "AXLiveRegionCreated"]
+
+    private struct HeardNotice {
+        enum Content {
+            /// An announcement's text, as the app gave it.
+            case text(String)
+            /// A live region, read only once capture has checked the window against the exclude list.
+            case element(AXUIElement)
+        }
+        var pid: pid_t
+        var content: Content
+        var at: Date
+    }
+
+    private func heard(element: AXUIElement, name: String, info: NSDictionary) {
+        let content: HeardNotice.Content
+        switch name {
+        case "AXAnnouncementRequested":
+            guard let text = info["AXAnnouncementKey"] as? String else { return }
+            content = .text(text)
+        case "AXLiveRegionChanged", "AXLiveRegionCreated":
+            content = .element(element)
+        default:
+            return
+        }
+        let notice = HeardNotice(pid: observedPID, content: content, at: Date())
+        let bundleID = NSRunningApplication(processIdentifier: observedPID)?.bundleIdentifier
+        queue.async {
+            // An app the exclude list covers: not even held in memory.
+            guard let policy = self.policy, let bundleID, policy.allowsApp(bundleID: bundleID) else { return }
+            self.heardNotices.append(notice)
+            if self.heardNotices.count > 20 { self.heardNotices.removeFirst() }
+        }
+    }
+
+    /// The notices heard from this app just now, as text. Called once capture has checked the app
+    /// and its window against the exclude list; a live region is read only here, and only if the
+    /// window it is in is allowed too. Notices from any other app are dropped unread.
+    private func takeNotices(_ heard: [HeardNotice], pid: pid_t, bundleID: String, policy: PrivacyPolicy) -> [String] {
+        let now = Date()
+        let mine = heard.filter { $0.pid == pid && now.timeIntervalSince($0.at) <= NoticeWatcher.maxAge }
+        return mine.compactMap { heard in
+            switch heard.content {
+            case .text(let text):
+                return NoticeWatcher.notice(from: text)
+            case .element(let element):
+                var window: AnyObject?
+                if AXUIElementCopyAttributeValue(element, "AXWindow" as CFString, &window) == .success,
+                   let window, CFGetTypeID(window) == AXUIElementGetTypeID() {
+                    var title: AnyObject?
+                    AXUIElementCopyAttributeValue(window as! AXUIElement, "AXTitle" as CFString, &title)
+                    guard policy.allowsWindow(title: title as? String ?? "") else { return nil }
+                }
+                var limits = AXCapture.Limits()
+                limits.maxDepth = 8
+                limits.maxNodes = 40
+                limits.maxChars = 400
+                limits.skipFocusedInput = true
+                limits.app = bundleID
+                limits.profiles = []
+                let read = AXCapture.read(root: LiveElement(ref: element), title: "", appName: "", limits: limits)
+                return NoticeWatcher.notice(from: read.lines)
+            }
+        }
     }
 
     // MARK: Capture (capture queue)
@@ -414,6 +488,9 @@ final class CaptureCoordinator: ObservableObject {
     }
 
     private func capture(_ target: Target, quickLook: Bool = false) {
+        // Whatever was heard is used by this capture or dropped, never kept for a later one.
+        let pendingNotices = heardNotices
+        heardNotices.removeAll()
         guard let policy, let store else { return }
         // An app with no bundle ID can't be checked against the denylist, so it is never read.
         guard let bundleID = target.bundleID,
@@ -465,7 +542,10 @@ final class CaptureCoordinator: ObservableObject {
                 }
             }
         }
-        let fresh = differ.newLines(windowKey: key, lines: lines) + archived
+        // Notices the app announced since the last capture (SCR-68), each once.
+        let heard = notices.fresh(windowKey: key, notices: takeNotices(pendingNotices, pid: target.pid, bundleID: bundleID, policy: policy))
+            .map(NoticeWatcher.line)
+        let fresh = differ.newLines(windowKey: key, lines: lines) + archived + heard
         do {
             if !fresh.isEmpty {
                 try store.insert(

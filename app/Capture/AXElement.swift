@@ -9,6 +9,8 @@ protocol AXElement {
     func roleAndSubrole() -> (role: String, subrole: String)?
     /// A text attribute: "AXTitle", "AXValue", "AXDescription", "AXHelp", "AXIdentifier", "AXDOMIdentifier".
     func string(_ attribute: String) -> String?
+    /// A number attribute, such as a checkbox's "AXValue" (0 off, 1 on, 2 mixed).
+    func number(_ attribute: String) -> Int?
     /// A web element's class names.
     func classes() -> [String]
     /// A link's target, or a web area's address.
@@ -34,6 +36,10 @@ struct LiveElement: AXElement {
     }
 
     func string(_ attribute: String) -> String? { self.attribute(attribute) as? String }
+    func number(_ attribute: String) -> Int? {
+        let value = self.attribute(attribute)
+        return (value as? NSNumber)?.intValue ?? (value as? String).flatMap { Int($0) }
+    }
     func classes() -> [String] { attribute("AXDOMClassList") as? [String] ?? [] }
     func url() -> URL? { attribute("AXURL") as? URL }
     func isFocused() -> Bool { attribute("AXFocused") as? Bool == true }
@@ -75,6 +81,7 @@ final class OutlineElement: AXElement {
     func string(_ attribute: String) -> String? {
         Self.names.first { $0.value == attribute }.flatMap { attributes[$0.key] }
     }
+    func number(_ attribute: String) -> Int? { string(attribute).flatMap { Int($0) } }
     func classes() -> [String] { (attributes["class"] ?? "").split(separator: " ").map(String.init) }
     func url() -> URL? { attributes["url"].flatMap(URL.init(string:)) }
     func isFocused() -> Bool { focused }
@@ -174,7 +181,9 @@ final class OutlineElement: AXElement {
             let isDraft = node.focused && (role == "AXTextArea" || role == "AXTextField")
             for (key, name) in names {
                 if isDraft && key == "value" { continue }
-                guard let value = e.string(name), !value.isEmpty else { continue }
+                // A checkbox's value is a number: write it down as one.
+                guard let value = e.string(name) ?? (key == "value" ? e.number(name).map(String.init) : nil),
+                      !value.isEmpty else { continue }
                 node.attributes[key] = String(value.prefix(2_000))
             }
             let classes = e.classes()

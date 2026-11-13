@@ -10,6 +10,8 @@ struct AXNode {
     var children: [AXNode] = []
     /// Where a link in an email's body points, when its address is not its words ("Approve").
     var url: String? = nil
+    /// A checkbox, radio button or switch's state as written in the text: "[x]", "[ ]", "[on]", "[off]", "[-]".
+    var state: String? = nil
 }
 
 /// The text of one window, as lines.
@@ -45,6 +47,43 @@ enum AXCapture {
 
     private static let textRoles: Set<String> = ["AXStaticText", "AXListMarker", "AXTextArea", "AXTextField"]
     private static let titledRoles: Set<String> = ["AXLink", "AXButton"]
+    /// Controls whose state is written before their label (SCR-68).
+    static let toggleRoles: Set<String> = ["AXCheckBox", "AXRadioButton", "AXSwitch"]
+    /// At most this many link targets are kept from the main content of a page.
+    static let maxPageLinkTargets = 20
+
+    /// How a control's state is written: "[x]" / "[ ]" for a checkbox or radio button, "[on]" /
+    /// "[off]" for a switch, "[-]" for a mixed checkbox. Nil when it has no state to read.
+    static func stateMark(role: String, subrole: String, value: Int?) -> String? {
+        guard let value else { return nil }
+        let isSwitch = role == "AXSwitch" || subrole == "AXSwitch" || subrole == "AXToggle"
+        switch value {
+        case 0: return isSwitch ? "[off]" : "[ ]"
+        case 1: return isSwitch ? "[on]" : "[x]"
+        case 2: return "[-]"
+        default: return nil
+        }
+    }
+
+    /// Where a link in a page's main content points, kept so a PR, issue or deploy link is not lost:
+    /// a web address with no query or fragment (they can carry tokens), at most 200 characters. Nil
+    /// for other schemes and for links within the page itself.
+    static func pageLinkTarget(_ url: URL?, page: String?) -> String? {
+        guard let url, let scheme = url.scheme?.lowercased(), scheme == "https" || scheme == "http",
+              var parts = URLComponents(url: url, resolvingAgainstBaseURL: false), parts.host != nil
+        else { return nil }
+        parts.query = nil
+        parts.fragment = nil
+        parts.user = nil
+        parts.password = nil
+        guard let text = parts.string, text.count <= 200 else { return nil }
+        if let page, var here = URLComponents(string: page) {
+            here.query = nil
+            here.fragment = nil
+            if here.string == text { return nil }
+        }
+        return text
+    }
 
     /// A link target worth keeping from an email: a web address, at most 500 characters. Nil for
     /// mail, phone and in-page links.
@@ -139,6 +178,10 @@ enum AXCapture {
         var inMailBody = false
         /// True inside a web area: in Outlook for Mac, the open email's body is one.
         var insideWebArea = false
+        /// True inside a page's main content (its main landmark).
+        var insideMain = false
+        /// How many link targets have been kept from main content so far.
+        var pageLinks = 0
         var mailCount = 0
         /// The open chat: its name and kind, and the last sender and time seen, for a message that
         /// follows on from the one before without repeating them.
@@ -502,11 +545,27 @@ enum AXCapture {
             // Nowhere else: on other pages a link's target is not something to keep.
             if role == "AXLink", inMailBody || (insideWebArea && profiles.contains { $0.linkTargets == .webArea }) {
                 node.url = AXCapture.mailLinkTarget(element.url())
+            } else if role == "AXLink", insideWebArea, insideMain, profiles.isEmpty,
+                      pageLinks < AXCapture.maxPageLinkTargets,
+                      let target = AXCapture.pageLinkTarget(element.url(), page: url) {
+                // In the main content of a page no chat or email profile labels (SCR-68): where a pull
+                // request, issue or deploy link points, without its query.
+                node.url = target
+                pageLinks += 1
+            }
+            // A checkbox, radio button or switch: its state, and its label if it has one (SCR-68).
+            if AXCapture.toggleRoles.contains(role) {
+                node.state = AXCapture.stateMark(role: role, subrole: subrole, value: element.number("AXValue"))
+                let title = element.string("AXTitle") ?? ""
+                node.text = title.isEmpty ? (element.string("AXDescription") ?? "") : title
+                chars += node.text.count
             }
 
             let wasInWebArea = insideWebArea
+            let wasInMain = insideMain
             if role == "AXWebArea" { insideWebArea = true }
-            defer { insideWebArea = wasInWebArea }
+            if subrole == "AXLandmarkMain" { insideMain = true }
+            defer { insideWebArea = wasInWebArea; insideMain = wasInMain }
             node.children = element.children().compactMap { self.node(for: $0, depth: depth + 1) }
             return node
         }
@@ -567,6 +626,8 @@ enum AXCapture {
                 node.children.forEach { visit($0) }
                 flush()
                 listDepth -= 1
+            case "AXCheckBox", "AXRadioButton", "AXSwitch":
+                toggle(node)
             case "AXLink", "AXButton":
                 let hasText = Self.containsText(node)
                 defer { if let url = node.url { showTarget(url) } }
@@ -597,6 +658,39 @@ enum AXCapture {
                 } else {
                     visitBlock(node)
                 }
+            }
+        }
+
+        /// "[x] Approve 4410": a control's state before its label. A control with no label of its
+        /// own (a task list's box) is put before the text that follows it, like a list marker.
+        private mutating func toggle(_ node: AXNode) {
+            guard let mark = node.state else { return visitBlock(node) }
+            let label = node.text.split(whereSeparator: \.isWhitespace).joined(separator: " ")
+            if !label.isEmpty, label.count <= 200 {
+                if markerOnly {
+                    if buffer.last?.isWhitespace == false { buffer += " " }
+                    buffer += "\(mark) \(label)"
+                    markerOnly = false
+                } else {
+                    flush()
+                    buffer = "\(mark) \(label)"
+                    startsWithMarker = true
+                }
+                flush()
+            } else if isMidLine {
+                buffer += " \(mark)"
+                node.children.forEach { visit($0) }
+            } else {
+                if markerOnly {
+                    if buffer.last?.isWhitespace == false { buffer += " " }
+                    buffer += "\(mark) "
+                } else {
+                    flush()
+                    buffer = "\(mark) "
+                    startsWithMarker = true
+                }
+                markerOnly = true
+                node.children.forEach { visit($0) }
             }
         }
 

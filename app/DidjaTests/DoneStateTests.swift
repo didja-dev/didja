@@ -1,0 +1,139 @@
+import XCTest
+@testable import Didja
+
+/// SCR-68: the states that say "done" — checkboxes, switches, radio buttons, notices, and where a
+/// link in a page's main content points. Every outline here is made up.
+final class DoneStateTests: XCTestCase {
+    private func lines(_ outline: String, app: String = "com.google.Chrome") throws -> [String] {
+        var limits = AXCapture.Limits()
+        limits.app = app
+        limits.profiles = Profiles.all
+        limits.skipFocusedInput = true
+        return AXCapture.read(root: try OutlineElement.parse(outline), title: "", appName: "", limits: limits).lines
+    }
+
+    func testCheckedAndUncheckedBoxesAreWrittenBeforeTheirLabels() throws {
+        let out = try lines("""
+        AXWindow title="Settings"
+         AXCheckBox title="Send a copy to Noa" value="1"
+         AXCheckBox title="Mark as urgent" value="0"
+         AXCheckBox desc="Include attachments" value="2"
+         AXRadioButton title="Weekly" value="1"
+         AXRadioButton title="Monthly" value="0"
+        """)
+        XCTAssertEqual(out, ["[x] Send a copy to Noa", "[ ] Mark as urgent", "[-] Include attachments", "[x] Weekly", "[ ] Monthly"])
+    }
+
+    func testASwitchIsOnOrOff() throws {
+        let out = try lines("""
+        AXWindow title="Repository settings"
+         AXCheckBox/AXSwitch title="Public" value="1"
+         AXCheckBox/AXSwitch title="Discussions" value="0"
+        """)
+        XCTAssertEqual(out, ["[on] Public", "[off] Discussions"])
+    }
+
+    func testATaskListBoxWithNoLabelGoesBeforeTheTextAfterIt() throws {
+        let out = try lines("""
+        AXWindow title="Weekly checklist"
+         AXWebArea url="https://notes.example.net/p/weekly" title="Weekly checklist"
+          AXList
+           AXGroup
+            AXCheckBox value="1"
+            AXStaticText value="Approve 4410"
+           AXGroup
+            AXCheckBox value="0"
+            AXStaticText value="Book the venue"
+          AXGroup
+           AXStaticText value="Remember the form"
+           AXCheckBox value="1"
+        """)
+        XCTAssertEqual(out, ["[x] Approve 4410", "[ ] Book the venue", "Remember the form [x]"])
+    }
+
+    func testACheckboxWithNoStateIsReadAsBefore() throws {
+        let out = try lines("""
+        AXWindow title="Form"
+         AXCheckBox title="Agree"
+         AXStaticText value="Next"
+        """)
+        XCTAssertEqual(out, ["Next"], "no value: nothing is made up")
+        XCTAssertEqual(AXCapture.stateMark(role: "AXCheckBox", subrole: "", value: nil), nil)
+        XCTAssertEqual(AXCapture.stateMark(role: "AXSwitch", subrole: "", value: 1), "[on]")
+    }
+
+    func testNothingIsReadFromASecureFieldNextToABox() throws {
+        let out = try lines("""
+        AXWindow title="Sign in"
+         AXTextField/AXSecureTextField value="hunter2"
+         AXCheckBox title="Remember me" value="1"
+        """)
+        XCTAssertEqual(out, ["[x] Remember me"])
+        XCTAssertFalse(out.joined().contains("hunter2"))
+    }
+
+    func testLinksInAPagesMainContentKeepWhereTheyPointWithoutTheQuery() throws {
+        var outline = """
+        AXWindow title="Deploys"
+         AXWebArea url="https://ci.example.com/acme/shop/deploys" title="Deploys"
+          AXGroup/AXLandmarkNavigation
+           AXLink url="https://ci.example.com/acme/shop/settings"
+            AXStaticText value="Settings"
+          AXGroup/AXLandmarkMain
+           AXGroup
+            AXStaticText value="Deploy "
+            AXLink url="https://ci.example.com/acme/shop/deploys/981?token=secret#logs"
+             AXStaticText value="981"
+            AXStaticText value=" is live"
+           AXLink url="https://ci.example.com/acme/shop/deploys#top"
+            AXStaticText value="Back to top"
+           AXLink url="mailto:sam@example.com"
+            AXStaticText value="Email Sam"
+        """
+        var out = try lines(outline)
+        XCTAssertEqual(out, ["Settings", "Deploy 981 ⟨https://ci.example.com/acme/shop/deploys/981⟩ is live", "Back to top", "Email Sam"],
+                       "main content only, no query or fragment, not a link within the page, web addresses only")
+        XCTAssertFalse(out.joined().contains("secret"))
+
+        // At most `maxPageLinkTargets` from one page.
+        outline = "AXWindow title=\"List\"\n AXWebArea url=\"https://ci.example.com/list\"\n  AXGroup/AXLandmarkMain\n"
+            + (1...30).map { "   AXGroup\n    AXLink url=\"https://ci.example.com/item/\($0)\"\n     AXStaticText value=\"Item \($0)\"" }.joined(separator: "\n")
+        out = try lines(outline)
+        XCTAssertEqual(out.filter { $0.contains("⟨") }.count, AXCapture.maxPageLinkTargets)
+    }
+
+    func testAChatOrEmailSiteKeepsItsOwnRulesForLinks() throws {
+        // Gmail has its own profile: its links are kept only in an email's body, as before.
+        let out = try lines("""
+        AXWindow title="Inbox"
+         AXWebArea url="https://mail.google.com/mail/u/0/#inbox" title="Inbox"
+          AXGroup/AXLandmarkMain
+           AXLink url="https://mail.google.com/mail/u/0/#settings"
+            AXStaticText value="Settings"
+        """)
+        XCTAssertFalse(out.joined().contains("⟨"))
+    }
+
+    func testNoticesAreShortLinesWrittenOncePerWindow() {
+        XCTAssertEqual(NoticeWatcher.notice(from: "  Message   sent "), "Message sent")
+        XCTAssertEqual(NoticeWatcher.notice(from: ["Pull request #42", "merged"]), "Pull request #42 merged")
+        XCTAssertNil(NoticeWatcher.notice(from: ["a", "b", "c"]), "a whole block is not a notice")
+        XCTAssertNil(NoticeWatcher.notice(from: String(repeating: "word ", count: 20)), "too long")
+        XCTAssertNil(NoticeWatcher.notice(from: "42"), "no words")
+        XCTAssertNil(NoticeWatcher.notice(from: "⟦Message 3⟧"), "never a section line")
+        XCTAssertEqual(NoticeWatcher.line("Saved"), "⟦Notice: Saved⟧")
+
+        var watcher = NoticeWatcher()
+        let t0 = Date(timeIntervalSince1970: 1_000_000)
+        XCTAssertEqual(watcher.fresh(windowKey: "w", notices: ["Saved", "Saved"], now: t0), ["Saved"])
+        XCTAssertEqual(watcher.fresh(windowKey: "w", notices: ["Saved"], now: t0.addingTimeInterval(5)), [])
+        XCTAssertEqual(watcher.fresh(windowKey: "other", notices: ["Saved"], now: t0.addingTimeInterval(5)), ["Saved"])
+        XCTAssertEqual(watcher.fresh(windowKey: "w", notices: ["Saved"], now: t0.addingTimeInterval(61)), ["Saved"])
+    }
+
+    func testDiagnosticsWriteABoxStateDown() throws {
+        let root = try OutlineElement.parse("AXWindow\n AXCheckBox title=\"Public\" value=\"1\"")
+        let copy = try XCTUnwrap(OutlineElement.copy(root))
+        XCTAssertEqual(copy.children()[0].number("AXValue"), 1)
+    }
+}
