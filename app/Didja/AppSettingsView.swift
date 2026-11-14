@@ -115,6 +115,8 @@ struct GeneralSettingsView: View {
     @State private var ollamaModels: [String]?
     /// "How Didja is doing" (SCR-73), read when the page opens.
     @State private var quality: QualityReport?
+    /// Export All Tasks (SCR-114): add the lines kept with open tasks. Off each time the page opens.
+    @State private var exportWithContext = false
 
     /// What the local model does, and how it stands on this Mac.
     private var localWords: String {
@@ -238,6 +240,15 @@ struct GeneralSettingsView: View {
                         reviewTimes.morning = time
                         DispatchQueue.global(qos: .userInitiated).async { DayReviewEngine.setTime("morning", time) }
                     }
+                }
+                row("Export all tasks", "Every task to a file you keep, in Markdown or JSON: its title, status, where it came from, dates and why. Tick the box to add the few lines kept with open tasks (screen text). Nothing is sent.") {
+                    Toggle("With kept lines", isOn: $exportWithContext).toggleStyle(.checkbox)
+                    Menu("Export…") {
+                        ForEach(TaskExport.Format.allCases) { format in
+                            Button(format.label) { TaskExport.save(format, withContext: exportWithContext) }
+                        }
+                    }
+                    .fixedSize()
                 }
             }
 

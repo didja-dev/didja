@@ -4,6 +4,11 @@ Choices made while building ScrolledAway, with the reason, so they are not re-ar
 
 ## 2026-11-14
 
+- **The export leaves out the kept lines unless you tick a box** (SCR-114): they are screen text, so a file you might share or sync holds only what Didja wrote (titles, dates, why) by default. The box is off each time Settings opens. Done and dismissed tasks have no kept lines to export, since they are deleted when a task closes.
+- **Everything else Didja holds stays out of the export** (SCR-114): observations, evidence rows, lessons, merge suggestions, Waiting On and the logs. The export is for your tasks; the rest is either deleted within a day or only means something to Didja.
+- **The engine writes the export file, not the app** (SCR-114): the app only picks the path, so the task rules and the sealed columns stay in one place, and `didja export` gives the same file without the app.
+- **"Future versions are MIT" is stated as the project's intent, without a contributor licence agreement** (SCR-114): MIT already lets anyone keep using every released version, which is the part that protects users.
+- **JSON carries `format: 1`, bumped only when a field changes meaning or goes away** (SCR-114), so something importing it can rely on fields it already reads.
 - **The comparison page says only what each product's own pages say, and says when it is silent** (SCR-113). No third-party reviews or press, even where they say more (on telemetry, say): a cell cites the maker's docs, read on a stated date, or reads "Not stated in the pages cited." Conflicting statements in one maker's docs are both given (Littlebird: reads text; captures an image of the window when it cannot, then deletes it).
 - **Didja's encryption cell claims exactly what is sealed** (SCR-113): captured screen text, with AES-256-GCM and the key in the Keychain, not "the whole database is encrypted", which it is not.
 - **No ratings, ticks or crosses on the comparison** (SCR-113): the products do different jobs (finding what you did, recording for your own tools, assistant context, open steps), so a score would be unfair; the page states each one's job and the facts. No logos, and only links out, so the page keeps the strict CSP.

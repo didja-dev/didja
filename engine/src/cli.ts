@@ -37,6 +37,7 @@ import { cleanCriteria, describeCriteria } from './donecriteria.ts';
 import type { CriteriaWriter, DoneCriteria } from './donecriteria.ts';
 import { JOBS, Store } from './store.ts';
 import { formatQuality, qualityReport } from './quality.ts';
+import { exportJson, exportMarkdown, exportTasks } from './export.ts';
 import { requiredMarkers } from './markers.ts';
 import type { Evidence, Job, Observation, Task, TaskNode, TaskStatus } from './store.ts';
 
@@ -46,6 +47,9 @@ const USAGE = `didja <command>
                       show what the capture layer has written (--tail follows live)
   tasks [--all] [--json]
                       show open tasks (--all includes done/dismissed)
+  export [md|json] [--context] [--out <file>]
+                      every task, to keep or move elsewhere (SCR-114): titles, status, source, dates, why;
+                      --context adds the lines kept with open tasks (screen text). Prints it, or writes <file>
   status              is capture running, and when did it last see something
   doctor [--json]     troubleshooting report: why Didja reads nothing or makes no tasks (counts only)
   first-run           what the Welcome's "Try it" step and the nudge show, as JSON (names and counts only)
@@ -591,6 +595,20 @@ async function main(argv: string[]): Promise<number> {
             console.log(`  ${a.id.padEnd(14)} ${a.kind.padEnd(8)} ${a.name}${a.status !== 'builtIn' ? ` (${a.status})` : ''} — ${where}`);
           }
         }
+        return 0;
+      }
+      case 'export': {
+        const format = args.find((a) => a === 'md' || a === 'json') ?? 'md';
+        const outAt = args.indexOf('--out');
+        const out = outAt >= 0 ? args[outAt + 1] : undefined;
+        if (outAt >= 0 && !out) {
+          console.error('usage: didja export [md|json] [--context] [--out <file>]');
+          return 1;
+        }
+        const data = exportTasks(store, { context: args.includes('--context') });
+        const text = format === 'json' ? exportJson(data) : exportMarkdown(data);
+        if (out) writeFile(out, text, { mode: 0o600 });
+        else process.stdout.write(text);
         return 0;
       }
       case 'tasks': {

@@ -222,6 +222,7 @@ struct PrivacyContent: View {
                     bullet("Forget Captured Text Now…", "Asks, then deletes all captured text at once. Tasks stay.")
                     bullet("Forget the Last Hour…", "Asks, then deletes captured text, kept lines and log lines from the last 60 minutes; nothing older. Tick the box to delete tasks captured in that hour too.")
                     bullet("Forget Everything Didja Learned…", "Asks, then deletes captured text and everything learned from it (corrections, done criteria, outcomes, trust, taught places, remembered verdicts, the Suggested tray, its logs). Tick the box to delete captured tasks too. Instructions you wrote stay.")
+                    bullet("Export All Tasks", "Settings › General writes every task to a Markdown or JSON file you choose. The lines kept with open tasks go in only if you tick the box. Nothing is sent.")
                     bullet("Dismiss", "Takes a task off your lists. It is still kept, under Dismissed.")
                     bullet("Fresh Start…", "Marks every open task done for a clear list. Nothing is deleted; Undo Fresh Start brings them back for a day.")
                     bullet("Siri", "\u{201C}Add to Didja\u{201D} puts what you say on My List. Siri is Apple's; Didja receives only the words.")

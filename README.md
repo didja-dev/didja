@@ -73,6 +73,10 @@ open app/build/Build/Products/Debug/Didja.app
 
 The project signs with the maintainer's Apple Development team. To build without that certificate, add `CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Automatic DEVELOPMENT_TEAM=` to the `xcodebuild` command. macOS will then ask for Accessibility again after every rebuild.
 
+## Your data outlives Didja
+
+The code is MIT and stays MIT. Didja needs no server and no account to work: the update check is optional, and if didja.dev went away Didja would keep working. Your tasks are in one SQLite file whose schema is in [`schema/`](schema), and **Export All Tasks** (Settings › General, or `didja export`) writes every task to a Markdown or JSON file you keep. The whole pledge: [docs/PLEDGE.md](docs/PLEDGE.md).
+
 ## Learn more
 
 - [docs/GUIDE.md](docs/GUIDE.md): every feature, keyboard shortcuts, the CLI and privacy in detail

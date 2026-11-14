@@ -6,6 +6,12 @@ Each entry says what changed, and what was **not verified** where that applies: 
 
 ## 2026-11-14
 
+### Export All Tasks, and a pledge that your data outlives Didja (SCR-114)
+- New: **Export All Tasks** in Settings › General › Tasks (**Export…** › Markdown or JSON, to a file you choose) and `didja export [md|json] [--context] [--out <file>]`. Every task, dismissed ones too: title (and captured title if renamed), status, checklist and parent, source kind and name, made / last seen / done / snoozed until / due, and why it is there. The lines kept with open tasks only with **With kept lines** / `--context`. Written 0600; nothing is sent.
+- New: `docs/PLEDGE.md`: the code stays MIT; Didja needs no server or account to work (the update check is optional); the data is one SQLite file with its schema in `schema/` and the sealed layout documented; how to export and how to read the database without Didja. Linked from the README ("Your data outlives Didja"), the GUIDE, Privacy's controls and a new FAQ entry on didja.dev.
+- Tests: `engine/test/export.test.ts` (6): every task with its fields; no screen text without context, and the kept lines with it (none for done tasks); JSON round-trips; Markdown by status and source with steps under checklists; an empty export; `didja export --out` writes a 0600 file and changes no task. `TaskExportTests` (3): the engine command, `--context` only when ticked, the file name.
+- Not verified: clicking Export in the running app and opening the saved file (the save panel needs a person); the site is not redeployed.
+
 ### A comparison page on didja.dev (SCR-113)
 - New: didja.dev/compare puts Didja next to Microsoft Recall, Screenpipe, ChatGPT Computer History and Littlebird on eight questions: screenshots stored, where processing happens, retention, what is sent, licence, encryption on disk, what it never reads, and whether it notices a task got done. Every cell cites that product's own documentation, read on 2026-11-14, listed under Sources; where the docs are silent the cell says so. Linked from the footer. The data is `site/src/compare.ts`.
 - Tests: `engine/test/compare.test.ts` (6): every cell cites a source of its own product, on that product's own sites (Didja's are files in this repository); the date is shown; no verdict words about other products; Didja's cells match the code (AES-256-GCM in `sealed.ts`, MIT, 24 hours, no screenshots, no analytics); the page loads nothing from another host and has no inline script or style.
