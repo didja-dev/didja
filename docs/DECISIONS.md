@@ -4,6 +4,10 @@ Choices made while building ScrolledAway, with the reason, so they are not re-ar
 
 ## 2026-11-14
 
+- **A task's reason names no one** (SCR-96): "Someone tagged or named you", not the sender's name. The source and the asker already show who; a reason that repeats names would be one more place holding them, against the rule that evidence is the engine's description, not screen text.
+- **The reason is stored, the band is not**: why a task was made is fixed at capture (and rewritten only when the model's verdict or your tick settles a list), but how sure Didja is follows the task's confidence, so it is read when shown.
+- **No back-fill**: tasks from before schema 30 have no reason, since the engine can no longer tell how they were decided.
+
 - **Suggestions are their own table, not tasks with a flag** (SCR-95): the task status has a fixed set of values, and every tick path reads tasks; a separate table makes "nothing in Suggested is ever ticked" true by construction, not by remembering a filter in each query.
 - **What is borderline today: a group chat message that names no one** (Everything). Emails, lists and direct messages have no borderline band yet, so Everything changes only group chats; commitments and meeting items come later on the same tray.
 - **Strict keeps one-to-one asks and leaves emails as Balanced**: a direct message and an email in your inbox are already put to you. Strict drops group "everyone" asks and lists the model had to judge, the two places capture guesses who something is for.

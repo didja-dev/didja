@@ -6,6 +6,13 @@ Each entry says what changed, and what was **not verified** where that applies: 
 
 ## 2026-11-14
 
+### Why a task was made, kept from the moment it is captured (SCR-96)
+- Every new task keeps one engine-written line saying why it is a task (schema 030 `tasks.captured_why`): a list handed to you by its wording, one the model judged yours, one no model could judge, one you settled by ticking a step, a command step, an email asking for a reply or an action, a chat ask (one-to-one, tagged or named, to every member, accepted from Suggested), your own tasks, a connection's item, a follow-up Didja added.
+- `didja why` starts with "Made: <why> · <how sure> · captured <when> from <where>"; the band (sure, possibly yours, checking whose it is) follows the task's confidence, so it changes when the model decides. The Full View's detail pane shows it (it shows `why`), and the Quick View shows the reason and band when you point at a row's title.
+- Reasons hold no screen text and no person's name: only the kind of source, the AI tool's or connection's name and how it was decided.
+- Tests: `engine/test/capturewhy.test.ts` (5): lists by wording with a command step; checking, then judged; no model; you ticked one while checking; email, the four chat paths, an accepted suggestion, your own and My List tasks, each with its reason and none holding a name or the message's words; the default by source and the bands; and on every benchmark scenario every captured task has a reason and none holds a line from the screen or a task's title. Swift: schema 30 bundled.
+- **Not verified:** the hover text in the live app. Tasks captured before this version have no reason; nothing is back-filled.
+
 ### Capture: Strict / Balanced / Everything, and a Suggested tray (SCR-95)
 - How It Decides… has a **Capture** picker, each level explained in place. **Balanced** (default) is unchanged. **Strict** leaves out group messages that only ask every member, and lists whose ownership the model had to judge. **Everything** asks the model about group messages that name no one, and keeps a yes in **Suggested**: a folded tray with a count under the Quick View's list, with Accept and × (Not an Action).
 - The engine owns the rule (`meta.capture_level`, `chatAudience`); suggestions live in their own table (schema 029 `suggestions`: the engine's title, where it came from, and what Accept needs; never the message), so they are never ticked, counted or nudged. They leave after 24 hours, or when you reply in that chat. CLI: `didja capture-level [strict|balanced|everything]`, `didja suggested [--json] | accept <id> | notanaction <id>`. The troubleshooting report counts "left out by Capture: Strict" and "kept in Suggested".

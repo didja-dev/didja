@@ -26,6 +26,7 @@ import { findSightings, isComplete, RUN_WINDOW_MS } from './match.ts';
 import { splitSession, terminalLines } from './terminal.ts';
 import type { Checklist, ChecklistItem } from './extract.ts';
 import type { Job, NewChecklist, NewNode, Observation, Outcome, PendingChatAsk, Store, Task, Teaching, TimingPath } from './store.ts';
+import { WHY } from './capturewhy.ts';
 import { CHECKING_CONFIDENCE, KEPT_KIND, KEPT_LIST, trustKey, TRUST_YES } from './store.ts';
 
 export interface PollStats {
@@ -138,6 +139,7 @@ export function addManualTask(store: Store, title: string, now: Date = new Date(
     title: clean,
     sourceKind: 'manual',
     sourceRef: MANUAL_SOURCE,
+    why: WHY.manual,
     confidence: 1,
     position: null,
     ts,
@@ -162,6 +164,7 @@ export function keepTask(store: Store, title: string, now: Date = new Date()): n
     title: clean.slice(0, 300),
     sourceKind: KEPT_KIND,
     sourceRef: KEPT_LIST,
+    why: WHY.kept,
     confidence: 1,
     position: null,
     ts,
@@ -455,11 +458,12 @@ function pass(store: Store, now: Date, options: PollOptions): PollStats {
         items: list.items.map(toNode),
         // One step is just a task (or, with sub-steps, its own checklist); it needs no parent around it.
         wrap: only === null,
+        why: !unclear ? WHY.listByWording(kind) : verdict === 'user' ? WHY.listJudged(kind) : WHY.listNoModel(kind),
       };
       if (unclear && verdict === null) {
         if (opts.judge || opts.judging) {
           // Shown at once as "checking…" while the model decides (SCR-78): greyed, not counted.
-          const shown = store.upsertChecklist({ ...checklist, confidence: CHECKING_CONFIDENCE });
+          const shown = store.upsertChecklist({ ...checklist, confidence: CHECKING_CONFIDENCE, why: WHY.listChecking(kind) });
           stats.newTasks += shown.created;
           drop(kind, 'checking');
           const slot = `${sourceRef(latest, kind)}\u0000${list.title ?? ''}`;
@@ -479,7 +483,10 @@ function pass(store: Store, now: Date, options: PollOptions): PollStats {
       const { rootId, created } = store.upsertChecklist(checklist);
       stats.newTasks += created;
       // Judged yours after it was kept as "maybe" (a model became available): no longer maybe.
-      if (verdict === 'user' && rootId !== null) store.unmarkMaybe(rootId, checklist.confidence, MAYBE_CONFIDENCE);
+      if (verdict === 'user' && rootId !== null) {
+        store.unmarkMaybe(rootId, checklist.confidence, MAYBE_CONFIDENCE);
+        store.setListWhy(rootId, WHY.listJudged(kind));
+      }
       // Steps Claude then carried out with its own tools are its, not yours: taken back, never ticked.
       if (transcript?.split) {
         const steps = list.items.flatMap(function all(i: ChecklistItem): ChecklistItem[] { return [i, ...i.children.flatMap(all)]; });
@@ -775,6 +782,7 @@ function readMail(
       sourceKind: 'email',
       sourceRef: mailbox,
       confidence: 1,
+      why: verdict.need === 'reply' ? WHY.emailReply : WHY.emailAction,
       position: null,
       ts: latest.ts,
       observationId: latest.id,
@@ -977,6 +985,7 @@ function readChat(
     const sentAt = chatTime(m.time, now);
     const ask: PendingChatAsk = {
       key, app, chat: m.chat, from: m.from, title, at: (sentAt ?? now).toISOString(), observationId: latest.id, ts: latest.ts,
+      why: audience === 'direct' ? WHY.chatDirect : audience === 'named' ? WHY.chatNamed : audience === 'everyone' ? WHY.chatEveryone : WHY.chatAccepted,
     };
     // Put to the group, naming nobody (Capture: Everything): a suggestion, never a task (SCR-95).
     if (audience === 'group') {
@@ -1018,6 +1027,7 @@ function addChatAsk(store: Store, ask: PendingChatAsk, now: Date): boolean {
     sourceKind: 'chat',
     sourceRef: chatSourceRef(ask.app, ask.chat),
     confidence: 1,
+    ...(ask.why ? { why: ask.why } : {}),
     position: null,
     ts: ask.ts,
     observationId: ask.observationId,
@@ -1312,7 +1322,7 @@ function addFollowUp(store: Store, task: Task, o: Observation | null, now: Date)
   if (siblings.some((t) => /\bredeploy\b/i.test(t.title))) return 0;
   const made = store.upsertTask({
     title: next.title, sourceKind: task.sourceKind, sourceRef: task.sourceRef, confidence: 1, position: null,
-    ts: now.toISOString(), observationId: o.id, markers: [], criteria: null, distinct: `follow-up ${next.place.id} ${task.sourceKind} ${task.sourceRef}`,
+    ts: now.toISOString(), observationId: o.id, markers: [], criteria: null, distinct: `follow-up ${next.place.id} ${task.sourceKind} ${task.sourceRef}`, why: WHY.followUp,
   });
   if (made.created) store.addNote(made.id, 'judged', now.toISOString(), `Added by Didja: ${task.title} was done on ${next.place.name}, which needs a redeploy before it is used`);
   return made.created ? 1 : 0;
@@ -1495,7 +1505,10 @@ function judgePending(store: Store, judge: Judge, now: Date): number {
           const { rootId } = store.upsertChecklist({ ...held.list, confidence: MAYBE_CONFIDENCE });
           // Shown as "checking…" until now (SCR-78): no model could say, so it is "maybe".
           const root = rootId ?? held.rootId ?? null;
-          if (root !== null) store.unmarkMaybe(root, MAYBE_CONFIDENCE, CHECKING_CONFIDENCE);
+          if (root !== null) {
+            store.unmarkMaybe(root, MAYBE_CONFIDENCE, CHECKING_CONFIDENCE);
+            store.setListWhy(root, WHY.listNoModel(held.list.sourceKind));
+          }
         }
       }
       store.clearPendingJudgement();
@@ -1520,8 +1533,11 @@ function applyVerdict(store: Store, list: PendingList, audience: 'user' | 'assis
     return;
   }
   if (list.list) {
-    const { rootId } = store.upsertChecklist(list.list);
-    if (rootId !== null) store.unmarkMaybe(rootId, list.list.confidence, MAYBE_CONFIDENCE);
+    const { rootId } = store.upsertChecklist({ ...list.list, why: WHY.listJudged(list.list.sourceKind) });
+    if (rootId !== null) {
+      store.unmarkMaybe(rootId, list.list.confidence, MAYBE_CONFIDENCE);
+      store.setListWhy(rootId, WHY.listJudged(list.list.sourceKind));
+    }
   } else if (list.rootId !== undefined) {
     store.unmarkMaybe(list.rootId, MIN_SHOWN_CONFIDENCE, MAYBE_CONFIDENCE);
   }
@@ -1546,9 +1562,11 @@ export function confirmChecking(store: Store, id: number, now: Date = new Date()
     store.saveJudgement(row.key, 'user', 'you', now);
     store.clearPendingJudgement(row.slot);
     store.unmarkMaybe(root, list.list?.confidence ?? MIN_SHOWN_CONFIDENCE, MAYBE_CONFIDENCE);
+    store.setListWhy(root, WHY.listYouTicked(task.sourceKind));
     return true;
   }
   store.unmarkMaybe(root, MIN_SHOWN_CONFIDENCE, MAYBE_CONFIDENCE);
+  store.setListWhy(root, WHY.listYouTicked(task.sourceKind));
   return true;
 }
 

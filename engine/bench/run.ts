@@ -90,6 +90,8 @@ export interface ScenarioResult {
   missed: number;
   wrongTicks: string[];
   wrongSuggestions: string[];
+  /** Why each task captured was made (SCR-96), as the engine wrote it; null where none was written. */
+  whys: (string | null)[];
   /** Asks left in the Suggested tray at the end (Capture: Everything, SCR-95); never tasks. */
   suggestedAsks: string[];
   /** Minutes from done to ticked, or to suggested, per task that was. */
@@ -195,12 +197,13 @@ export function runScenario(s: Scenario, opts: PollOptions = {}, model: ModelCho
   const speeds = store.timingsSince('').filter((t) => t.seenAt !== null)
     .map((t) => ({ what: speedKind(t), ms: Math.max(0, Date.parse(t.shownAt) - Date.parse(t.seenAt!)) }));
   const suggestedAsks = store.suggestions().map((x) => x.title);
+  const whys = store.listTasks({ all: true }).map((t) => t.capturedWhy ?? null);
   store.close();
   const result: ScenarioResult = {
     id: s.id, family: s.family, recognised: recognisedIn(s), expected: s.expect.tasks.length, captured: tasks.length, matched: 0, unwanted: [],
     takenBack: everything.filter((t) => t.status === 'dismissed').map((t) => t.title),
     followUps,
-    ticked: 0, suggested: 0, missed: 0, wrongTicks: [], wrongSuggestions: [], suggestedAsks, latencies: [], titles: tasks.map((t) => t.title), speeds,
+    ticked: 0, suggested: 0, missed: 0, wrongTicks: [], wrongSuggestions: [], suggestedAsks, whys, latencies: [], titles: tasks.map((t) => t.title), speeds,
   };
   const taken = new Set<number>();
   for (const want of s.expect.tasks) {

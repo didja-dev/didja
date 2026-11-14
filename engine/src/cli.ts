@@ -10,6 +10,7 @@ import { hookFiles, hookInstalled, installHook, readShellLog, removeHook } from 
 import { agentHookInstalled, appendAgentEvent, HOOK_TOOLS, installAgentHook, parseHookEvent, readAgentEvents, removeAgentHook, TOOLS } from './agenthooks.ts';
 import type { HookTool } from './agenthooks.ts';
 import { CAPTURE_LEVELS, DEFAULT_DB_PATH } from './store.ts';
+import { captureLine } from './capturewhy.ts';
 import type { CaptureLevel } from './store.ts';
 import { basename, dirname as dirOf, join as joinPath } from 'node:path';
 import { writeFileSync as writeFile } from 'node:fs';
@@ -307,6 +308,8 @@ export function findMailReader(local: () => string | null = () => null): MailRea
 
 export function formatWhy(task: Task, evidence: Evidence[], done: DoneCriteria | null = null): string {
   const lines = [`#${task.id} ${MARK[task.status]} ${task.title}`, `  from ${task.sourceRef}`];
+  const made = captureLine(task);
+  if (made) lines.push(`  Made: ${made}`);
   for (const note of evidence.filter((e) => e.kind === 'origin')) lines.push(`  ${note.detail}`);
   if (task.isGroup) {
     lines.push('  A checklist: done when none of its steps is left open. Ticking it ticks every open step.');

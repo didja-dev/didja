@@ -47,6 +47,17 @@ struct TaskItem: Identifiable, Equatable {
     var maybe = false
     /// Shown while the model decides whether its list is yours (SCR-78): greyed, not counted.
     var checking = false
+    /// Why it was made (SCR-96), as the engine wrote it at capture. Nil on tasks from before.
+    var capturedWhy: String? = nil
+    /// Kept while no model could judge its list (SCR-70): the same as the quiet tag the row draws.
+    var unjudged = false
+
+    /// The hover text for a row: why it was made and how sure Didja is (the engine's `why` has the rest).
+    var madeHelp: String? {
+        guard let capturedWhy else { return nil }
+        return "\(capturedWhy) · \(checking ? "checking whose it is" : unjudged ? "possibly yours" : "sure")"
+    }
+
 
     /// The confidence the engine writes on a "maybe" list (engine `MAYBE_CONFIDENCE`); every other
     /// list is stored above `maybeLimit`.

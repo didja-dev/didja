@@ -233,6 +233,7 @@ struct TaskRow: View {
                         .fixedSize(horizontal: false, vertical: true)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.top, 1)
+                        .help(item.madeHelp ?? "")
                         .onTapGesture(count: 2) { navigator.startRenaming(item) }
                         .onTapGesture {
                             let held = NSEvent.modifierFlags

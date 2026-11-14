@@ -31,6 +31,8 @@ import schema26 from '../../schema/026_timings.sql' with { type: 'text' };
 import schema27 from '../../schema/027_trust.sql' with { type: 'text' };
 import schema28 from '../../schema/028_troubleshooting.sql' with { type: 'text' };
 import schema29 from '../../schema/029_suggestions.sql' with { type: 'text' };
+import schema30 from '../../schema/030_capture_reason.sql' with { type: 'text' };
+import { defaultWhy, WHY } from './capturewhy.ts';
 import { contextLines } from './context.ts';
 import { parseCriteria } from './donecriteria.ts';
 import type { DoneCriteria } from './donecriteria.ts';
@@ -210,6 +212,8 @@ export interface Task {
   collapsed: boolean;
   /** True when the engine can tick this by itself. */
   auto: boolean;
+  /** Why it was made (SCR-96), written by the engine at capture; null on tasks from before. */
+  capturedWhy?: string | null;
 }
 
 /** A task with everything nested under it. */
@@ -247,6 +251,8 @@ export interface NewChecklist {
   items: NewNode[];
   /** False to store the items as they are, without a parent named after the list. */
   wrap?: boolean;
+  /** Why it was made (SCR-96); a command step adds that it is one. */
+  why?: string;
 }
 
 export interface NewTask {
@@ -267,6 +273,8 @@ export interface NewTask {
    * other; two people asking you to "confirm you got it" are two tasks.
    */
   distinct?: string;
+  /** Why it was made (SCR-96). Without one, a line from its kind of source. */
+  why?: string;
 }
 
 /** How a task looked where it was captured (SCR-31). */
@@ -289,6 +297,8 @@ export interface PendingChatAsk {
   at: string;
   observationId: number | null;
   ts: string;
+  /** Why it is an ask of yours (SCR-96). */
+  why?: string;
 }
 
 /** How eagerly asks become tasks (SCR-95). Ticking is the same at every level. */
@@ -421,6 +431,7 @@ interface TaskRow {
   suggested_at: string | null;
   collapsed: number;
   auto: number;
+  captured_why: string | null;
 }
 
 const SELECT_TASK = `
@@ -428,7 +439,7 @@ const SELECT_TASK = `
          t.custom_title, t.model_title, t.suggestion, t.suggested_at, t.accepted_from,
          t.collapsed, t.auto, t.source, s.kind AS source_kind, s.ref AS source_ref, t.criteria,
          t.markers, t.status, t.confidence, t.position, t.created_at, t.last_seen_at,
-         t.parent_id, t.is_group, t.done_at, t.snoozed_until
+         t.parent_id, t.is_group, t.done_at, t.snoozed_until, t.captured_why
   FROM tasks t JOIN sources s ON s.id = t.source`;
 
 function toObservation(r: ObservationRow): Observation {
@@ -471,6 +482,7 @@ function toTask(r: TaskRow): Task {
     suggestedAt: r.suggested_at,
     collapsed: r.collapsed === 1,
     auto: r.auto === 1,
+    capturedWhy: r.captured_why,
   };
 }
 
@@ -502,7 +514,7 @@ export class Store {
     // The app migrates the same file. Take the write lock first so only one side runs each step.
     this.db.transaction(() => {
       const { user_version } = this.db.query('PRAGMA user_version').get() as { user_version: number };
-      [schema1, schema2, schema3, schema4, schema5, schema6, schema7, schema8, schema9, schema10, schema11, schema12, schema13, schema14, schema15, schema16, schema17, schema18, schema19, schema20, schema21, schema22, schema23, schema24, schema25, schema26, schema27, schema28, schema29].forEach((sql, i) => {
+      [schema1, schema2, schema3, schema4, schema5, schema6, schema7, schema8, schema9, schema10, schema11, schema12, schema13, schema14, schema15, schema16, schema17, schema18, schema19, schema20, schema21, schema22, schema23, schema24, schema25, schema26, schema27, schema28, schema29, schema30].forEach((sql, i) => {
         if (user_version < i + 1) this.db.exec(sql);
       });
     }).immediate();
@@ -784,10 +796,11 @@ export class Store {
       const source = this.sourceId(input.sourceKind, input.sourceRef);
       const info = this.db
         .query(
-          `INSERT INTO tasks (title, source, confidence, dedupe_key, position, markers, criteria, auto, created_at, last_seen_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO tasks (title, source, confidence, dedupe_key, position, markers, criteria, auto, created_at, last_seen_at, captured_why)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         )
-        .run(input.title, source, input.confidence, all.some((c) => c.dedupe_key === key) ? scoped : key, input.position, markers, criteria, auto, input.ts, input.ts);
+        .run(input.title, source, input.confidence, all.some((c) => c.dedupe_key === key) ? scoped : key, input.position, markers, criteria, auto, input.ts, input.ts,
+          input.why ?? defaultWhy(input.sourceKind, input.sourceRef));
       const id = Number(info.lastInsertRowid);
       this.db
         .query('INSERT INTO evidence (task_id, observation_id, ts) VALUES (?, ?, ?)')
@@ -821,6 +834,20 @@ export class Store {
       .run(rootId, confidence, maybe);
   }
 
+  /**
+   * A list's reason changed (SCR-96): the model judged it, or you ticked a step while it was being
+   * checked. Every task under `rootId` takes the new reason; a command step keeps saying it is one.
+   */
+  setListWhy(rootId: number, why: string): void {
+    this.db
+      .query(
+        `WITH RECURSIVE tree(id) AS (SELECT ?1 UNION ALL SELECT t.id FROM tasks t JOIN tree ON t.parent_id = tree.id)
+         UPDATE tasks SET captured_why = ?2 || CASE WHEN markers LIKE '%"kind":"command"%' THEN ?3 ELSE '' END
+         WHERE id IN (SELECT id FROM tree)`,
+      )
+      .run(rootId, why, WHY.commandStep);
+  }
+
   upsertChecklist(list: NewChecklist): { rootId: number | null; created: number } {
     return this.db.transaction(() => {
       let created = 0;
@@ -828,10 +855,11 @@ export class Store {
         const source = this.sourceId(list.sourceKind, list.sourceRef);
         const info = this.db
           .query(
-            `INSERT INTO tasks (title, source, confidence, dedupe_key, position, is_group, created_at, last_seen_at)
-             VALUES (?, ?, ?, ?, ?, 1, ?, ?)`,
+            `INSERT INTO tasks (title, source, confidence, dedupe_key, position, is_group, created_at, last_seen_at, captured_why)
+             VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?)`,
           )
-          .run(title, source, list.confidence, `group ${crypto.randomUUID()}`, position, list.ts, list.ts);
+          .run(title, source, list.confidence, `group ${crypto.randomUUID()}`, position, list.ts, list.ts,
+            list.why ?? defaultWhy(list.sourceKind, list.sourceRef));
         const id = Number(info.lastInsertRowid);
         this.notePlace(id, list.observationId);
         return id;
@@ -851,6 +879,7 @@ export class Store {
             title: node.title, position: node.position, markers: node.markers, criteria: node.criteria,
             sourceKind: list.sourceKind, sourceRef: list.sourceRef, confidence: list.confidence,
             ts: list.ts, observationId: list.observationId,
+            why: (list.why ?? defaultWhy(list.sourceKind, list.sourceRef)) + (node.markers?.some((m) => m.kind === 'command') ? WHY.commandStep : ''),
           });
           if (leaf.created) created++;
           return { id: leaf.id, parentId: leaf.parentId };
@@ -1664,17 +1693,17 @@ export class Store {
   addPendingChatAsk(p: PendingChatAsk, now: Date): void {
     this.db
       .query(
-        `INSERT OR IGNORE INTO chat_pending (key, app, chat, sender, title, at, observation_id, ts, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT OR IGNORE INTO chat_pending (key, app, chat, sender, title, at, observation_id, ts, created_at, why)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
-      .run(p.key, p.app, p.chat, p.from, p.title, p.at, p.observationId, p.ts, now.toISOString());
+      .run(p.key, p.app, p.chat, p.from, p.title, p.at, p.observationId, p.ts, now.toISOString(), p.why ?? null);
   }
 
   /** Asks sent at least `waitMs` ago, oldest first. */
   duePendingChatAsks(now: Date, waitMs: number): PendingChatAsk[] {
     return this.db
       .query(
-        `SELECT key, app, chat, sender AS "from", title, at, observation_id AS observationId, ts FROM chat_pending
+        `SELECT key, app, chat, sender AS "from", title, at, observation_id AS observationId, ts, why FROM chat_pending
          WHERE at <= ? ORDER BY at, key`,
       )
       .all(new Date(now.getTime() - waitMs).toISOString()) as PendingChatAsk[];
