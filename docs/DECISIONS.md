@@ -4,6 +4,10 @@ Choices made while building ScrolledAway, with the reason, so they are not re-ar
 
 ## 2026-11-14
 
+- **Resource use is measured in the background, on whatever the Mac shows** (SCR-110), not against made-up windows the script opens: opening and cycling windows would take focus from the person at the Mac. The script only reads process statistics and file sizes; the published numbers say the session was ordinary work and name the machine and build.
+- **The first published numbers are from the Debug build** (SCR-110), because that is what runs on the development Mac; they say so, and the release checklist re-measures with each release.
+- **CPU is reported as a share of one core**, as Activity Monitor does, so 14% means about a seventh of one core, not of the whole Mac.
+
 - **Answered in another app needs the same object, not just the same kind of action** (SCR-109). A merge suggestion may pair two asks by action (sign, pay); here a reply would make a "looks done?" for any later message to that person with a common verb, so only a shared id, file, amount or link counts.
 - **Only another app** (SCR-109): within the same app the existing reply rules decide (a reply in the same chat or email conversation), and they are stricter about position and time.
 - **A waiting item is marked, not closed** (SCR-109): a message about the same invoice from that person in another app may still be "not yet" ("INV-2041 is coming Monday"). It stays in the tray with "Answered?" until you say Got it; the hint keeps no message text, only the first name, the app, the time and the object the title already names.

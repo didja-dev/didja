@@ -6,6 +6,12 @@ Each entry says what changed, and what was **not verified** where that applies: 
 
 ## 2026-11-14
 
+### Measured CPU, energy, memory and disk use (SCR-110)
+- New: `scripts/measure.ts` (`bun scripts/measure.ts`, `--hour`, `--minutes`, `--every`) watches the running app and engine: CPU median and p95 from cumulative CPU time, energy impact from `top`, resident memory, and growth of the database and logs. Only process statistics and file sizes; it never reads the database or logs and never touches the screen.
+- New: `docs/PERFORMANCE.md` with the first numbers (Apple M5 Pro, Debug build, 10 min): app 14.1% of one core median, 93 MB; engine 0.5%, 242 MB; database growing 11.5 MB an hour. Summary in the README and an FAQ entry on didja.dev. `scripts/release.sh` notes re-running it each release.
+- Tests: `engine/test/measure.test.ts` (4) for the arithmetic: CPU time parsing, per-interval CPU, percentiles, growth an hour, the report.
+- Not verified: a Release build, a full hour, or with Ollama on. The site is not redeployed by this change.
+
 ### Asks and Waiting On answered in another app: asked, never ticked (SCR-109)
 - Your email (or one-to-one chat message) to the same person, in a different app from their ask, naming the same thing (an id, a file, an amount, a link) makes that task show "Looks done? you wrote to Dana in Microsoft Outlook about INV-2041". A message from someone you wait on, in another app, naming the thing you asked for marks the Waiting On row "Answered? Dana wrote in Microsoft Outlook at 09:45 about INV-2041"; Got it closes it. `didja waiting` and `waiting why` show it.
 - Never a tick or a close on its own: skipped by "accept looks done" and not reached by trusted places; "Not yet" stops that place asking again.

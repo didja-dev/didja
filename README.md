@@ -43,6 +43,10 @@ It reads your screen, so it never sends any of it anywhere.
 
 The only network traffic is the daily update check (its version only) and, if you connect them, your task tools. If you turn on Let My Own Claude Read Didja, what your Claude reads (masked) goes to your AI provider. **Settings › Privacy** in the app shows what is read, what is kept and where, with the live state of each. The full detail is in [docs/GUIDE.md](docs/GUIDE.md#privacy).
 
+## What it costs your Mac
+
+Measured on an Apple M5 Pro (Debug build, 10 minutes of ordinary work): the app uses about 14% of one core and 93 MB of memory, the engine under 1% and about 250 MB. The database grows about 11.5 MB an hour and levels off, because captured text is deleted after a day. Method, all the numbers and how to measure your own Mac: [docs/PERFORMANCE.md](docs/PERFORMANCE.md).
+
 ## Build from source
 
 You need Xcode 16+ and [Bun](https://bun.sh).
