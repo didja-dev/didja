@@ -17,6 +17,8 @@ import type { CaptureLevel } from './store.ts';
 import { basename, dirname as dirOf, join as joinPath } from 'node:path';
 import { writeFileSync as writeFile } from 'node:fs';
 import { localField, localModelOf, setLocalModel } from './localmodel.ts';
+import { REMINDER_SOURCES, remindersPlan, remindersSettings, remindersWritten, setRemindersSettings } from './reminders.ts';
+import type { ReminderSource, RemindersWritten, SeenReminder } from './reminders.ts';
 import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { acceptSuggestion, addManualTask, confirmChecking, keepFromScreen, keepTask, lookAgainAt, myNames, namesOf, pollOnce, runLoop, Waker } from './engine.ts';
@@ -46,6 +48,8 @@ const USAGE = `didja <command>
 
   observations [--tail] [--full] [-n <count>]
                       show what the capture layer has written (--tail follows live)
+  reminders status|on|off|list|sources|who|plan|written
+                      Apple Reminders, opt-in (plan and written read JSON from the app)
   tasks [--all] [--json]
                       show open tasks (--all includes done/dismissed)
   export [md|json] [--context] [--out <file>]
@@ -491,6 +495,62 @@ async function main(argv: string[]): Promise<number> {
           return 0;
         }
         console.error('usage: didja local-model [status [--json] | on <model> | off]');
+        return 1;
+      }
+      case 'reminders': {
+        // Apple Reminders (SCR-121): the app reads and writes Reminders; the rules are here.
+        const sub = args[0];
+        if (sub === 'status') {
+          const s = remindersSettings(store);
+          const links = store.reminderLinks().length;
+          console.log(args.includes('--json') ? JSON.stringify({ ...s, written: links })
+            : `${s.on ? 'On' : 'Off'}: list "${s.list}", ${s.sources.join(', ') || 'nothing'}${s.who ? ', with who asked' : ''}; ${links} written`);
+          return 0;
+        }
+        if (sub === 'on' || sub === 'off') {
+          setRemindersSettings(store, { on: sub === 'on' });
+          console.log(sub === 'on' ? 'New tasks go to Apple Reminders.' : 'Nothing more goes to Apple Reminders.');
+          return 0;
+        }
+        if (sub === 'list' && args[1]?.trim()) {
+          console.log(`List: ${setRemindersSettings(store, { list: args.slice(1).join(' ') }).list}`);
+          return 0;
+        }
+        if (sub === 'sources' && args[1]) {
+          const asked = args[1] === 'all' ? [...REMINDER_SOURCES] : args[1] === 'none' ? [] : args[1].split(',');
+          if (!asked.every((x) => (REMINDER_SOURCES as readonly string[]).includes(x))) {
+            console.error(`usage: didja reminders sources all|none|${REMINDER_SOURCES.join(',')}`);
+            return 1;
+          }
+          console.log(`Sources: ${setRemindersSettings(store, { sources: asked as ReminderSource[] }).sources.join(', ') || 'none'}`);
+          return 0;
+        }
+        if (sub === 'who' && (args[1] === 'on' || args[1] === 'off')) {
+          setRemindersSettings(store, { who: args[1] === 'on' });
+          console.log(args[1] === 'on' ? 'Reminders say who asked.' : 'Reminders hold the title only.');
+          return 0;
+        }
+        if (sub === 'plan' || sub === 'written') {
+          const input = await new Response(Bun.stdin.stream()).text();
+          let body: unknown;
+          try {
+            body = JSON.parse(input || '{}');
+          } catch {
+            console.error('reminders: the input is not JSON');
+            return 1;
+          }
+          if (sub === 'written') {
+            remindersWritten(store, body as RemindersWritten);
+            return 0;
+          }
+          const seen = (body as { reminders?: unknown }).reminders;
+          const list = Array.isArray(seen)
+            ? seen.filter((r): r is SeenReminder => !!r && typeof r.id === 'string' && typeof r.completed === 'boolean')
+            : null;
+          console.log(JSON.stringify(remindersPlan(store, list)));
+          return 0;
+        }
+        console.error('usage: didja reminders status [--json] | on | off | list <name> | sources <all|none|list> | who on|off | plan | written');
         return 1;
       }
       case 'mcp': {

@@ -35,6 +35,7 @@ import schema30 from '../../schema/030_capture_reason.sql' with { type: 'text' }
 import schema31 from '../../schema/031_due.sql' with { type: 'text' };
 import schema32 from '../../schema/032_waiting.sql' with { type: 'text' };
 import schema33 from '../../schema/033_waiting_hint.sql' with { type: 'text' };
+import schema34 from '../../schema/034_reminders.sql' with { type: 'text' };
 import { dayOf } from './due.ts';
 import { isSealed, keyFromEnv, seal, tightenModes, unseal } from './sealed.ts';
 import { defaultWhy, WHY } from './capturewhy.ts';
@@ -227,6 +228,15 @@ export interface Task {
   capturedWhy?: string | null;
   /** The day it is due (SCR-97), "YYYY-MM-DD", read from the ask; null when none was named. */
   dueAt?: string | null;
+}
+
+/** A task Didja wrote to Apple Reminders (SCR-121). */
+export interface ReminderLink {
+  taskId: number;
+  reminderId: string;
+  writtenAt: string;
+  /** The state both sides last agreed on. */
+  synced: 'open' | 'done';
 }
 
 /** A task with everything nested under it. */
@@ -582,7 +592,7 @@ export class Store {
     // The app migrates the same file. Take the write lock first so only one side runs each step.
     this.db.transaction(() => {
       const { user_version } = this.db.query('PRAGMA user_version').get() as { user_version: number };
-      [schema1, schema2, schema3, schema4, schema5, schema6, schema7, schema8, schema9, schema10, schema11, schema12, schema13, schema14, schema15, schema16, schema17, schema18, schema19, schema20, schema21, schema22, schema23, schema24, schema25, schema26, schema27, schema28, schema29, schema30, schema31, schema32, schema33].forEach((sql, i) => {
+      [schema1, schema2, schema3, schema4, schema5, schema6, schema7, schema8, schema9, schema10, schema11, schema12, schema13, schema14, schema15, schema16, schema17, schema18, schema19, schema20, schema21, schema22, schema23, schema24, schema25, schema26, schema27, schema28, schema29, schema30, schema31, schema32, schema33, schema34].forEach((sql, i) => {
         if (user_version < i + 1) this.db.exec(sql);
       });
     }).immediate();
@@ -2736,6 +2746,32 @@ export class Store {
     } catch {
       return [];
     }
+  }
+
+  // --- Apple Reminders (SCR-121)
+
+  /** Every task Didja wrote to Reminders, with the reminder it wrote and the state both last agreed on. */
+  reminderLinks(): ReminderLink[] {
+    return (this.db.query('SELECT task_id, reminder_id, written_at, synced FROM reminder_links ORDER BY task_id').all() as
+      { task_id: number; reminder_id: string; written_at: string; synced: string }[])
+      .map((r) => ({ taskId: r.task_id, reminderId: r.reminder_id, writtenAt: r.written_at, synced: r.synced === 'done' ? 'done' : 'open' }));
+  }
+
+  /** Remember the reminder written for a task. False when the task is gone or already has one. */
+  linkReminder(taskId: number, reminderId: string, now: Date = new Date()): boolean {
+    if (!this.getTask(taskId)) return false;
+    const r = this.db
+      .query("INSERT OR IGNORE INTO reminder_links (task_id, reminder_id, written_at, synced) VALUES (?, ?, ?, 'open')")
+      .run(taskId, reminderId, now.toISOString());
+    return r.changes > 0;
+  }
+
+  setReminderSynced(taskId: number, synced: 'open' | 'done'): void {
+    this.db.query('UPDATE reminder_links SET synced = ? WHERE task_id = ?').run(synced, taskId);
+  }
+
+  unlinkReminder(taskId: number): void {
+    this.db.query('DELETE FROM reminder_links WHERE task_id = ?').run(taskId);
   }
 
   // --- engine state
