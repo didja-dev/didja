@@ -26,6 +26,7 @@ import type { PollOptions } from '../src/engine.ts';
 import { SPEED_KINDS, SPEED_TARGET_MS, percentiles, seconds, speedKind } from '../src/quality.ts';
 import type { Percentiles, SpeedKind } from '../src/quality.ts';
 import { Store } from '../src/store.ts';
+import type { CaptureLevel } from '../src/store.ts';
 
 /** One observation as capture writes it: the new lines of one window, with its ⟦…⟧ section lines. */
 export interface Step {
@@ -89,6 +90,8 @@ export interface ScenarioResult {
   missed: number;
   wrongTicks: string[];
   wrongSuggestions: string[];
+  /** Asks left in the Suggested tray at the end (Capture: Everything, SCR-95); never tasks. */
+  suggestedAsks: string[];
   /** Minutes from done to ticked, or to suggested, per task that was. */
   latencies: number[];
   titles: string[];
@@ -146,8 +149,9 @@ const matches = (title: string, words: string[]) => {
   return words.every((w) => t.includes(w.toLowerCase()));
 };
 
-export function runScenario(s: Scenario, opts: PollOptions = {}, model: ModelChoice = 'none'): ScenarioResult {
+export function runScenario(s: Scenario, opts: PollOptions = {}, model: ModelChoice = 'none', level?: CaptureLevel): ScenarioResult {
   const store = new Store(':memory:');
+  if (level) store.setCaptureLevel(level);
   // The fake clock inside a pass: it moves only when a model is asked (SCR-75).
   let spent = 0;
   store.clock = () => spent;
@@ -190,12 +194,13 @@ export function runScenario(s: Scenario, opts: PollOptions = {}, model: ModelCho
   const followUps = store.listTasks({ all: true }).filter((t) => added.has(t.id)).map((t) => t.title);
   const speeds = store.timingsSince('').filter((t) => t.seenAt !== null)
     .map((t) => ({ what: speedKind(t), ms: Math.max(0, Date.parse(t.shownAt) - Date.parse(t.seenAt!)) }));
+  const suggestedAsks = store.suggestions().map((x) => x.title);
   store.close();
   const result: ScenarioResult = {
     id: s.id, family: s.family, recognised: recognisedIn(s), expected: s.expect.tasks.length, captured: tasks.length, matched: 0, unwanted: [],
     takenBack: everything.filter((t) => t.status === 'dismissed').map((t) => t.title),
     followUps,
-    ticked: 0, suggested: 0, missed: 0, wrongTicks: [], wrongSuggestions: [], latencies: [], titles: tasks.map((t) => t.title), speeds,
+    ticked: 0, suggested: 0, missed: 0, wrongTicks: [], wrongSuggestions: [], suggestedAsks, latencies: [], titles: tasks.map((t) => t.title), speeds,
   };
   const taken = new Set<number>();
   for (const want of s.expect.tasks) {

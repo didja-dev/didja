@@ -76,6 +76,34 @@ struct TaughtLesson: Codable, Identifiable, Equatable {
 
 /// The teaching window's state: your instructions per job and your corrections.
 /// Reads and writes through the engine, which owns them.
+/// How eagerly asks become tasks (SCR-95). The engine owns the rule (`meta.capture_level`);
+/// ticking is the same at every level.
+enum CaptureLevel: String, CaseIterable, Identifiable {
+    case strict, balanced, everything
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .strict: return "Strict"
+        case .balanced: return "Balanced"
+        case .everything: return "Everything"
+        }
+    }
+
+    /// What the level does, and what it changes from Balanced.
+    var explanation: String {
+        switch self {
+        case .strict:
+            return "Only asks put to you: a one-to-one message, a group message that names or tags you, and steps an AI tool's own words hand to you. Changes from Balanced: no tasks from group messages asking every member, and no lists the model had to judge (greyed, or \"checking…\")."
+        case .balanced:
+            return "What Didja has always done: asks put to you, group messages asking every member, and lists the model judges to be yours. Nothing is suggested."
+        case .everything:
+            return "Balanced, plus a group message that names no one but reads as an ask goes to Suggested, folded under your list. A suggestion is never ticked, never counted and never nudges; Accept makes it a task, and it leaves by itself after 24 hours."
+        }
+    }
+}
+
 final class BrainModel: ObservableObject {
     /// Your saved instructions; a job missing here uses the built-in ones.
     @Published private(set) var saved: [ModelJob: String] = [:]
@@ -84,6 +112,8 @@ final class BrainModel: ObservableObject {
     @Published private(set) var lessons: [TaughtLesson] = []
     @Published private(set) var places: [TaughtPlace] = []
     @Published private(set) var error: String?
+    /// Capture (SCR-95), as the engine has it.
+    @Published private(set) var captureLevel: CaptureLevel = .balanced
 
     private let fetch: () -> String?
     private let run: ([String], String?) -> Bool
@@ -100,6 +130,17 @@ final class BrainModel: ObservableObject {
         var jobs: [String: String?]
         var lessons: [TaughtLesson]
         var places: [TaughtPlace]?
+        var captureLevel: String?
+    }
+
+    /// Capture: tells the engine, which keeps the choice, then reads it back.
+    func setCaptureLevel(_ level: CaptureLevel) {
+        guard level != captureLevel else { return }
+        if run(["capture-level", level.rawValue], nil) {
+            captureLevel = level
+        } else {
+            error = "Could not change Capture."
+        }
     }
 
     func reload() {
@@ -114,6 +155,7 @@ final class BrainModel: ObservableObject {
         saved = mine
         lessons = shown.lessons
         places = shown.places ?? []
+        captureLevel = shown.captureLevel.flatMap(CaptureLevel.init(rawValue:)) ?? .balanced
         drafts = Dictionary(uniqueKeysWithValues: ModelJob.allCases.map { ($0, mine[$0] ?? $0.builtIn) })
         error = nil
     }
@@ -219,6 +261,7 @@ struct BrainContent: View {
                     Text(error).font(.callout).foregroundStyle(Palette.attention)
                 }
             }
+            captureSection
             ForEach(ModelJob.allCases) { job in
                 jobSection(job)
             }
@@ -228,6 +271,30 @@ struct BrainContent: View {
         .background(Palette.surface)
         .sheet(item: $proposing) { job in
             ProposalView(proposal: model.proposal(for: job), close: { proposing = nil })
+        }
+    }
+
+    /// Capture (SCR-95): how eagerly asks become tasks, each level explained in place.
+    private var captureSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Text("Capture").font(.headline)
+                Spacer()
+                Picker("", selection: Binding(get: { model.captureLevel }, set: { model.setCaptureLevel($0) })) {
+                    ForEach(CaptureLevel.allCases) { Text($0.label).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .fixedSize()
+            }
+            Text("How eagerly asks become tasks. Ticking is the same at every level.")
+                .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            ForEach(CaptureLevel.allCases) { level in
+                (Text(level.label).fontWeight(level == model.captureLevel ? .semibold : .medium)
+                    + Text(level == model.captureLevel ? " (on)" : "") + Text(" — ") + Text(level.explanation).foregroundColor(.secondary))
+                    .font(.callout)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
     }
 

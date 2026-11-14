@@ -33,6 +33,9 @@ struct TaskActions {
     var goToSource: (TaskItem) -> Void = { _ in }
     /// Add a task of your own, with this title (SCR-29).
     var add: (String) -> Void = { _ in }
+    /// The Suggested tray (SCR-95): make a suggestion a task, or teach that it was not an action.
+    var acceptSuggestion: (SuggestedAsk) -> Void = { _ in }
+    var dismissSuggestion: (SuggestedAsk) -> Void = { _ in }
     /// How it looked where it was captured, while it is open (SCR-31). Nil when not kept.
     var context: (TaskItem) -> TaskContext? = { _ in nil }
     /// The canvases there are, and sending tasks to one (nil: a new one) (SCR-49).
@@ -595,6 +598,9 @@ struct PopoverTaskList: View {
     var toggleRecentlyDone: (() -> Void)?
     /// What the search field holds: only what mentions it is listed.
     var query = ""
+    /// The Suggested tray (SCR-95), folded under the list. Empty unless Capture is Everything.
+    var suggestions: [SuggestedAsk] = []
+    @State private var showsSuggestions = false
 
     var body: some View {
         let narrowed = !TaskBoard.needle(query).isEmpty
@@ -603,6 +609,9 @@ struct PopoverTaskList: View {
                          navigator: navigator,
                          emptyText: narrowed ? "Nothing waiting for you mentions that." : "Nothing hanging. Nice.",
                          allowsTickAll: !narrowed)
+            if !suggestions.isEmpty && !narrowed {
+                SuggestedTray(suggestions: suggestions, expanded: $showsSuggestions, actions: actions)
+            }
             let done = board.recentlyDone(matching: query)
             if !done.isEmpty {
                 VStack(alignment: .leading, spacing: 1) {
@@ -630,6 +639,59 @@ struct PopoverTaskList: View {
         }
         // Ticks land, rows fold and leave: let the list move instead of jumping.
         .animation(.easeInOut(duration: 0.25), value: board)
+    }
+}
+
+/// One borderline ask in the Suggested tray (SCR-95), as the engine wrote it.
+struct SuggestedAsk: Identifiable, Equatable {
+    var id: Int
+    var title: String
+    var source: String
+}
+
+/// The Suggested tray (SCR-95): folded, with a count. Never nudges, never counted as open, never
+/// ticked. Accept makes a suggestion a task; Not an Action takes it away and teaches the model.
+struct SuggestedTray: View {
+    let suggestions: [SuggestedAsk]
+    @Binding var expanded: Bool
+    let actions: TaskActions
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Button { expanded.toggle() } label: {
+                HStack(spacing: 5) {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 8, weight: .bold))
+                        .rotationEffect(.degrees(expanded ? 90 : 0))
+                    Text("Suggested").font(.caption.weight(.medium))
+                    Text("\(suggestions.count)").font(.caption).monospacedDigit()
+                }
+                .foregroundStyle(.secondary)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help(expanded ? "Fold away" : "Asks Didja was not sure were for you (Capture: Everything). Accept one to make it a task.")
+            if expanded {
+                ForEach(suggestions) { s in
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(s.title).font(.callout).lineLimit(2)
+                            Text(s.source).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+                        }
+                        Spacer(minLength: 6)
+                        Button("Accept") { actions.acceptSuggestion(s) }
+                            .buttonStyle(DidjaButtonStyle(kind: .secondary, size: .small))
+                            .help("Make it a task")
+                        Button { actions.dismissSuggestion(s) } label: { Image(systemName: "xmark") }
+                            .buttonStyle(.plain)
+                            .foregroundStyle(.secondary)
+                            .help("Not an Action: take it away, and never suggest it again")
+                            .accessibilityLabel("Not an Action")
+                    }
+                    .padding(.leading, 13)
+                }
+            }
+        }
     }
 }
 
@@ -762,7 +824,8 @@ struct PopoverView: View {
             // own asks for no height at all there. So measure the list and say how tall to be.
             KeyboardScrollView(navigator: navigator) {
                 PopoverTaskList(board: capture.tasks, actions: actions, navigator: navigator,
-                                toggleRecentlyDone: { capture.showsRecentlyDone.toggle() }, query: navigator.query)
+                                toggleRecentlyDone: { capture.showsRecentlyDone.toggle() }, query: navigator.query,
+                                suggestions: capture.suggestions)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 8)
                     .background(GeometryReader { proxy in

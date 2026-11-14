@@ -97,6 +97,8 @@ final class CaptureCoordinator: ObservableObject {
     var onObservation: (() -> Void)?
     @Published private(set) var status: Status = .starting
     @Published private(set) var observationCount = 0
+    /// The Suggested tray (SCR-95): asks kept with Capture: Everything. Not tasks.
+    @Published private(set) var suggestions: [SuggestedAsk] = []
     /// What the engine says about the first run (SCR-89): apps being read, the first list, the nudge.
     @Published private(set) var firstRun: FirstRunStatus?
     /// Tasks the engine has found, for the menu. Read-only here.
@@ -402,8 +404,10 @@ final class CaptureCoordinator: ObservableObject {
                   let tasks = try? store.tasks()
             else { return }
             let firstRun = FirstRunStatus.decode((try? store.meta(FirstRunStatus.key)) ?? nil)
+            let suggestions = (try? store.suggestions()) ?? []
             DispatchQueue.main.async {
                 self.observationCount = count
+                if self.suggestions != suggestions { self.suggestions = suggestions }
                 if self.firstRun != firstRun { self.firstRun = firstRun }
                 let lingering = TaskBoard.lingering(in: tasks, now: Date())
                 if self.tasks.tasks != tasks || self.tasks.lingering != lingering {

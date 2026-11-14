@@ -248,6 +248,22 @@ final class ObservationStore {
         return rows
     }
 
+    /// The Suggested tray (SCR-95): borderline asks the engine kept with Capture: Everything,
+    /// newest first. Titles the engine wrote and where they came from; never tasks.
+    func suggestions() throws -> [SuggestedAsk] {
+        var statement: OpaquePointer?
+        guard sqlite3_prepare_v2(db, "SELECT id, title, source_ref FROM suggestions ORDER BY created_at DESC, id DESC", -1, &statement, nil) == SQLITE_OK
+        else { throw lastError("prepare") }
+        defer { sqlite3_finalize(statement) }
+        var out: [SuggestedAsk] = []
+        while sqlite3_step(statement) == SQLITE_ROW {
+            out.append(SuggestedAsk(id: Int(sqlite3_column_int64(statement, 0)),
+                                    title: sqlite3_column_text(statement, 1).map { String(cString: $0) } ?? "",
+                                    source: sqlite3_column_text(statement, 2).map { String(cString: $0) } ?? ""))
+        }
+        return out
+    }
+
     /// A note the engine wrote, such as the first run's status (SCR-89); nil when there is none.
     func meta(_ key: String) throws -> String? {
         var statement: OpaquePointer?

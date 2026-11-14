@@ -88,6 +88,8 @@ export const DROP_WORDS: Record<string, string> = {
   'not-for-you': 'asks nothing of you',
   'not-an-action': 'you said it is not an action',
   waiting: 'waiting for your reply first',
+  strict: 'left out by Capture: Strict',
+  suggested: 'kept in Suggested (Capture: Everything)',
 };
 
 /** The words for a source kind: its own, else its AI tool profile's name (SCR-89). */

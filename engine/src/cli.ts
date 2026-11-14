@@ -9,13 +9,14 @@ import { enabled, places, readLog, serve } from './mcp.ts';
 import { hookFiles, hookInstalled, installHook, readShellLog, removeHook } from './shellhook.ts';
 import { agentHookInstalled, appendAgentEvent, HOOK_TOOLS, installAgentHook, parseHookEvent, readAgentEvents, removeAgentHook, TOOLS } from './agenthooks.ts';
 import type { HookTool } from './agenthooks.ts';
-import { DEFAULT_DB_PATH } from './store.ts';
+import { CAPTURE_LEVELS, DEFAULT_DB_PATH } from './store.ts';
+import type { CaptureLevel } from './store.ts';
 import { basename, dirname as dirOf, join as joinPath } from 'node:path';
 import { writeFileSync as writeFile } from 'node:fs';
 import { localField, localModelOf, setLocalModel } from './localmodel.ts';
 import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { addManualTask, confirmChecking, keepTask, lookAgainAt, myNames, namesOf, pollOnce, runLoop, Waker } from './engine.ts';
+import { acceptSuggestion, addManualTask, confirmChecking, keepTask, lookAgainAt, myNames, namesOf, pollOnce, runLoop, Waker } from './engine.ts';
 import { startModelLane, wakeOnInput } from './lanes.ts';
 import { judgeServerFor } from './judgeserver.ts';
 import { ADAPTERS } from './adapters.ts';
@@ -52,6 +53,10 @@ const USAGE = `didja <command>
   hook <tool> <event> what a tool's hook runs; reads the event on standard input, keeps only
                       the tool, event, time, a command line and exit code, and plan titles
                       let your Claude read Didja (masked), or not; and what it has asked
+  capture-level [strict|balanced|everything]
+                      how eagerly asks become tasks; prints it with no argument (SCR-95)
+  suggested [--json] | accept <id> | notanaction <id>
+                      the Suggested tray: borderline asks kept with Capture: Everything
   local-model [status [--json] | on <model> | off]
                       use a model in Ollama on this Mac (127.0.0.1) for emails and "looks done?", before Apple's
   run                 extract tasks from new observations: at once when a line arrives on standard input
@@ -590,6 +595,39 @@ async function main(argv: string[]): Promise<number> {
         console.log(JSON.stringify(store.place(id)));
         return 0;
       }
+      case 'capture-level': {
+        const [level] = args;
+        if (level === undefined) {
+          console.log(store.captureLevel());
+          return 0;
+        }
+        if (!CAPTURE_LEVELS.includes(level as CaptureLevel)) {
+          console.error(`usage: didja capture-level [${CAPTURE_LEVELS.join('|')}]`);
+          return 1;
+        }
+        store.setCaptureLevel(level as CaptureLevel);
+        console.log(`capture: ${level}`);
+        return 0;
+      }
+      case 'suggested': {
+        const [action, which] = args;
+        if (action === undefined || action === '--json') {
+          const list = store.suggestions();
+          console.log(action === '--json' ? JSON.stringify(list) : list.map((s) => `#${s.id}  ${s.title}  (${s.sourceRef})`).join('\n') || 'Nothing suggested.');
+          return 0;
+        }
+        const id = Number(which);
+        if (action === 'accept' && Number.isInteger(id) && acceptSuggestion(store, id)) {
+          console.log(`suggestion #${id} is a task now`);
+          return 0;
+        }
+        if (action === 'notanaction' && Number.isInteger(id) && store.notAnActionSuggestion(id)) {
+          console.log(`suggestion #${id} dismissed and remembered as not an action`);
+          return 0;
+        }
+        console.error('usage: didja suggested [--json] | accept <id> | notanaction <id>');
+        return 1;
+      }
       case 'notanaction': {
         const id = Number(args[0]);
         if (!Number.isInteger(id) || !store.notAnAction(id)) {
@@ -738,6 +776,7 @@ async function main(argv: string[]): Promise<number> {
             jobs: Object.fromEntries(JOBS.map((job) => [job, store.teaching(job).instructions])),
             lessons: store.lessons(),
             places: store.donePlacesShown(),
+            captureLevel: store.captureLevel(),
           }, null, 2));
           return 0;
         }

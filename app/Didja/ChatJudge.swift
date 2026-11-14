@@ -14,7 +14,8 @@ extension Judge {
         var app: String
         var chat: String
         var group: Bool
-        /// In a group: "named" (it tags or names you) or "everyone" (it asks every member).
+        /// In a group: "named" (it tags or names you), "everyone" (it asks every member) or, with
+        /// Capture: Everything only, "group" (it names no one; SCR-95).
         var addressed: String?
         /// Your names, so a group message can be seen to be addressed to you.
         var me: [String]
@@ -77,7 +78,7 @@ extension Judge {
             .joined(separator: "\n")
         return """
         App: \(request.app.prefix(40))
-        Chat: \(request.chat.prefix(80)) (\(request.group ? "a group chat" : "a one-to-one chat with the sender"))\(request.addressed == "everyone" ? "\nIt does not name the reader; it may be addressed to every member." : request.addressed == "named" ? "\nIt tags or names the reader." : "")
+        Chat: \(request.chat.prefix(80)) (\(request.group ? "a group chat" : "a one-to-one chat with the sender"))\(request.addressed == "everyone" ? "\nIt does not name the reader; it may be addressed to every member." : request.addressed == "named" ? "\nIt tags or names the reader." : request.addressed == "group" ? "\nIt names no one: it was said to the whole group. Answer true only if it asks the group for something the reader, as a member, could be the one to do." : "")
         \(request.group ? "The reader's names: \(request.me.prefix(4).joined(separator: ", ").prefix(160))\n" : "")        \(earlier.isEmpty ? "" : "Earlier messages:\n\(earlier)\n")
         The message, from \(request.from.prefix(60)), who is the person asking:
         \(request.message.prefix(1200))

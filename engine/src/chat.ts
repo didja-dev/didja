@@ -144,12 +144,36 @@ export function asksEveryone(message: Pick<ChatMessage, 'body'>): boolean {
  * their own answer, so requests meant for other people in the group never become yours.
  */
 export function mayAskOfMe(message: ChatMessage, names: string[], now: Date = new Date()): boolean {
+  if (!mayAskAnyone(message, names, now)) return false;
+  if (message.kind !== 'direct' && !namesMe(message, names) && !asksEveryone(message)) return false;
+  return true;
+}
+
+/** From someone else, recent, with words in it: whoever it is put to. */
+function mayAskAnyone(message: ChatMessage, names: string[], now: Date): boolean {
   if (isMine(message, names)) return false;
   const words = message.body.replace(/^\[[^\]]+\]\s*/, '').trim();
   if (words.length < 3) return false;
-  if (!isRecentChat(message, now)) return false;
-  if (message.kind !== 'direct' && !namesMe(message, names) && !asksEveryone(message)) return false;
-  return true;
+  return isRecentChat(message, now);
+}
+
+/**
+ * Who a message is put to, as far as the capture level lets it count (SCR-95), or null when it is
+ * not asked about at all. Balanced is what Didja always did: a one-to-one message ("direct"), or
+ * in a group one that names you ("named") or asks every member ("everyone"). Strict leaves out
+ * "everyone": only an ask put to you. Everything also asks about a group message that names
+ * nobody ("group"); one the model reads as an ask goes to the Suggested tray, never the list.
+ */
+export function chatAudience(
+  message: ChatMessage, names: string[], level: 'strict' | 'balanced' | 'everything', now: Date = new Date(),
+): 'direct' | 'named' | 'everyone' | 'group' | null {
+  if (mayAskOfMe(message, names, now)) {
+    if (message.kind === 'direct') return 'direct';
+    if (namesMe(message, names)) return 'named';
+    return level === 'strict' ? null : 'everyone';
+  }
+  if (level === 'everything' && message.kind !== 'direct' && mayAskAnyone(message, names, now)) return 'group';
+  return null;
 }
 
 /**
@@ -207,7 +231,7 @@ export interface ChatQuestion {
   chat: string;
   group: boolean;
   /** In a group: how the message reaches you. */
-  addressed?: 'named' | 'everyone';
+  addressed?: 'named' | 'everyone' | 'group';
   me: string[];
   from: string;
   message: string;

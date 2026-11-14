@@ -2,7 +2,7 @@ import { suggestMerges } from './related.ts';
 import { signedFromEmail } from './esign.ts';
 import { accountOf, baseSubject, responseAction, isAutomatic, isMine, isRecent, followsLink, mailKey, mailTime, mailLinks, mailOrigin, mailSnippet, mailSource, mailTaskTitle, parseEmails, replyTitle, settleNeed, signedName } from './email.ts';
 import type { MailIdentity, MailReader } from './email.ts';
-import { chatApp, chatKey, asksForAcknowledgement, chatTaskTitle, isEmojiOnly, isPositiveEmoji, isReaction, lineHash, plainReactions, reactedTo, namesMe, chatSourceRef, chatTime, isMine as isMyMessage, mayAskOfMe, parseChatMessages, plainlyDefers, sentBefore } from './chat.ts';
+import { chatApp, chatKey, asksForAcknowledgement, chatTaskTitle, isEmojiOnly, isPositiveEmoji, isReaction, lineHash, plainReactions, reactedTo, namesMe, chatSourceRef, chatTime, isMine as isMyMessage, chatAudience, parseChatMessages, plainlyDefers, sentBefore } from './chat.ts';
 import type { ChatMessage, ChatReader, ReplyJudge } from './chat.ts';
 import { agentWork, assistantFor, hasTurns } from './assistants.ts';
 import { followUpOn, listedOn, targetsOf } from './done.ts';
@@ -414,6 +414,11 @@ function pass(store: Store, now: Date, options: PollOptions): PollStats {
       // The wording does not say who this list is for: go by the model's verdict. Until there is one,
       // the list is held and makes no task (SCR-70); with no model at all it is kept as "maybe".
       const unclear = list.actor === null;
+      // Capture: Strict (SCR-95) keeps only lists whose own wording hands them to you.
+      if (unclear && store.captureLevel() === 'strict') {
+        drop(kind, 'strict');
+        continue;
+      }
       const key = unclear ? judgementKey(list) : '';
       const verdict = unclear ? store.getJudgement(key) : null;
       if (verdict === 'assistant') {
@@ -904,6 +909,7 @@ function readChat(
     const when = chatTime(m.time, now);
     if (when === null) continue;
     for (const key of store.answerPendingChatAsks(app, m.chat, when)) store.recordEmailCheck(key, 'answered', now);
+    store.answerSuggestions(app, m.chat, when);
   }
 
   const reader = opts.chatReader;
@@ -914,8 +920,10 @@ function readChat(
   let asked = 0;
   // Only new messages: leave out what was plainly sent before capture started.
   const start = store.onlyNewMessages() ? store.captureStartedAt() : null;
+  const level = store.captureLevel();
   for (const [index, m] of messages.entries()) {
-    if (!mayAskOfMe(m, me, now)) continue;
+    const audience = chatAudience(m, me, level, now);
+    if (audience === null) continue;
     const key = chatKey(app, m);
     const shown = store.mailTask(key);
     if (shown) {
@@ -943,7 +951,7 @@ function readChat(
       .map((b: ChatMessage) => ({ from: isMyMessage(b, me) ? 'me' : b.from, text: b.body.slice(0, 300) }));
     const answer = reader({
       app, chat: m.chat, group: m.kind !== 'direct', me, from: m.from,
-      ...(m.kind !== 'direct' ? { addressed: namesMe(m, me) ? 'named' as const : 'everyone' as const } : {}), message: m.body.slice(0, 1200), before, ...taught(store, 'chats'),
+      ...(m.kind !== 'direct' ? { addressed: audience === 'named' ? 'named' as const : audience === 'group' ? 'group' as const : 'everyone' as const } : {}), message: m.body.slice(0, 1200), before, ...taught(store, 'chats'),
     });
     if (answer === null) {
       drop('chat', 'no-model');
@@ -970,6 +978,12 @@ function readChat(
     const ask: PendingChatAsk = {
       key, app, chat: m.chat, from: m.from, title, at: (sentAt ?? now).toISOString(), observationId: latest.id, ts: latest.ts,
     };
+    // Put to the group, naming nobody (Capture: Everything): a suggestion, never a task (SCR-95).
+    if (audience === 'group') {
+      store.addSuggestion(ask, chatSourceRef(app, m.chat), now);
+      drop('chat', 'suggested');
+      continue;
+    }
     // Sent moments ago: wait, in case you answer it while the conversation goes on. A time that
     // cannot be read cannot be waited on, so it is not.
     if (sentAt !== null && now.getTime() - sentAt.getTime() < CHAT_ASK_WAIT_MS) {
@@ -1022,7 +1036,19 @@ function promotePendingChatAsks(store: Store, now: Date): number {
     if (addChatAsk(store, ask, now)) created++;
   }
   store.prunePendingChatAsks(now);
+  store.pruneSuggestions(now);
   return created;
+}
+
+/**
+ * Accept on a suggestion (SCR-95): it becomes a chat task like any other, joining the open task for
+ * that conversation if there is one. False if there is no such suggestion.
+ */
+export function acceptSuggestion(store: Store, id: number, now: Date = new Date()): boolean {
+  const ask = store.takeSuggestion(id);
+  if (!ask) return false;
+  addChatAsk(store, ask, now);
+  return true;
 }
 
 /**

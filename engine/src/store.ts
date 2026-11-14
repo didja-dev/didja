@@ -30,6 +30,7 @@ import schema25 from '../../schema/025_outcomes.sql' with { type: 'text' };
 import schema26 from '../../schema/026_timings.sql' with { type: 'text' };
 import schema27 from '../../schema/027_trust.sql' with { type: 'text' };
 import schema28 from '../../schema/028_troubleshooting.sql' with { type: 'text' };
+import schema29 from '../../schema/029_suggestions.sql' with { type: 'text' };
 import { contextLines } from './context.ts';
 import { parseCriteria } from './donecriteria.ts';
 import type { DoneCriteria } from './donecriteria.ts';
@@ -290,6 +291,22 @@ export interface PendingChatAsk {
   ts: string;
 }
 
+/** How eagerly asks become tasks (SCR-95). Ticking is the same at every level. */
+export type CaptureLevel = 'strict' | 'balanced' | 'everything';
+export const CAPTURE_LEVELS: CaptureLevel[] = ['strict', 'balanced', 'everything'];
+
+/** A borderline ask kept in the Suggested tray (SCR-95): not a task until you accept it. */
+export interface Suggestion {
+  id: number;
+  kind: 'chat';
+  sourceRef: string;
+  title: string;
+  createdAt: string;
+}
+
+/** Suggestions leave without a trace after this long. */
+export const SUGGESTION_TTL_MS = 24 * 60 * 60_000;
+
 export interface Evidence {
   taskId: number;
   observationId: number | null;
@@ -485,7 +502,7 @@ export class Store {
     // The app migrates the same file. Take the write lock first so only one side runs each step.
     this.db.transaction(() => {
       const { user_version } = this.db.query('PRAGMA user_version').get() as { user_version: number };
-      [schema1, schema2, schema3, schema4, schema5, schema6, schema7, schema8, schema9, schema10, schema11, schema12, schema13, schema14, schema15, schema16, schema17, schema18, schema19, schema20, schema21, schema22, schema23, schema24, schema25, schema26, schema27, schema28].forEach((sql, i) => {
+      [schema1, schema2, schema3, schema4, schema5, schema6, schema7, schema8, schema9, schema10, schema11, schema12, schema13, schema14, schema15, schema16, schema17, schema18, schema19, schema20, schema21, schema22, schema23, schema24, schema25, schema26, schema27, schema28, schema29].forEach((sql, i) => {
         if (user_version < i + 1) this.db.exec(sql);
       });
     }).immediate();
@@ -1674,6 +1691,69 @@ export class Store {
       .all(app, chat, upTo.toISOString()) as { key: string }[];
     for (const { key } of rows) this.dropPendingChatAsk(key);
     return rows.map((r) => r.key);
+  }
+
+  /** Keeps a borderline chat ask in the Suggested tray (SCR-95). Once per message; false if it was there. */
+  addSuggestion(ask: PendingChatAsk, sourceRef: string, now: Date): boolean {
+    const result = this.db
+      .query('INSERT OR IGNORE INTO suggestions (key, kind, source_ref, title, ask, created_at) VALUES (?, ?, ?, ?, ?, ?)')
+      .run(ask.key, 'chat', sourceRef, ask.title, JSON.stringify(ask), now.toISOString());
+    return result.changes > 0;
+  }
+
+  /** The suggestions waiting, newest first. Titles and where they came from only. */
+  suggestions(): Suggestion[] {
+    return this.db
+      .query("SELECT id, kind, source_ref AS sourceRef, title, created_at AS createdAt FROM suggestions ORDER BY created_at DESC, id DESC")
+      .all() as Suggestion[];
+  }
+
+  /** Takes a suggestion out of the tray, with what Accept needs. Null if it is not there. */
+  takeSuggestion(id: number): PendingChatAsk | null {
+    const row = this.db.query('SELECT ask FROM suggestions WHERE id = ?').get(id) as { ask: string } | null;
+    if (!row) return null;
+    this.db.query('DELETE FROM suggestions WHERE id = ?').run(id);
+    return JSON.parse(row.ask) as PendingChatAsk;
+  }
+
+  /** Not an Action on a suggestion: taught as on a chat task, and gone from the tray. */
+  notAnActionSuggestion(id: number, now: Date = new Date()): boolean {
+    const ask = this.takeSuggestion(id);
+    if (!ask) return false;
+    this.addLesson('chats', 'not-an-action', dedupeKey(ask.title), `In ${ask.app}, "${ask.title}" was not something asked of me.`, now);
+    return true;
+  }
+
+  /** A reply of yours in that conversation answers its suggestions too: they leave the tray. */
+  answerSuggestions(app: string, chat: string, upTo: Date): number {
+    const rows = this.db.query("SELECT id, ask FROM suggestions WHERE kind = 'chat'").all() as { id: number; ask: string }[];
+    let gone = 0;
+    for (const row of rows) {
+      const ask = JSON.parse(row.ask) as PendingChatAsk;
+      if (ask.app === app && ask.chat === chat && ask.at <= upTo.toISOString()) {
+        this.db.query('DELETE FROM suggestions WHERE id = ?').run(row.id);
+        gone++;
+      }
+    }
+    return gone;
+  }
+
+  /** Suggestions older than 24 hours are deleted, leaving nothing behind. */
+  pruneSuggestions(now: Date): void {
+    this.db.query('DELETE FROM suggestions WHERE created_at < ?').run(new Date(now.getTime() - SUGGESTION_TTL_MS).toISOString());
+  }
+
+  /**
+   * How eagerly asks become tasks (SCR-95, `meta.capture_level`): "strict", "balanced" (the default,
+   * what Didja always did) or "everything" (borderline asks go to the Suggested tray).
+   */
+  captureLevel(): CaptureLevel {
+    const level = this.getMeta('capture_level');
+    return level === 'strict' || level === 'everything' ? level : 'balanced';
+  }
+
+  setCaptureLevel(level: CaptureLevel): void {
+    this.setMeta('capture_level', level);
   }
 
   prunePendingChatAsks(now: Date): void {
