@@ -2,7 +2,7 @@
  * One adapter per task tool: how to read your items over its MCP server, how to write a
  * completion back, and what to offer in the Connections window. Linear was tried live; Jira,
  * Asana, Todoist and Notion were built from their servers' published tools without an account to
- * try them (the maintainer: "build untested"), so each picks its tools at run time from the server's own
+ * try them (the maintainer's choice), so each picks its tools at run time from the server's own
  * list, by a few likely names, passes only the arguments a tool declares, and reports a tool it
  * cannot find rather than guess.
  */

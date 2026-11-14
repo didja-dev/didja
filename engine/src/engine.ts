@@ -1227,7 +1227,7 @@ function lookForDone(store: Store, looker: Looker, observations: Observation[], 
       }
       // A task is done somewhere in particular: a site or app it or its source names, a site its email
       // linked to, or a place you said such a step is done ("Didja Missed This…"); never a page that
-      // only happens to share its words (the maintainer: all tasks).
+      // only happens to share its words (the maintainer's rule, for all tasks).
       const taughtHere = learnedWhere({ title: task.capturedTitle, sourceId: task.sourceId }, o, learned);
       const found = lookCandidate(source, o, taughtHere);
       if (found) candidates.push({ task, o, ...found });

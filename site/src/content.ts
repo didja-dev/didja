@@ -191,8 +191,8 @@ export const real = {
 };
 
 /**
- * The demo: a scroll-driven story on a Mac (the maintainer asked for it in place of the placeholder
- * video, 2026-11-12): Claude gives the steps to make didja.dev public, you do them in Terminal,
+ * The demo: a scroll-driven story on a Mac (in place of the placeholder video,
+ * 2026-11-12): Claude gives the steps to make didja.dev public, you do them in Terminal,
  * GitHub and Cloudflare, Didja ticks each with what it saw, asks about one, and nudges about the last.
  * Everything in it is made up except Didja's own names (didja.dev, didja-dev/didja).
  */

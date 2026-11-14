@@ -141,7 +141,7 @@ export function asksEveryone(message: Pick<ChatMessage, 'body'>): boolean {
 /**
  * Worth asking the model about: from someone else, recent, with words in it, and in a group (or
  * where it is not known whether it is one) only when it tags or names you, or asks everyone for
- * their own answer (the maintainer: no random requests meant for other people in the group).
+ * their own answer, so requests meant for other people in the group never become yours.
  */
 export function mayAskOfMe(message: ChatMessage, names: string[], now: Date = new Date()): boolean {
   if (isMine(message, names)) return false;
@@ -261,7 +261,7 @@ const POSITIVE = /👍|✅|👌|🙏|❤️|❤|💯|☑️|✔️|🆗|👏|�
 
 /**
  * An ask that only wants you to acknowledge or confirm ("confirm you got it", "תאשר שקיבלת",
- * "did you see this?"). For these a 👍 is the whole answer (the maintainer: "thumbs up meant I got it").
+ * "did you see this?"). For these a 👍 is the whole answer.
  */
 export function asksForAcknowledgement(...texts: string[]): boolean {
   return texts.some((t) => ACKNOWLEDGE.test(t));
