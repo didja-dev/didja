@@ -13,7 +13,7 @@ You're vibe coding in five places at once. Claude gives you a checklist, you do 
 
 Didja is a Mac menu bar app that notices those steps for you:
 
-- **Catch.** Checklists Claude writes for you, commands to run, and "don't forget" lines in email and chat, and what you said you'd do in your own messages, become open items in the menu bar, grouped by where they came from.
+- **Catch.** Checklists Claude writes for you, commands to run, and "don't forget" lines in email and chat, and what you said you'd do in your own messages, become open items in the menu bar, grouped by where they came from. Asks you sent wait under Waiting On until that person answers.
 - **Watch.** As you work, it looks for proof each step is done: the right variable on the right settings page, the command run in a terminal, the reply actually sent.
 - **Tick, or ask.** When it is sure, it ticks the step. When it isn't, it asks. A step left hanging gets one gentle reminder.
 
