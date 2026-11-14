@@ -19,7 +19,7 @@ import { writeFileSync as writeFile } from 'node:fs';
 import { localField, localModelOf, setLocalModel } from './localmodel.ts';
 import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { acceptSuggestion, addManualTask, confirmChecking, keepTask, lookAgainAt, myNames, namesOf, pollOnce, runLoop, Waker } from './engine.ts';
+import { acceptSuggestion, addManualTask, confirmChecking, keepFromScreen, keepTask, lookAgainAt, myNames, namesOf, pollOnce, runLoop, Waker } from './engine.ts';
 import { startModelLane, wakeOnInput } from './lanes.ts';
 import { judgeServerFor } from './judgeserver.ts';
 import { ADAPTERS } from './adapters.ts';
@@ -95,6 +95,8 @@ const USAGE = `didja <command>
                       "Didja Missed This…": what Didja knows about a task you finished unnoticed (JSON);
                       --learn: it was done at <site>, so look there for steps like it
   keep <title>        add a task to My List: it stays until you tick it (Siri adds here)
+  keep --screen [--from <app>] <text>
+                      text Siri passed from the screen ("add this to Didja"), titled here
   fresh-start [--undo | --status]
                       mark every open task done for a clean list (My List stays); --undo puts them back
   done <id>           mark a task done (a checklist's id ticks all its steps)
@@ -1136,6 +1138,19 @@ async function main(argv: string[]): Promise<number> {
         return 0;
       }
       case 'keep': {
+        // keep --screen [--from <app>] <text>: text Siri passed from the screen (SCR-119), titled here.
+        if (args[0] === '--screen') {
+          const rest = args.slice(1);
+          const app = rest[0] === '--from' ? (rest[1] ?? null) : null;
+          const words = rest[0] === '--from' ? rest.slice(2) : rest;
+          const id = keepFromScreen(store, words.length === 1 ? words[0]! : words.join(' '), app);
+          if (id === null) {
+            console.error('usage: didja keep --screen [--from <app>] <text>');
+            return 1;
+          }
+          console.log(`#${id} on My List: ${store.getTask(id)?.title ?? ''}`);
+          return 0;
+        }
         const id = keepTask(store, args.join(' '));
         if (id === null) {
           console.error('usage: didja keep <title>');

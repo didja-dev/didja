@@ -182,6 +182,39 @@ export function keepTask(store: Store, title: string, now: Date = new Date()): n
   return id;
 }
 
+/**
+ * A My List title for text Siri passed from the screen (SCR-119, "add this to Didja"): its first
+ * line with words in it, without a bullet, number or quotes, up to its first sentence end, and cut
+ * at a word to at most 80 characters. Null when nothing in it is a word.
+ */
+export function titleFromScreen(text: string): string | null {
+  const line = text
+    .split(/\r?\n/)
+    .map((l) => l.replace(/\s+/g, ' ').trim().replace(/^(?:[-*•·▪◦–—>]+|\d{1,3}[.)])\s*/, '').replace(/^["“”'‘’]+|["“”'‘’]+$/g, '').trim())
+    .find((l) => /[\p{L}\p{N}]/u.test(l));
+  if (!line) return null;
+  const sentence = line.match(/^(.{12,}?[.!?])(?:\s|$)/u)?.[1] ?? line;
+  if (sentence.length <= 80) return sentence;
+  const cut = sentence.slice(0, 80);
+  const space = cut.lastIndexOf(' ');
+  return `${(space > 40 ? cut.slice(0, space) : cut).replace(/[\s,;:–—-]+$/u, '')}…`;
+}
+
+/**
+ * "Add this to Didja" (SCR-119): text the system passed to Siri's intent from what is on screen,
+ * kept on My List under a title the engine writes from it, noting the app it came from when Siri
+ * said. Only the title is kept, never the rest of the text. Null when there is nothing to add.
+ */
+export function keepFromScreen(store: Store, text: string, app: string | null, now: Date = new Date()): number | null {
+  const title = titleFromScreen(text);
+  if (!title) return null;
+  const id = keepTask(store, title, now);
+  if (id === null) return null;
+  const from = app?.replace(/\s+/g, ' ').trim().slice(0, 60);
+  store.setOrigin(id, now.toISOString(), from ? `You added it to My List with Siri, from ${from}` : 'You added it to My List with Siri, from the screen');
+  return id;
+}
+
 export function needsShortTitle(title: string): boolean {
   return title.length > 48 || /[.!?…]/.test(title) || /^(I|I['’]\w+|We|It|This|That|There|So|The)\b/.test(title);
 }
