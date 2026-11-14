@@ -384,6 +384,16 @@ The benchmark lists Didja-added follow-ups apart (they are not captured). Same 9
 
 Done detection with no model, ticked or asked of the 60 really done: 33 (55%) → 42 (70%). The new asks are GitHub's visibility (3 scenarios), Google's Authorized redirect URIs (2), Vercel's Domains (2), Supabase's Redirect URLs (1) and a Vercel env row whose step does not name Vercel itself, only its conversation (1): steps with no exact marker to tick on. No marker tick was lost to the stricter rule on catalogued sites. With Apple's model more of the asks become sure ticks (the listing is the second sign); its capture recall moved 92% → 86% between runs, which is the list judge's run-to-run variance (nothing here changes what is captured). Its 5 wrong asks are questions, as before; the one checked (a Supabase Site URL step) is the model's, not a catalogue listing, which needs the exact URL.
 
+### After SCR-103: owners, tick precision, held-out apps
+
+The headline is now **tick precision**: of the ticks Didja made, the share that were right (ticked when or after the step was done). It is printed first, before the table and in CI's output, apart from recall, because agreeing with the labels and being right when it ticks are different measures. A wrong tick of a task that must not exist counts against it too.
+
+A second failure is counted apart: a task given to the **wrong person**. A scenario can label what is someone else's (`expect.theirs`: an ask to a group that does not name you, what another person promised) and the asks you sent (`expect.waiting`, which belong in Waiting on, SCR-99). An owner error is someone else's task on your list, an ask you sent on your list as your task, or one of yours filed under Waiting on. The benchmark fails on any (`OWNER_ERROR_LIMIT` is 0), as it does on a wrong tick. A labelled task can also carry the day it is due (`due`, SCR-97), checked against the day Didja read.
+
+`--held-out` runs each family again without what was written for it: an AI tool's assistant profile, the chat and mail app profiles of the messaging and email families, the done catalogue for `done-target`. It prints the drop per family, and fails on any wrong tick or owner error without the profile. CI runs it.
+
+Same corpus plus three scenarios (105 in all, 144 labelled tasks), no model (CI): tick precision 100% (33 right, 0 wrong); owner errors 0; asks you sent in Waiting on 2 of 2; due days 2 of 2. Held out, every AI tool family's recall falls to 0% (Cursor 100% → 67%, its agent panel read through the editor's own shape), messaging 50% → 0%: Didja reads a tool's or a chat app's turns only through its profile, so a new app makes no tasks rather than wrong ones. The done catalogue held out leaves `done-target` at 92% recall and its 2 ticks: those came from markers, not the catalogue. No wrong tick or owner error in any held-out run.
+
 ## How fast it is (SCR-75)
 
 Targets, at the 90th percentile on the maintainer's Mac, from the moment the screen showed it:

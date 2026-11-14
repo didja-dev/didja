@@ -8,6 +8,7 @@ bun bench/run.ts                      # no model: deterministic, what CI runs
 bun bench/run.ts --model apple        # Apple's on-device model, through the built app (DIDJA_JUDGE or the Debug build)
 bun bench/run.ts --model ollama:qwen3.8:latest   # that local model asked first, as the app does
 bun bench/run.ts --only outlook-reply --verbose  # one scenario, with the tasks it made
+bun bench/run.ts --held-out                       # and each family again without its own profiles
 ```
 
 It prints one row per scenario and the totals:
@@ -19,7 +20,11 @@ It prints one row per scenario and the totals:
 
 - **By tool** (SCR-82): the same counts per tool family, after the totals.
 
-It exits 1 on any wrong tick, and on a new task or sure tick with no model that takes over 3 s. `bun test` runs it with no model too (`test/bench.test.ts`).
+- **Tick precision** (SCR-103), the headline, printed first: right ticks over all ticks Didja made.
+- **Owner errors** (SCR-103): a task given to the wrong person: someone else's on your list (`expect.theirs`), an ask you sent on your list as your task (`expect.waiting`), or one of yours filed under Waiting on. Also how many of the asks you sent are in Waiting on, and how many labelled due days (`due`) Didja read right.
+- **Held out** (`--held-out`, SCR-103): each family again without what was written for it (its AI tool's assistant profile, the chat and mail app profiles of `messaging` and `email`, the done catalogue for `done-target`), with the drop in recall, precision and ticks. A family across tools (`first-day`) or with nothing of its own (`editor`, `notes`) is left out.
+
+It exits 1 on any wrong tick, on any owner error (`OWNER_ERROR_LIMIT`, 0), on a wrong tick or owner error in a held-out run, and on a new task or sure tick with no model that takes over 3 s. CI runs it with `--held-out`. `bun test` runs it with no model too (`test/bench.test.ts`).
 
 ## A scenario
 
@@ -45,6 +50,7 @@ It exits 1 on any wrong tick, and on a new task or sure tick with no model that 
 - `steps` are observations as capture stores them: one window's **new** lines (what `Differ` reports), with the same `⟦…⟧` section lines, `at` minutes after `start` (local time). Optional `url` and `source` (`ax`, `ocr`).
 - `family` (SCR-82): the tool the tasks come from, one of `FAMILIES` in `run.ts`: an assistant (`claude-app`, `chatgpt`, `gemini`, `copilot`), a terminal agent (`claude-code`, `codex`, `gemini-cli`, `copilot-cli`, `aider`, `opencode`, `goose`), an editor agent (`vscode-copilot`, `cursor`, `windsurf`, `devin`), or `editor` (a document), `email`, `messaging`, `notes`, `first-day` (a new user's first session across tools) and `done-target` (where a step is done, and near-misses that must not tick). Write each tool's text in its real shape, with `⟦Message N⟧` sections only where capture writes them for that app.
 - `expect.tasks`: a task matches when every word is in its title (any case); `done` is null when it was never done. `expect.none`: tasks that must not exist, by the same rule.
+- Optional `due` on a task: the day it is due, "YYYY-MM-DD" (SCR-97). Optional `expect.theirs`: someone else's to do, which must not be on your list. Optional `expect.waiting`: asks you sent, which belong in Waiting on (SCR-99), never on your list. Same words rule.
 - Optional `me` (your name, default "Mike Rosen") and `tail` (minutes polled after the last step, default 15: a chat ask waits 10 for your reply).
 
 The engine is polled every half minute from the start to the end, as the live engine polls every few seconds.
