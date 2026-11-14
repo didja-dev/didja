@@ -33,7 +33,7 @@ enum TaskExport {
         let panel = NSSavePanel()
         panel.nameFieldStringValue = fileName(format)
         panel.allowedContentTypes = [format.contentType]
-        NSApplication.shared.activate(ignoringOtherApps: true)
+        Front.activate()
         guard panel.runModal() == .OK, let url = panel.url else { return }
         DispatchQueue.global(qos: .userInitiated).async {
             let ok = EngineRunner.run(arguments(format, withContext: withContext, to: url.path))

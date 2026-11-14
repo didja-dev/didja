@@ -73,7 +73,7 @@ final class CalendarSnooze: ObservableObject {
         alert.informativeText = Self.explanation
         alert.addButton(withTitle: "Continue")
         alert.addButton(withTitle: "Not Now")
-        NSApp.activate(ignoringOtherApps: true)
+        Front.activate()
         guard alert.runModal() == .alertFirstButtonReturn else { return }
         store.requestFullAccessToEvents { [weak self] _, _ in
             DispatchQueue.main.async { self?.start() }

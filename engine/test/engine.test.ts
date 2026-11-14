@@ -655,14 +655,14 @@ test('your own name wins over the model\'s, and a good lead-in is left alone', (
   let calls = 0;
   const titler = () => { calls++; return 'Something short'; };
   observe(store, { text: LONG_LEAD_IN });
-  observe(store, { windowTitle: 'Other', text: CHECKLIST });
+  observe(store, { windowTitle: 'Other', text: CHECKLIST.replaceAll('Before this works in prod', 'Stripe webhook setup') });
   pollOnce(store, NOW);
   const [long, fine] = store.listTree().map((n) => n.task);
   store.rename(long!.id, 'My name for it');
   pollOnce(store, at(7), { titler });
   expect(calls).toBe(0); // one renamed by you, the other already a good title
   expect(store.getTask(long!.id)!.title).toBe('My name for it');
-  expect(store.getTask(fine!.id)).toMatchObject({ title: 'Before this works in prod', modelTitled: false });
+  expect(store.getTask(fine!.id)).toMatchObject({ title: 'Stripe webhook setup', modelTitled: false });
   store.close();
 });
 
@@ -676,7 +676,7 @@ test('with no model the captured title stays, and is offered again later', () =>
 });
 
 test('which lead-ins need a title, and what counts as a usable one', () => {
-  expect(needsShortTitle('Before this works in prod')).toBe(false);
+  expect(needsShortTitle('Stripe webhook setup')).toBe(false);
   expect(needsShortTitle('Quick terminal check')).toBe(false);
   expect(needsShortTitle("I can't change that setting for you")).toBe(true);
   expect(needsShortTitle('One thing is still unproven on live data: an auto-tick. Here is a real two-step checklist')).toBe(true);
@@ -691,12 +691,22 @@ test('a lead-in that names nothing is offered to the model: "Checklist", "Two th
   for (const t of ['Checklist', 'Next steps', 'Two things to try', 'Where to find it', 'When it’s done', 'Your test', 'To try again', 'Steps for you', 'To do']) {
     expect({ t, generic: isPlaceholderTitle(t), asks: needsShortTitle(t) }).toEqual({ t, generic: true, asks: true });
   }
-  for (const t of ['To test in Sandbox', 'To install it on your Mac', 'Before this works in prod', 'Quick terminal check', 'Stripe webhook setup']) {
+  for (const t of ['To test in Sandbox', 'To install it on your Mac', 'Quick terminal check', 'Stripe webhook setup', 'Weekly review of Acme invoices']) {
     expect({ t, asks: needsShortTitle(t) }).toEqual({ t, asks: false });
   }
   // Conversation, not a heading.
   expect(needsShortTitle('Yes, that’s right, and it matches the plan')).toBe(true);
   expect(needsShortTitle('Once you’re in, I’ll')).toBe(true);
+});
+
+test('a lead-in that says when, not what, is offered to the model: "Once it’s live", "Then, every Monday"', () => {
+  for (const t of ['Once it’s live', 'Then, every Monday', 'After the launch', 'Before this works in prod', 'Each week', 'When Sam replies', 'From now on']) {
+    expect({ t, asks: needsShortTitle(t) }).toEqual({ t, asks: true });
+  }
+  // A subject that merely starts with those letters is not a timing word.
+  for (const t of ['Afterpay setup', 'Everything for the Acme demo', 'Thenable cleanup']) {
+    expect({ t, asks: needsShortTitle(t) }).toEqual({ t, asks: false });
+  }
 });
 
 test('a checklist kept as "Checklist" before this is offered to the model once more', () => {

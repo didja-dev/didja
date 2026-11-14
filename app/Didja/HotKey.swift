@@ -433,11 +433,11 @@ final class MenuBarPanel: NSObject, NSPopoverDelegate, NSWindowDelegate {
         let previous = front?.processIdentifier == ProcessInfo.processInfo.processIdentifier ? nil : front
         if let saved = PanelPlacement.saved {
             previousApp = previous
-            NSApplication.shared.activate(ignoringOtherApps: true)
+            Front.activate()
             let window = makePinnedWindow()
             applyAppearance()
             window.setFrame(PanelPlacement.fitted(saved, screens: NSScreen.screens.map(\.visibleFrame)), display: true)
-            window.makeKeyAndOrderFront(nil)
+            window.bringToFront()
             watchOutsideClicks()
             return true
         }
@@ -448,18 +448,18 @@ final class MenuBarPanel: NSObject, NSPopoverDelegate, NSWindowDelegate {
         if PanelAnchor.decide(pinned: false, menuBarVisible: NSMenu.menuBarVisible(),
                               iconOnScreen: Self.onScreen(iconFrame, screens: NSScreen.screens.map(\.frame))) == .floating {
             previousApp = previous
-            NSApplication.shared.activate(ignoringOtherApps: true)
+            Front.activate()
             let window = makePinnedWindow()
             applyAppearance()
             let screen = NSScreen.main ?? NSScreen.screens.first
             window.setFrame(PanelPlacement.floating(iconMidX: iconFrame?.midX, screen: screen?.visibleFrame ?? .zero), display: true)
-            window.makeKeyAndOrderFront(nil)
+            window.bringToFront()
             watchOutsideClicks()
             return true
         }
         guard let button = statusItem.button, button.window != nil else { return false }
         previousApp = previous
-        NSApplication.shared.activate(ignoringOtherApps: true)
+        Front.activate()
         applyAppearance() // the system may have switched since last time
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
         paintChrome()

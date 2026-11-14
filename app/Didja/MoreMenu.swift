@@ -107,7 +107,7 @@ enum MoreMenu {
         // Give the keyboard back to the window the menu came from, unless what was chosen closed it:
         // a native menu leaves no window key, and the Quick View's keys would stop (seen live).
         if let window, window.isVisible {
-            NSApplication.shared.activate(ignoringOtherApps: true)
+            Front.activate()
             window.makeKey()
         }
     }

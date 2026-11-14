@@ -583,8 +583,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             welcomeWindow = window
         }
         UserDefaults.standard.set(true, forKey: Self.welcomedKey)
-        NSApplication.shared.activate(ignoringOtherApps: true)
-        welcomeWindow?.makeKeyAndOrderFront(nil)
+        Front.activate()
+        welcomeWindow?.bringToFront()
     }
 
     private static let welcomedKey = "welcomed"
@@ -609,8 +609,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             window.center()
             brainWindow = window
         }
-        NSApplication.shared.activate(ignoringOtherApps: true)
-        brainWindow?.makeKeyAndOrderFront(nil)
+        Front.activate()
+        brainWindow?.bringToFront()
     }
 
     /// Task tools connected over MCP (Linear): the only network use, and only to them.
@@ -633,8 +633,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             window.center()
             connectionsWindow = window
         }
-        NSApplication.shared.activate(ignoringOtherApps: true)
-        connectionsWindow?.makeKeyAndOrderFront(nil)
+        Front.activate()
+        connectionsWindow?.bringToFront()
     }
 
     /// Your name and the names people call or tag you by, for chats.
@@ -657,8 +657,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             window.center()
             namesWindow = window
         }
-        NSApplication.shared.activate(ignoringOtherApps: true)
-        namesWindow?.makeKeyAndOrderFront(nil)
+        Front.activate()
+        namesWindow?.bringToFront()
     }
 
     /// Ask before forgetting; delete only on an explicit Delete. Tasks go only if their box is ticked (SCR-104).
@@ -679,7 +679,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         alert.buttons[0].keyEquivalent = ""
         alert.buttons[1].keyEquivalent = "\r"
         alert.buttons[0].hasDestructiveAction = true
-        NSApplication.shared.activate(ignoringOtherApps: true)
+        Front.activate()
         if ForgetPrompt.deletes(alert.runModal()) { capture.forget(level, tasks: box?.state == .on) }
     }
 
@@ -737,8 +737,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             window.center()
             privacyWindow = window
         }
-        NSApplication.shared.activate(ignoringOtherApps: true)
-        privacyWindow?.makeKeyAndOrderFront(nil)
+        Front.activate()
+        privacyWindow?.bringToFront()
     }
 
     /// Fresh Start (SCR-48): every open task marked done at once, after asking. Undone from the menu.
@@ -748,7 +748,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         alert.informativeText = FreshStart.message
         alert.addButton(withTitle: "Start Fresh")
         alert.addButton(withTitle: "Cancel")
-        NSApplication.shared.activate(ignoringOtherApps: true)
+        Front.activate()
         guard alert.runModal() == .alertFirstButtonReturn else { return }
         if EngineRunner.run(["fresh-start"]) {
             FreshStart.didStart()
@@ -773,7 +773,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 let alert = AppIcon.alert()
                 alert.messageText = "Nothing to report"
                 alert.informativeText = refusal.message
-                NSApplication.shared.activate(ignoringOtherApps: true)
+                Front.activate()
                 alert.runModal()
             case .success(let reading):
                 self.presentDiagnostics(Self.report(from: reading, tasks: self.capture.tasks.tasks))
@@ -814,7 +814,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let alert = AppIcon.alert()
             alert.messageText = "The report could not be made"
             alert.informativeText = "Didja's engine did not answer. Quit and reopen Didja, then try again."
-            NSApplication.shared.activate(ignoringOtherApps: true)
+            Front.activate()
             alert.runModal()
             return
         }
@@ -850,8 +850,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         window.contentMaxSize = NSSize(width: TroubleshootingView.width, height: 2000)
         window.center()
         troubleshootingWindow = window
-        NSApplication.shared.activate(ignoringOtherApps: true)
-        window.makeKeyAndOrderFront(nil)
+        Front.activate()
+        window.bringToFront()
     }
 
     /// Report a Bug… (SCR-51) and Suggest a Feature… (SCR-52): a form that opens a new GitHub
@@ -882,8 +882,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         window.contentViewController = NSHostingController(rootView: view)
         window.center()
         bugReportWindow = window
-        NSApplication.shared.activate(ignoringOtherApps: true)
-        window.makeKeyAndOrderFront(nil)
+        Front.activate()
+        window.bringToFront()
     }
 
     /// Didja Missed This… on a task: pick where you did it and the screen that shows it done.
@@ -928,8 +928,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         window.contentMaxSize = NSSize(width: MissedView.width, height: 2000)
         window.center()
         missedWindow = window
-        NSApplication.shared.activate(ignoringOtherApps: true)
-        window.makeKeyAndOrderFront(nil)
+        Front.activate()
+        window.bringToFront()
     }
 
     /// Let My Own Claude Read Didja, from where you need it: says what it means, turns it on, and
@@ -943,7 +943,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         alert.addButton(withTitle: "Add to Claude Desktop")
         alert.addButton(withTitle: "Copy for Claude Code")
         alert.addButton(withTitle: "Cancel")
-        NSApplication.shared.activate(ignoringOtherApps: true)
+        Front.activate()
         switch alert.runModal() {
         case .alertFirstButtonReturn:
             OwnClaude.set(true)
@@ -968,7 +968,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             wait.informativeText = "Claude Desktop is open, and it rewrites its settings while it runs, so an entry added now would be lost. Didja can add one entry, \u{201C}didja\u{201D}, the moment you quit Claude (keeping a copy of the file as it was), and Claude reads it when you open it again. No need to quit it now."
             wait.addButton(withTitle: "Add When Claude Quits")
             wait.addButton(withTitle: "Cancel")
-            NSApplication.shared.activate(ignoringOtherApps: true)
+            Front.activate()
             guard wait.runModal() == .alertFirstButtonReturn else { return }
             OwnClaude.addWhenDesktopQuits { model?.refreshClaude() }
             model?.refreshClaude()
@@ -1031,8 +1031,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         window.contentMaxSize = NSSize(width: DiagnosticsView.width, height: 2000)
         window.center()
         diagnosticsWindow = window
-        NSApplication.shared.activate(ignoringOtherApps: true)
-        window.makeKeyAndOrderFront(nil)
+        Front.activate()
+        window.bringToFront()
     }
 
     /// The apps, window titles and sites you have told Didja never to read.
@@ -1057,8 +1057,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             window.center()
             excludeWindow = window
         }
-        NSApplication.shared.activate(ignoringOtherApps: true)
-        excludeWindow?.makeKeyAndOrderFront(nil)
+        Front.activate()
+        excludeWindow?.bringToFront()
     }
 
     /// Settings, shown in the task window's main area.
@@ -1102,8 +1102,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             tasksWindow = window
         }
         if let page { settings.open(page) } else { settings.page = nil }
-        NSApplication.shared.activate(ignoringOtherApps: true)
-        tasksWindow?.makeKeyAndOrderFront(nil)
+        Front.activate()
+        tasksWindow?.bringToFront()
         DockPresence.update()
     }
 }

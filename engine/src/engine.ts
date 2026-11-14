@@ -218,7 +218,15 @@ export function keepFromScreen(store: Store, text: string, app: string | null, n
 export function needsShortTitle(title: string): boolean {
   return title.length > 48 || /[.!?…]/.test(title) || /^(I|I['’]\w+|We|It|This|That|There|So|The)\b/.test(title)
     || /^(Yes|No|OK|Okay|Sure|Right|Great|Got it|Done|Working)\b/i.test(title) || /\bI['’](ll|m|ve|d)\b/.test(title)
-    || isPlaceholderTitle(title);
+    || isPlaceholderTitle(title) || isTimingLeadIn(title);
+}
+
+/**
+ * A lead-in that says when to go through a list, not what it is for: "Once it's live", "Then, every
+ * Monday", "Before this works in prod". Kept as a heading it leaves you guessing what "it" is.
+ */
+export function isTimingLeadIn(title: string): boolean {
+  return /^(Once|When|Whenever|After|Afterwards|Before|Then|Each|Every|Until|Later|Meanwhile|From now on|Going forward)\b/i.test(title.trim());
 }
 
 /**
@@ -249,7 +257,8 @@ export function cleanModelTitle(raw: string, leadIn: string): string | null {
 }
 
 const TITLES_PER_POLL = 2;
-const PLACEHOLDER_TITLES_REOFFERED = 'placeholder_titles_reoffered';
+// Bumped when the rule above asks about more lead-ins, so lists kept under one are offered again once.
+const PLACEHOLDER_TITLES_REOFFERED = 'placeholder_titles_reoffered_2';
 
 /** How long a queued list must sit unchanged before it is judged (it may still be streaming). */
 const JUDGE_SETTLE_MS = 6_000;
@@ -1892,8 +1901,8 @@ function writeCriteria(store: Store, writer: CriteriaWriter): number {
  * does not work as one. Each checklist is offered to the model once.
  */
 function titlePending(store: Store, titler: Titler, now: Date): number {
-  // Once: lists kept under a lead-in that names nothing ("Checklist") before such lead-ins were
-  // offered to the model are offered now.
+  // Once: lists kept under a lead-in that names nothing ("Checklist", "Once it's live") before such
+  // lead-ins were offered to the model are offered now.
   if (!store.getMeta(PLACEHOLDER_TITLES_REOFFERED)) {
     store.reofferTitles(needsShortTitle);
     store.setMeta(PLACEHOLDER_TITLES_REOFFERED, now.toISOString());

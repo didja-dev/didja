@@ -679,8 +679,8 @@ final class CanvasWindows: NSObject, NSWindowDelegate {
     func show(_ id: Int) {
         if let existing = open[id] {
             existing.model.reload()
-            existing.panel.makeKeyAndOrderFront(nil)
-            NSApplication.shared.activate(ignoringOtherApps: true)
+            existing.panel.bringToFront()
+            Front.activate()
             return
         }
         let model = CanvasModel(id: id)
@@ -699,8 +699,8 @@ final class CanvasWindows: NSObject, NSWindowDelegate {
         panel.setFrameAutosaveName("canvas-\(id)")
         open[id] = (panel, model)
         watchKeys()
-        panel.makeKeyAndOrderFront(nil)
-        NSApplication.shared.activate(ignoringOtherApps: true)
+        panel.bringToFront()
+        Front.activate()
         startTimer()
     }
 
