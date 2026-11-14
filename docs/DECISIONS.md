@@ -4,6 +4,10 @@ Choices made while building ScrolledAway, with the reason, so they are not re-ar
 
 ## 2026-11-14
 
+- **Ticking leads, "text only" comes second, catching third** (SCR-115), in the README, the hero, the description and the Welcome window: catching to-dos is what many tools do; ticking them from what is on screen, and doing it from text on the Mac, are what Didja is for. The headline ("Ten tabs, four Claude sessions, one forgotten step.") stays: it names the problem, not the feature.
+- **"Text only, no screenshots", not "Accessibility only"** (SCR-115): the optional OCR fallback reads a frame of a window that hides its text, in memory, so "Accessibility only" would not be true. The README names the fallback in the same point.
+- **No "the only app that…" claims** (SCR-115): they cannot be checked and age badly; the comparison page (SCR-113) shows the differences with sources instead.
+- **"How it works" keeps Catch → Watch → Tick** (SCR-115): it is the order things happen in, not a ranking.
 - **The export leaves out the kept lines unless you tick a box** (SCR-114): they are screen text, so a file you might share or sync holds only what Didja wrote (titles, dates, why) by default. The box is off each time Settings opens. Done and dismissed tasks have no kept lines to export, since they are deleted when a task closes.
 - **Everything else Didja holds stays out of the export** (SCR-114): observations, evidence rows, lessons, merge suggestions, Waiting On and the logs. The export is for your tasks; the rest is either deleted within a day or only means something to Didja.
 - **The engine writes the export file, not the app** (SCR-114): the app only picks the path, so the task rules and the sealed columns stay in one place, and `didja export` gives the same file without the app.

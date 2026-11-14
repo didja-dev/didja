@@ -6,6 +6,11 @@ Each entry says what changed, and what was **not verified** where that applies: 
 
 ## 2026-11-14
 
+### Copy leads with ticking, then text only (SCR-115)
+- The README's opening, didja.dev's hero line, its meta description and the Welcome window's first line now say first that Didja ticks a step off when it sees you do it, then that it reads text on your Mac and stores no screenshots. The README's three points are now "Ticks it off when you do it", "Text only, on your Mac, no screenshots" (naming the optional OCR fallback, frames in memory only) and "Catches what you'd lose". The hero's small print adds "text only, no screenshots".
+- Tests: `engine/test/positioning.test.ts` (4): the order in the hero, description, README and Welcome; the claims match GUIDE and ARCHITECTURE.
+- Not verified: the page in a browser; the site is not redeployed.
+
 ### Export All Tasks, and a pledge that your data outlives Didja (SCR-114)
 - New: **Export All Tasks** in Settings › General › Tasks (**Export…** › Markdown or JSON, to a file you choose) and `didja export [md|json] [--context] [--out <file>]`. Every task, dismissed ones too: title (and captured title if renamed), status, checklist and parent, source kind and name, made / last seen / done / snoozed until / due, and why it is there. The lines kept with open tasks only with **With kept lines** / `--context`. Written 0600; nothing is sent.
 - New: `docs/PLEDGE.md`: the code stays MIT; Didja needs no server or account to work (the update check is optional); the data is one SQLite file with its schema in `schema/` and the sealed layout documented; how to export and how to read the database without Didja. Linked from the README ("Your data outlives Didja"), the GUIDE, Privacy's controls and a new FAQ entry on didja.dev.

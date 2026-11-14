@@ -4,18 +4,19 @@
 
 <h3 align="center">Ten tabs, four Claude sessions, one forgotten step.</h3>
 
-<p align="center">Didja remembers the steps you didn't finish, and ticks them off when you do.<br>
+<p align="center">Didja ticks off the steps you didn't finish when it sees you do them.<br>
+Text only, read on your Mac. No screenshots.<br>
 <a href="https://didja.dev">didja.dev</a></p>
 
 ---
 
 You're vibe coding in five places at once. Claude gives you a checklist, you do three steps, a new prompt pulls you away, and step four quietly disappears, until production breaks.
 
-Didja is a Mac menu bar app that notices those steps for you:
+Didja is a Mac menu bar app that keeps those steps for you, and closes them when you do:
 
-- **Catch.** Checklists Claude writes for you, commands to run, and "don't forget" lines in email and chat, and what you said you'd do in your own messages, become open items in the menu bar, grouped by where they came from. Asks you sent wait under Waiting On until that person answers.
-- **Watch.** As you work, it looks for proof each step is done: the right variable on the right settings page, the command run in a terminal, the reply actually sent.
-- **Tick, or ask.** When it is sure, it ticks the step. When it isn't, it asks. A step left hanging gets one gentle reminder.
+- **Ticks it off when you do it.** As you work, it looks for proof each step is done: the right variable on the right settings page, the command run in a terminal, the reply actually sent. When it is sure, it ticks the step and says what it saw. When it isn't, it asks. A step left hanging gets one gentle reminder.
+- **Text only, on your Mac, no screenshots.** It reads the text of the window you're working in through macOS Accessibility. No screenshot or video is ever stored (for the few apps that hide their text, an optional fallback reads it from the window's pixels in memory and drops them), captured text is deleted within 24 hours, and nothing you see is sent anywhere.
+- **Catches what you'd lose.** Checklists Claude writes for you, commands to run, "don't forget" lines in email and chat, and what you said you'd do in your own messages become open items in the menu bar, grouped by where they came from. Asks you sent wait under Waiting On until that person answers.
 
 It works in the apps you already use: Claude, Claude Code in a terminal, ChatGPT, Gemini, Copilot, Codex and other AI tools, Gmail, Outlook, WhatsApp, Teams, Slack and any browser tab (Apple Mail is not supported yet). You can also connect Linear, Jira, Asana, Todoist or Notion.
 

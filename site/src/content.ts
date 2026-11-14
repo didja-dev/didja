@@ -15,10 +15,10 @@ export const hero = {
   titleBefore: 'Ten tabs, four Claude sessions,',
   titleMark: 'one forgotten step.',
   lead: "You're vibe coding in five places at once. Claude gives you a checklist, you do three steps, a new prompt pulls you away, and step four quietly disappears, until production breaks.",
-  bold: "Didja remembers the steps you didn't finish, and ticks them off when you do.",
+  bold: "Didja ticks off the steps you didn't finish when it sees you do them. It reads text, on your Mac, and stores no screenshots.",
   download: 'Download for Mac',
   star: 'Star on GitHub',
-  meta: 'Free · open source · runs 100% on your Mac · macOS 14+ · Windows later',
+  meta: 'Free · open source · text only, no screenshots · runs 100% on your Mac · macOS 14+ · Windows later',
   mockTitle: 'Didja',
   mockLeft: 'open',
   mockSearch: 'Search',
@@ -194,7 +194,7 @@ export const footer = {
 
 export const meta = {
   title: 'Didja — one forgotten step, remembered',
-  description: "Ten tabs, four Claude sessions, one forgotten step. Didja remembers the steps you didn't finish, and ticks them off when you do.",
+  description: "Didja ticks off the steps you didn't finish when it sees you do them: in Terminal, on a settings page, in a sent email. It reads text on your Mac, through Accessibility, and stores no screenshots.",
 };
 
 /**

@@ -30,7 +30,7 @@ struct WelcomeView: View {
                 Image("Lockup").resizable().scaledToFit().frame(height: 30)
                     .accessibilityLabel("Didja")
                     .padding(.bottom, 4)
-                Text("Keeps track of what Claude asks you to do, and of emails in Outlook or Gmail that ask something of you. It reads the text of the window you are working in, notes what is asked of you, and ticks it off when it sees you do it.")
+                Text("Ticks off what you were asked to do when it sees you do it: the steps Claude gives you, and emails in Outlook or Gmail that ask something of you. It reads the text of the window you are working in, on this Mac, and keeps no screenshots.")
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
