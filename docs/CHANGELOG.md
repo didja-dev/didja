@@ -6,6 +6,12 @@ Each entry says what changed, and what was **not verified** where that applies: 
 
 ## 2026-11-14
 
+### Tick precision published on didja.dev and in the README, from the benchmark (SCR-111)
+- New: `engine/bench/publish.ts` writes the no-model benchmark headline to `site/src/bench.json` and to a marked block in README.md. Today: tick precision 100% (33 right ticks, 0 wrong) over 105 made-up sessions, recall 88%, capture precision 98%, 0 owner errors.
+- didja.dev has a "Measured" section under the recording, built from `bench.json`, with the limit (made-up sessions, rules only) and a link to how the benchmark works. The README has "How often it ticks wrongly".
+- Tests: `engine/test/benchpublish.test.ts` (3): the site file and the README block equal a fresh benchmark run (so they cannot be typed by hand or go stale); the wording says a wrong tick and always carries the limit; the block replacement keeps the rest of the README.
+- Not verified: the page in a browser (the built HTML was checked); the site is not redeployed by this change.
+
 ### Measured CPU, energy, memory and disk use (SCR-110)
 - New: `scripts/measure.ts` (`bun scripts/measure.ts`, `--hour`, `--minutes`, `--every`) watches the running app and engine: CPU median and p95 from cumulative CPU time, energy impact from `top`, resident memory, and growth of the database and logs. Only process statistics and file sizes; it never reads the database or logs and never touches the screen.
 - New: `docs/PERFORMANCE.md` with the first numbers (Apple M5 Pro, Debug build, 10 min): app 14.1% of one core median, 93 MB; engine 0.5%, 242 MB; database growing 11.5 MB an hour. Summary in the README and an FAQ entry on didja.dev. `scripts/release.sh` notes re-running it each release.

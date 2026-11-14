@@ -1,6 +1,6 @@
 ---
 import '../styles/global.css';
-import { cta, demo, faq, footer, fullView, hero, heroDesk, how, meta, mockGroups, nav, privacy, real, story, zigzag } from '../content';
+import { cta, demo, faq, footer, fullView, hero, heroDesk, how, measured, meta, mockGroups, nav, privacy, real, story, zigzag } from '../content';
 import MacDesktop from '../components/MacDesktop.astro';
 import FullView from '../components/FullView.astro';
 import Mark from '../components/Mark.astro';
@@ -246,6 +246,15 @@ const downloadIcon = '<path d="M12 3v12"></path><path d="m7 10 5 5 5-5"></path><
           <video src="/media/didja-demo.mp4" poster="/media/didja-demo-poster.jpg" width="1352" height="878"
             muted loop playsinline controls preload="none" aria-label={real.label} data-autoplay></video>
         </figure>
+      </div>
+      <!-- Measured (SCR-111): the benchmark's headline, from bench.json, never typed by hand -->
+      <div class="wrap pad-bottom-104 stack-32">
+        <div class="intro center" data-reveal>
+          <p class="eyebrow">{measured.eyebrow}</p>
+          <h3 class="h3" data-light>{measured.title}</h3>
+          <p class="lead">{measured.lead}</p>
+          <p class="lead">{measured.limit} <a href={`${GITHUB}/blob/main/engine/bench/README.md`}>{measured.method}</a></p>
+        </div>
       </div>
     </section>
 

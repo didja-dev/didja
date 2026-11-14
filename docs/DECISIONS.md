@@ -4,6 +4,9 @@ Choices made while building ScrolledAway, with the reason, so they are not re-ar
 
 ## 2026-11-14
 
+- **The published benchmark numbers are a committed file checked by a test, not computed in the site's build** (SCR-111). The site builds on its own (Astro, no engine or SQLite), so `bun bench/publish.ts` writes `site/src/bench.json` and the README block, and `test/benchpublish.test.ts` fails when they differ from a fresh run. Never typed by hand, never stale on main.
+- **The no-model run is the one published** (SCR-111): it is what CI runs and is deterministic; runs with Apple's model or Ollama vary by machine. The page says "rules only".
+
 - **Resource use is measured in the background, on whatever the Mac shows** (SCR-110), not against made-up windows the script opens: opening and cycling windows would take focus from the person at the Mac. The script only reads process statistics and file sizes; the published numbers say the session was ordinary work and name the machine and build.
 - **The first published numbers are from the Debug build** (SCR-110), because that is what runs on the development Mac; they say so, and the release checklist re-measures with each release.
 - **CPU is reported as a share of one core**, as Activity Monitor does, so 14% means about a seventh of one core, not of the whole Mac.

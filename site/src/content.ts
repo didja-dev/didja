@@ -6,6 +6,8 @@
  * The FAQ's privacy answer was rewritten before launch (2026-11-12): Brand V1's "optional AI helper"
  * that sends a snippet does not exist; the optional local model runs on the Mac.
  */
+import bench from './bench.json';
+
 export const nav = { how: 'How it works', privacy: 'Privacy', github: 'GitHub', download: 'Download' };
 
 export const hero = {
@@ -126,6 +128,19 @@ export const demo = {
   play: 'Play',
   placeholder: '[DEMO PLACEHOLDER — 30s looping video]',
   storyboard: 'Storyboard: checklist arrives → user zigzags away → Didja catches it → three steps tick themselves → step four gets a nudge.',
+};
+
+/**
+ * The benchmark's headline (SCR-111), from site/src/bench.json, which `bun bench/publish.ts` in
+ * engine/ writes from a benchmark run; a test fails when it is out of date. Never typed by hand.
+ */
+const pctOf = (x: number | null) => (x === null ? '—' : `${Math.round(x * 100)}%`);
+export const measured = {
+  eyebrow: 'MEASURED',
+  title: `${pctOf(bench.tickPrecision)} of its ticks were right.`,
+  lead: `Across ${bench.scenarios} made-up sessions, Didja ticked ${bench.rightTicks + bench.wrongTicks} tasks and ${bench.wrongTicks === 0 ? 'none were' : bench.wrongTicks === 1 ? 'one was' : `${bench.wrongTicks} were`} wrong. It found ${pctOf(bench.recall)} of the tasks it should have, and ${pctOf(bench.precision)} of what it made were real tasks. A missed tick is cheap; a wrong one is the bug Didja exists to prevent, so any wrong tick fails the build.`,
+  limit: 'The sessions are made up, written in the shape of real chats, emails, terminals and AI replies. They show how Didja behaves on those shapes, not on your Mac. Rules only, no language model.',
+  method: 'How the benchmark works',
 };
 
 export const privacy = {
