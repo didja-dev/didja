@@ -3012,7 +3012,7 @@ final class ConnectionsTests: XCTestCase {
     /// Draws the window's content to `$TMPDIR/didja-ui/connections.png`.
     @MainActor
     func testRenderConnections() throws {
-        let renderer = ImageRenderer(content: ConnectionsContent(model: model()).background(Color(nsColor: .windowBackgroundColor)))
+        let renderer = ImageRenderer(content: ConnectionsContent(model: model(), reminders: RemindersModel(status: .init(on: true, list: "Didja", sources: ["chat", "email", "mylist"], who: false, written: 3))).background(Color(nsColor: .windowBackgroundColor)))
         renderer.scale = 2
         let image = try XCTUnwrap(renderer.nsImage)
         let png = try XCTUnwrap(image.tiffRepresentation.flatMap(NSBitmapImageRep.init(data:))?

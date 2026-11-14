@@ -33,6 +33,8 @@ struct PrivacyFacts: Equatable {
     var encryption = Encryption(state: "on", clear: 0)
     /// What the last Forget cleared (SCR-104), store by store; nil when nothing was forgotten yet.
     var lastForget: LastForget? = nil
+    /// Apple Reminders (SCR-121), listed with Connections: nil when off.
+    var reminders: Reminders.Status? = nil
 
     struct Encryption: Decodable, Equatable {
         var state: String
@@ -188,6 +190,11 @@ struct PrivacyContent: View {
                         line("Nothing from your screen. Didja makes one kind of request on its own: once a day it asks didja.dev whether there is a new version (you can turn that off in Settings › General); the request carries only the app's version, and an update is installed only if Apple's and Didja's signatures check out. No analytics, no crash reports, no account. The engine that turns text into tasks is a program inside the app, and it only reads and writes the database above. The one exception is a task tool you connect yourself in Connections…; none is connected.")
                     } else {
                         line("Only what you set up in Connections…, and only to these tools: \(facts.connections.joined(separator: ", ")). For each, Didja reads your items there (title, key, due date, state) and, when it ticks one, sends the state or label change you chose. Nothing it reads from your screen, no captured text, notes or other tasks, is ever sent. The sign-in keys are kept in your login keychain. Once a day Didja also asks didja.dev whether there is a new version (Settings › General turns it off). No analytics, no crash reports.")
+                    }
+                    if let r = facts.reminders, r.on {
+                        line("Apple Reminders (Connections): new tasks are written to your \"\(r.list)\" list, as their title and a link back to Didja\(r.who ? ", with who asked" : "") (\(r.written) so far). \(Reminders.iCloudNote)")
+                    } else {
+                        line("Apple Reminders (Connections) is off: nothing is written to Reminders.")
                     }
                     if facts.ownClaude.on {
                         line("And what your own Claude reads through `didja mcp` (Your own Claude, below): it goes to your AI provider.")

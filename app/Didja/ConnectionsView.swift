@@ -149,15 +149,18 @@ final class ConnectionsModel: ObservableObject {
 struct ConnectionsView: View {
     static let width: CGFloat = 560
     @ObservedObject var model: ConnectionsModel
+    @StateObject private var reminders = RemindersModel()
 
     var body: some View {
-        ScrollView { ConnectionsContent(model: model) }
+        ScrollView { ConnectionsContent(model: model, reminders: reminders) }
             .frame(width: Self.width)
     }
 }
 
 struct ConnectionsContent: View {
     @ObservedObject var model: ConnectionsModel
+    /// Apple Reminders (SCR-121); not shown when nil.
+    var reminders: RemindersModel? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
@@ -199,6 +202,8 @@ struct ConnectionsContent: View {
                 .padding(14)
                 .background(RoundedRectangle(cornerRadius: 8).fill(Color.primary.opacity(0.04)))
             }
+
+            if let reminders { RemindersSection(model: reminders) }
         }
         .padding(24)
         .frame(width: ConnectionsView.width, alignment: .leading)

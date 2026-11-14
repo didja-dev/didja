@@ -112,6 +112,26 @@ final class EngineRunner {
         return String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    /// Run one engine command with text on its standard input, and return what it printed.
+    static func output(_ arguments: [String], input: String) -> String? {
+        let process = Process()
+        let stdin = Pipe()
+        let stdout = Pipe()
+        process.executableURL = bundledEngine
+        process.arguments = arguments
+        process.environment = environment
+        process.standardInput = stdin
+        process.standardOutput = stdout
+        process.standardError = FileHandle.nullDevice
+        guard (try? process.run()) != nil else { return nil }
+        stdin.fileHandleForWriting.write(Data(input.utf8))
+        try? stdin.fileHandleForWriting.close()
+        let data = stdout.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+        guard process.terminationStatus == 0 else { return nil }
+        return String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     func stop() {
         process?.terminate()
         process = nil

@@ -17,6 +17,7 @@ Nothing else. In particular:
 - **No analytics, crash reporting or telemetry.**
 - **Apple's on-device model** (`SystemLanguageModel`) runs on the Mac; Didja never uses Apple's Private Cloud Compute model.
 - **The app and its engine** talk through files and standard input and output, not the network. So does **`didja mcp`**, the local MCP server for your own Claude (off by default): your Claude starts it and talks to it over stdio. What your Claude reads through it then goes to your AI provider, as anything you show Claude does; that is Claude's connection, not Didja's.
+- **Apple Reminders** (Settings › Connections, off by default, SCR-121): Didja writes task titles to a Reminders list through Apple's EventKit, on this Mac, and makes no connection of its own. If you use iCloud for Reminders, macOS then syncs that list through iCloud like any other, so those titles (and who asked, if you chose it) leave the Mac through Apple's sync, not Didja's.
 - **Pages Didja opens for you** (Report a Bug, Suggest a Feature, a task's link, Report a Problem's GitHub link or email) open in your browser or mail app. Your browser makes that connection, when you click; Didja sends nothing itself.
 
 ## Watch it with LuLu (free)

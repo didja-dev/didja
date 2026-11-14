@@ -38,6 +38,7 @@ final class SettingsHub: ObservableObject {
 
     lazy var names = NamesModel()
     lazy var connections = ConnectionsModel()
+    lazy var reminders = RemindersModel()
     lazy var brain = BrainModel()
     let exclude: ExcludeListModel
     var privacyFacts: () -> PrivacyFacts
@@ -62,7 +63,7 @@ final class SettingsHub: ObservableObject {
     func open(_ page: SettingsPage) {
         switch page {
         case .names: names.reload()
-        case .connections: connections.reload()
+        case .connections: connections.reload(); reminders.reload()
         case .brain: brain.reload()
         default: break
         }
@@ -81,7 +82,7 @@ struct SettingsPageView: View {
             Group {
                 switch page {
                 case .general: GeneralSettingsView(capture: capture, hub: hub)
-                case .connections: ConnectionsContent(model: hub.connections)
+                case .connections: ConnectionsContent(model: hub.connections, reminders: hub.reminders)
                 case .names: NamesContent(model: hub.names)
                 case .brain: BrainContent(model: hub.brain)
                 case .exclude: ExcludeListView(model: hub.exclude).padding(24)

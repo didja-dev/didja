@@ -152,6 +152,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusWatch: AnyCancellable?
     private var keyMonitor: Any?
 
+    /// A Didja link (`didja://task/<id>`), as written into a reminder (SCR-121): show that task.
+    func application(_ application: NSApplication, open urls: [URL]) {
+        guard let id = urls.lazy.compactMap(Reminders.taskId(of:)).first else { return }
+        showTasksWindow()
+        windowNavigator.selected = id
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         AppIcon.apply()
         CanvasDirectory.refresh()
@@ -179,6 +186,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             showWelcome()
         }
         nudger.start { [weak self] in self?.panel?.show() }
+        RemindersSyncer.shared.start() // does nothing until Apple Reminders is turned on (SCR-121)
         _ = Updates.shared // starts the daily update check (Release builds only, SCR-33)
         let registered = PanelHotKey.shared.start { [weak self] in self?.togglePopover() }
         // Pause and resume from anywhere, without opening the panel.
@@ -689,7 +697,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             localModel: LocalModel.status().model, shellHook: ShellHook.status(), agentHooks: AgentHooks.status(),
             defaultExclusions: ExcludeList.defaultLabels(in: list),
             encryption: .decode(EngineRunner.output(["encryption", "--json"])),
-            lastForget: LastForget.decode(EngineRunner.output(["forget", "last", "--json"])))
+            lastForget: LastForget.decode(EngineRunner.output(["forget", "last", "--json"])),
+            reminders: Reminders.status())
     }
 
     /// The names of the connected task tools, from the engine.
