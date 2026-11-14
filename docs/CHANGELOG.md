@@ -6,6 +6,12 @@ Each entry says what changed, and what was **not verified** where that applies: 
 
 ## 2026-11-14
 
+### The Ollama model answers chat asks too, when it is on (SCR-108)
+- New: `engine/eval/chats.ts` and 41 made-up chat messages (`engine/eval/chat-samples.json`: English and Hebrew, one-to-one and groups, "can someone…", thanks, acknowledgements, deferrals). Measured: Apple's model 29/41 with 12 wrong asks; qwen3.8 in Ollama 40/41 with 1 wrong ask; neither missed an ask.
+- With **Use a model in Ollama** on, "does this chat message ask me something?" (`--chat`) is asked of it first, and of Apple's model when Ollama does not answer or answers with anything but a true or false. Whether your reply settles an ask stays with Apple's model. Settings' description of the switch names the jobs it covers.
+- Tests: `engine/test/localmodel.test.ts` (the chat question carries the local model when on, never when off; the reply judge never does); `LocalChatAskTests` (only a real boolean is taken, a "no" is never a task, the request decodes the model).
+- Not verified: chats in the live app with Ollama on (only the eval and tests were run).
+
 ### Meeting action items read from notes on screen (SCR-107)
 - New: `profiles/meetings/` (one file per tool) and `engine/src/meetings.ts`. The "Action items" / "Next steps" list in Granola, Otter, Zoom's AI summary, Notion's AI meeting notes and Gemini's notes in Google Docs is read as text. Items for you become tasks (source kind `meeting`); others' are left out; unassigned ones go to the Suggested tray (not under Strict), and Accept makes them tasks. A box ticked in the tool asks "looks done?", never ticks. Teams' recap is listed as not supported. No audio, no model.
 - The app bundles `profiles/meetings/` (build phase).

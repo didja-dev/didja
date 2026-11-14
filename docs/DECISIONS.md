@@ -4,6 +4,9 @@ Choices made while building ScrolledAway, with the reason, so they are not re-ar
 
 ## 2026-11-14
 
+- **The local model is asked first whether a chat message asks something of you** (SCR-108), when it is on. On 41 made-up chat messages (`engine/eval/chats.ts`: English and Hebrew, one-to-one and groups, "can someone…", thanks and acknowledgements, deferrals by either side), qwen3.8 in Ollama got 40/41 with 1 wrong ask; Apple's model 29/41 with 12 wrong asks (acknowledgements, the sender's own plans, news, asks meant for someone else), no misses for either. The local model's one wrong ask ("does anyone know where…" said to a whole group) is a message Apple's model got right; the job still moved because the rule set for lists (SCR-70) counts wrong asks, not which messages they are on, and 1 is far fewer than 12. That message reaches the model only under Capture: Everything. Whether your reply settles an ask (`--chat-reply`) stays with Apple's model: it has no samples yet.
+- **Only a real true or false from the local model is taken for a chat ask** (SCR-108); anything else (a string, a number, a missing field) falls back to Apple's model, and a "no" is never a task whatever task words came with it.
+
 - **Meeting tools are matched only by their own app or site, and only under their own headings** (SCR-107). Notion and Google Docs hold every kind of page, so there only the meeting notes' own heading counts ("Action items" in Notion, Gemini's "Suggested next steps" in Docs), never a page's "Next steps".
 - **An item that names no one is a suggestion, never a task** (SCR-107): misattributing an item is the known failure of meeting notes, and a group's "everyone to review" is not clearly yours. Under Strict it makes nothing.
 - **A box ticked in the meeting tool asks, it does not tick** (SCR-107): the tool's text does not say who ticked it, and a wrong tick is the bug Didja exists to prevent.

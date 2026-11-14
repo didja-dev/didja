@@ -79,6 +79,36 @@ final class LocalListJudgeTests: XCTestCase {
     }
 }
 
+/// SCR-108: the local model may say whether a chat message asks something of you; only a real
+/// yes or no is taken, anything else falls back to Apple's model.
+final class LocalChatAskTests: XCTestCase {
+    func testAnAskIsReadAndAnOddAnswerIsNot() throws {
+        let yes = try XCTUnwrap(LocalModel.chatAskReply(from: ["asks": true, "task": "Send Sam the deck"], model: "m"))
+        XCTAssertEqual(yes.asks, true)
+        XCTAssertEqual(yes.task, "Send Sam the deck")
+        XCTAssertEqual(yes.model, "m")
+        // No ask is never a task, whatever the model wrote as one.
+        let no = try XCTUnwrap(LocalModel.chatAskReply(from: ["asks": false, "task": "Thank Sam"], model: "m"))
+        XCTAssertEqual(no.asks, false)
+        XCTAssertEqual(no.task, "none")
+        for odd: [String: Any] in [["asks": "true", "task": "x"], ["asks": 1, "task": "x"], ["task": "x"], [:]] {
+            XCTAssertNil(LocalModel.chatAskReply(from: odd, model: "m"), "\(odd)")
+        }
+        let body = try XCTUnwrap(JSONSerialization.jsonObject(with: LocalModel.chatBody(
+            model: "m", system: Judge.chatInstructions, prompt: "p", schema: LocalModel.chatAskSchema)) as? [String: Any])
+        XCTAssertEqual((body["format"] as? [String: Any])?["required"] as? [String], ["asks", "task"])
+    }
+
+    func testTheChatRequestCarriesTheLocalModel() throws {
+        let request = try JSONDecoder().decode(Judge.ChatRequest.self, from: Data(
+            #"{"app":"WhatsApp","chat":"Sam","group":false,"me":["Mike"],"from":"Sam","message":"Can you send the deck?","before":[],"local":{"model":"qwen3.8:latest"}}"#.utf8))
+        XCTAssertEqual(request.local?.model, "qwen3.8:latest")
+        let without = try JSONDecoder().decode(Judge.ChatRequest.self, from: Data(
+            #"{"app":"WhatsApp","chat":"Sam","group":false,"me":["Mike"],"from":"Sam","message":"Hi","before":[]}"#.utf8))
+        XCTAssertNil(without.local)
+    }
+}
+
 /// SCR-77: the long-lived judge's line format, and Ollama kept loaded.
 final class JudgeServerTests: XCTestCase {
     func testARequestLineIsReadWithItsIdJobAndRequest() throws {

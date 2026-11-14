@@ -118,7 +118,7 @@ struct GeneralSettingsView: View {
 
     /// What the local model does, and how it stands on this Mac.
     private var localWords: String {
-        let what = "Emails and \"looks done?\" are asked of a model in Ollama, which runs on this Mac (127.0.0.1), before Apple's on-device model. Slower, and it needs memory while it runs. Other decisions stay with Apple's model."
+        let what = "Emails, chat messages, \"looks done?\" and whose a list is are asked of a model in Ollama, which runs on this Mac (127.0.0.1), before Apple's on-device model. Slower, and it needs memory while it runs. Other decisions stay with Apple's model."
         switch (ollamaModels, local.on) {
         case (nil, true): return "\(what) Ollama isn't running, so Apple's model answers for now."
         case (nil, false): return "\(what) Ollama isn't running on this Mac; install it from ollama.com and pull a model to turn this on."

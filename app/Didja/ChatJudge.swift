@@ -4,8 +4,8 @@ import FoundationModels
 #endif
 
 /// The on-device model's two questions about chats (WhatsApp, Teams, Slack). Run by the engine as
-/// `Didja --chat` and `Didja --chat-reply`, with JSON on standard input. Only Apple's
-/// on-device model; nothing leaves the Mac.
+/// `Didja --chat` and `Didja --chat-reply`, with JSON on standard input. Apple's on-device model,
+/// or for `--chat` the local model in Ollama when you turned it on (SCR-108); nothing leaves the Mac.
 extension Judge {
     // MARK: Does this message ask something of me?
 
@@ -23,12 +23,16 @@ extension Judge {
         var message: String
         var before: [Earlier]
         var teach: Teach?
+        /// The local model to ask first, when you turned one on (LocalModel.swift, SCR-108).
+        var local: LocalModel.Choice?
     }
 
     struct ChatReply: Encodable {
         var available: Bool
         var asks: Bool?
         var task: String?
+        /// The local model that answered; nil for Apple's.
+        var model: String?
         var reason: String?
     }
 
@@ -94,6 +98,7 @@ extension Judge {
     }
 
     static func readChat(_ request: ChatRequest) async -> ChatReply {
+        if let local = request.local, let reply = await LocalModel.readChat(request, model: local.model) { return reply }
         #if canImport(FoundationModels)
         if #available(macOS 26.0, *) { return await OnDeviceChat.read(request) }
         #endif

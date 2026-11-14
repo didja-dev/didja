@@ -2,8 +2,9 @@ import Foundation
 
 /// A local model in Ollama, the maintainer's chosen exception to "Apple's on-device model only"
 /// (docs/DECISIONS.md, 2026-11-12). Off until you turn it on in Settings › General; the engine
-/// keeps the switch (`didja local-model`) and sends `local: { model }` with the two jobs it was
-/// measured on: emails (`--needs-reply`) and whether a screen shows a task done (`--looks-done`).
+/// keeps the switch (`didja local-model`) and sends `local: { model }` with the jobs it was
+/// measured on: emails (`--needs-reply`), whether a screen shows a task done (`--looks-done`), who a
+/// list is for (`--judge`, SCR-70) and whether a chat message asks something of you (`--chat`, SCR-108).
 ///
 /// It asks Ollama on this Mac only: the address is fixed to 127.0.0.1, never a name or another
 /// host, and the system proxy is not used. Same instructions and prompts as Apple's model. Any
@@ -53,6 +54,16 @@ enum LocalModel {
         ],
     ]
 
+    /// Does a chat message ask the reader to do something (SCR-108): the same answer shape as
+    /// Apple's `Ask` in ChatJudge.swift, guides included.
+    static let chatAskSchema: [String: Any] = [
+        "type": "object", "required": ["asks", "task"],
+        "properties": [
+            "asks": ["type": "boolean", "description": "true only if the message asks the reader to do something; in a group chat, only if it is addressed to the reader."],
+            "task": ["type": "string", "description": "The thing to do, 3 to 9 words, starting with a verb and naming the sender who asks, never the reader. 'none' if nothing is asked."],
+        ],
+    ]
+
     // MARK: Requests and answers (pure, tested)
 
     static func chatBody(model: String, system: String, prompt: String, schema: [String: Any]) -> Data {
@@ -89,6 +100,14 @@ enum LocalModel {
     static func listReply(from answer: [String: Any], model: String) -> Judge.Reply? {
         guard let audience = answer["audience"] as? String, ["user", "assistant"].contains(audience) else { return nil }
         return Judge.Reply(available: true, audience: audience, model: model)
+    }
+
+    static func chatAskReply(from answer: [String: Any], model: String) -> Judge.ChatReply? {
+        // A JSON boolean only: NSNumber 0/1 also casts to Bool, so check it is a real boolean.
+        guard let value = answer["asks"] as? NSNumber, CFGetTypeID(value) == CFBooleanGetTypeID() else { return nil }
+        let asks = value.boolValue
+        let task = (answer["task"] as? String).map { String($0.prefix(200)) } ?? ""
+        return Judge.ChatReply(available: true, asks: asks, task: asks ? task : "none", model: model)
     }
 
     /// The model names in Ollama's /api/tags reply.
@@ -135,6 +154,12 @@ enum LocalModel {
         guard let answer = await chat(model: model, system: Judge.compose(Judge.instructions, request.teach),
                                       prompt: Judge.prompt(for: request), schema: listSchema) else { return nil }
         return listReply(from: answer, model: model)
+    }
+
+    static func readChat(_ request: Judge.ChatRequest, model: String) async -> Judge.ChatReply? {
+        guard let answer = await chat(model: model, system: Judge.chatInstructions(for: request),
+                                      prompt: Judge.chatPrompt(for: request), schema: chatAskSchema) else { return nil }
+        return chatAskReply(from: answer, model: model)
     }
 
     /// A request that only loads the model, and keeps it loaded (SCR-77): Ollama loads a model for

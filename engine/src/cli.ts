@@ -257,13 +257,16 @@ export function findLooker(local: () => string | null = () => null): Looker | un
   };
 }
 
-/** The on-device model asked whether a chat message asks something of you (`Didja --chat`). */
-export function findChatReader(): ChatReader | undefined {
+/**
+ * The on-device model asked whether a chat message asks something of you (`Didja --chat`), or the
+ * local model first when it is on (SCR-108: measured better in eval/chats.ts, with fewer wrong asks).
+ */
+export function findChatReader(local: () => string | null = () => null): ChatReader | undefined {
   const binary = process.env.DIDJA_JUDGE ?? join(dirname(process.execPath), '../MacOS/Didja');
   if (!existsSync(binary)) return undefined;
   return (question) => {
     try {
-      const reply = askModel(binary, 'chat', question, 30_000) as { available?: boolean; asks?: boolean; task?: string };
+      const reply = askModel(binary, 'chat', { ...question, ...localField(local()) }, 45_000, local()) as { available?: boolean; asks?: boolean; task?: string };
       if (!reply.available) return null;
       return validChatAnswer(reply);
     } catch {
@@ -623,11 +626,11 @@ async function main(argv: string[]): Promise<number> {
         // Woken by `run`; when `run` goes away its end of the pipe closes, and so does this lane.
         wakeOnInput(Bun.stdin.stream(), waker, () => controller.abort());
         const log = (line: string) => console.log(`lane: ${line}`);
-        await runLoop(store, log, { signal: controller.signal, waker, judge: findJudge(() => localModelOf(store)), titler: findTitler(), looker: findLooker(() => localModelOf(store)), mailReader: findMailReader(() => localModelOf(store)), chatReader: findChatReader(), replyJudge: findReplyJudge(), criteria: findCriteriaWriter() });
+        await runLoop(store, log, { signal: controller.signal, waker, judge: findJudge(() => localModelOf(store)), titler: findTitler(), looker: findLooker(() => localModelOf(store)), mailReader: findMailReader(() => localModelOf(store)), chatReader: findChatReader(() => localModelOf(store)), replyJudge: findReplyJudge(), criteria: findCriteriaWriter() });
         return 0;
       }
       case 'poll': {
-        const s = pollOnce(store, new Date(), { judge: findJudge(() => localModelOf(store)), titler: findTitler(), looker: findLooker(() => localModelOf(store)), mailReader: findMailReader(() => localModelOf(store)), chatReader: findChatReader(), replyJudge: findReplyJudge(), criteria: findCriteriaWriter() });
+        const s = pollOnce(store, new Date(), { judge: findJudge(() => localModelOf(store)), titler: findTitler(), looker: findLooker(() => localModelOf(store)), mailReader: findMailReader(() => localModelOf(store)), chatReader: findChatReader(() => localModelOf(store)), replyJudge: findReplyJudge(), criteria: findCriteriaWriter() });
         console.log(
           `observations=${s.observations} windows=${s.windows} claude=${s.claudeWindows} checklists=${s.checklists} new=${s.newTasks} sightings=${s.sightings} completed=${s.completed} judged=${s.judged} retracted=${s.retracted} titled=${s.titled} suggested=${s.suggested} emails=${s.emails} archived=${s.archived} expired=${s.expired}`,
         );

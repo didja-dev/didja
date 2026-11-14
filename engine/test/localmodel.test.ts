@@ -3,7 +3,7 @@ import { afterEach, expect, test } from 'bun:test';
 import { chmodSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { findJudge, findLooker, findMailReader, findTitler } from '../src/cli.ts';
+import { findChatReader, findJudge, findLooker, findMailReader, findReplyJudge, findTitler } from '../src/cli.ts';
 import { localModelOf, setLocalModel } from '../src/localmodel.ts';
 import { Store } from '../src/store.ts';
 
@@ -58,8 +58,21 @@ test('who a list is for carries the local model when it is on (SCR-70: measured 
   expect(sent(dir, '--judge').local).toBeUndefined();
 });
 
+test('whether a chat message asks something carries the local model when it is on (SCR-108: measured in eval/chats.ts)', () => {
+  const dir = fakeJudge();
+  let model: string | null = 'qwen3.8:latest';
+  const question = { app: 'WhatsApp', chat: 'Sam', group: false, me: ['Mike'], from: 'Sam', message: 'Can you send the deck?', before: [] };
+  findChatReader(() => model)!(question);
+  expect(sent(dir, '--chat')).toEqual({ ...question, local: { model: 'qwen3.8:latest' } });
+  model = null;
+  findChatReader(() => model)!(question);
+  expect(sent(dir, '--chat')).toEqual(question);
+});
+
 test('the jobs not measured against the local model never carry it', () => {
   const dir = fakeJudge();
   findTitler()!({ leadIn: 'Next steps:', steps: ['Run the migration'] } as never);
   expect(sent(dir, '--title').local).toBeUndefined();
+  findReplyJudge()!({ app: 'WhatsApp', task: 'Send Sam the deck', ask: 'Can you send the deck?', reply: 'sent' });
+  expect(sent(dir, '--chat-reply').local).toBeUndefined();
 });
