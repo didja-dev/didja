@@ -35,6 +35,7 @@ import schema30 from '../../schema/030_capture_reason.sql' with { type: 'text' }
 import schema31 from '../../schema/031_due.sql' with { type: 'text' };
 import schema32 from '../../schema/032_waiting.sql' with { type: 'text' };
 import { dayOf } from './due.ts';
+import { isSealed, keyFromEnv, seal, tightenModes, unseal } from './sealed.ts';
 import { defaultWhy, WHY } from './capturewhy.ts';
 import { contextLines } from './context.ts';
 import { parseCriteria } from './donecriteria.ts';
@@ -491,7 +492,7 @@ const SELECT_TASK = `
          t.parent_id, t.is_group, t.done_at, t.snoozed_until, t.captured_why, t.due_at
   FROM tasks t JOIN sources s ON s.id = t.source`;
 
-function toObservation(r: ObservationRow): Observation {
+function toObservation(r: ObservationRow, key: Buffer | null = null): Observation {
   return {
     id: r.id,
     ts: r.ts,
@@ -500,7 +501,8 @@ function toObservation(r: ObservationRow): Observation {
     windowTitle: r.window_title,
     url: r.url,
     source: r.source,
-    text: r.text,
+    // Sealed (SCR-101) and no key, or the wrong one: nothing to read, never a guess.
+    text: unseal(r.text, key) ?? '',
     ...(r.window_key ? { windowKey: r.window_key } : {}),
   };
 }
@@ -556,7 +558,11 @@ export class Store {
   /** Measures time spent inside a pass; the benchmark swaps in a fake clock that charges model calls. */
   clock: () => number = () => Date.now();
 
-  constructor(path: string = process.env.DIDJA_DB ?? DEFAULT_DB_PATH) {
+  /** The key for sealed columns (SCR-101), handed over by the app; null when there is none. */
+  private readonly key: Buffer | null;
+
+  constructor(path: string = process.env.DIDJA_DB ?? DEFAULT_DB_PATH, key: Buffer | null = keyFromEnv()) {
+    this.key = key;
     if (path === DEFAULT_DB_PATH) moveFromOldName();
     if (path !== ':memory:') mkdirSync(dirname(path), { recursive: true });
     this.db = new Database(path);
@@ -569,6 +575,8 @@ export class Store {
       });
     }).immediate();
     this.backfillAuto();
+    if (path !== ':memory:') tightenModes(dirname(path));
+    this.sealExisting();
     this.renameSources();
   }
 
@@ -612,6 +620,54 @@ export class Store {
     this.db.close();
   }
 
+  // --- encryption at rest (SCR-101)
+
+  /** Seal a value when there is a key; without one it is stored as it is (capture never stops). */
+  private sealed(text: string): string {
+    return this.key ? seal(text, this.key) : text;
+  }
+
+  /** A stored value's text; '' when it is sealed and cannot be opened. */
+  private opened(value: string | null): string | null {
+    return value === null ? null : unseal(value, this.key) ?? '';
+  }
+
+  /**
+   * With a key, seal every value still stored in the clear: observation text, kept lines, email
+   * notes. Idempotent and cheap when there is nothing left (the first run does the old database).
+   * Values sealed with another key are left as they are.
+   */
+  sealExisting(): number {
+    if (!this.key) return 0;
+    let n = 0;
+    this.db.transaction(() => {
+      const obs = this.db.query("SELECT id, text FROM observations WHERE text NOT LIKE 'enc1:%'").all() as { id: number; text: string }[];
+      for (const r of obs) this.db.query('UPDATE observations SET text = ? WHERE id = ?').run(this.sealed(r.text), r.id);
+      const ctx = this.db.query("SELECT task_id, lines FROM task_context WHERE lines NOT LIKE 'enc1:%'").all() as { task_id: number; lines: string }[];
+      for (const r of ctx) this.db.query('UPDATE task_context SET lines = ? WHERE task_id = ?').run(this.sealed(r.lines), r.task_id);
+      const notes = this.db.query("SELECT id, detail FROM evidence WHERE kind = 'origin' AND detail IS NOT NULL AND detail NOT LIKE 'enc1:%'").all() as { id: number; detail: string }[];
+      for (const r of notes) this.db.query('UPDATE evidence SET detail = ? WHERE id = ?').run(this.sealed(r.detail), r.id);
+      n = obs.length + ctx.length + notes.length;
+      this.setMeta('db_encryption', 'v1');
+    }).immediate();
+    return n;
+  }
+
+  /**
+   * How it stands (SCR-101): "on" (a key, nothing left in the clear), "no-key" (sealed values but
+   * no key here: an engine started outside the app), "off" (never sealed).
+   */
+  encryptionState(): { state: 'on' | 'no-key' | 'off'; clear: number } {
+    const clear = (this.db.query("SELECT (SELECT COUNT(*) FROM observations WHERE text NOT LIKE 'enc1:%') + (SELECT COUNT(*) FROM task_context WHERE lines NOT LIKE 'enc1:%') + (SELECT COUNT(*) FROM evidence WHERE kind = 'origin' AND detail NOT LIKE 'enc1:%') AS n").get() as { n: number }).n;
+    if (this.key) return { state: clear === 0 ? 'on' : 'off', clear };
+    return { state: this.getMeta('db_encryption') ? 'no-key' : 'off', clear };
+  }
+
+  /** Sealed values are stored and this engine has no key to read them (started outside the app). */
+  lacksKey(): boolean {
+    return !this.key && this.getMeta('db_encryption') !== null;
+  }
+
   // --- observations (written by the capture layer; the engine only reads and expires them)
 
   /** For tests and tooling. In production the Swift capture layer does the writing. */
@@ -622,7 +678,7 @@ export class Store {
         `INSERT INTO observations (ts, bundle_id, app, window_title, url, source, text, window_key)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       )
-      .run(o.ts, o.bundleId, o.app, o.windowTitle, o.url, o.source, o.text, key);
+      .run(o.ts, o.bundleId, o.app, o.windowTitle, o.url, o.source, this.sealed(o.text), key);
     return Number(info.lastInsertRowid);
   }
 
@@ -630,14 +686,14 @@ export class Store {
     const rows = this.db
       .query('SELECT * FROM observations WHERE id > ? ORDER BY id LIMIT ?')
       .all(id, limit) as ObservationRow[];
-    return rows.map(toObservation);
+    return rows.map((r) => toObservation(r, this.key));
   }
 
   latestObservations(limit: number): Observation[] {
     const rows = this.db
       .query('SELECT * FROM observations ORDER BY id DESC LIMIT ?')
       .all(limit) as ObservationRow[];
-    return rows.map(toObservation).reverse();
+    return rows.map((r) => toObservation(r, this.key)).reverse();
   }
 
   /**
@@ -657,7 +713,7 @@ export class Store {
             )
             .all(o.bundleId, o.windowTitle, sinceIso)
     ) as ObservationRow[];
-    return rows.map(toObservation);
+    return rows.map((r) => toObservation(r, this.key));
   }
 
   /** Enforce the 24h TTL. The app does this too; either side running is enough. */
@@ -710,14 +766,14 @@ export class Store {
       .query('SELECT ts, bundle_id, app, window_title, url, text FROM observations WHERE id = ?')
       .get(observationId) as { ts: string; bundle_id: string; app: string; window_title: string; url: string | null; text: string } | null;
     if (!o) return;
-    const lines = contextLines(o.text, title);
+    const lines = contextLines(this.opened(o.text) ?? '', title);
     if (!lines) return;
     this.db
       .query(
         `INSERT OR IGNORE INTO task_context (task_id, bundle_id, app, window_title, url, lines, captured_at)
          VALUES (?, ?, ?, ?, ?, ?, ?)`,
       )
-      .run(taskId, o.bundle_id, o.app, o.window_title, o.url, JSON.stringify(lines), o.ts);
+      .run(taskId, o.bundle_id, o.app, o.window_title, o.url, this.sealed(JSON.stringify(lines)), o.ts);
   }
 
   /** How a task looked where it was captured, or null. A checklist shows its first step's. */
@@ -730,7 +786,11 @@ export class Store {
          ORDER BY t.id = ? DESC, t.position IS NULL, t.position, t.id LIMIT 1`,
       )
       .get(id, id, id) as { app: string; window: string; url: string | null; lines: string; capturedAt: string } | null;
-    return row ? { ...row, lines: JSON.parse(row.lines) as ContextLine[] } : null;
+    if (!row) return null;
+    // Sealed with no key (or another key): none kept, as far as this engine can tell.
+    const lines = this.opened(row.lines);
+    if (!lines) return null;
+    return { ...row, lines: JSON.parse(lines) as ContextLine[] };
   }
 
   /** Forget the lines kept for finished tasks: they are kept only while a task is open. */
@@ -1429,13 +1489,13 @@ export class Store {
 
   observation(id: number): Observation | null {
     const row = this.db.query('SELECT * FROM observations WHERE id = ?').get(id) as ObservationRow | null;
-    return row ? toObservation(row) : null;
+    return row ? toObservation(row, this.key) : null;
   }
 
   /** Screens kept since a time, oldest first (at most `limit`). */
   observationsSince(iso: string, limit = 2000): Observation[] {
     const rows = this.db.query('SELECT * FROM observations WHERE ts >= ? ORDER BY id DESC LIMIT ?').all(iso, limit) as ObservationRow[];
-    return rows.map(toObservation).reverse();
+    return rows.map((r) => toObservation(r, this.key)).reverse();
   }
 
   // --- Canvases (SCR-49) --------------------------------------------------------------------
@@ -2008,7 +2068,7 @@ export class Store {
    * dismissed one is returned too, so the email is not made into a second task.
    */
   unlinkedMailTask(subject: string): { id: number; status: TaskStatus } | null {
-    const rows = this.db
+    const rows = (this.db
       .query(
         `SELECT t.id, t.title, t.status,
                 (SELECT detail FROM evidence e WHERE e.task_id = t.id AND e.kind = 'origin' ORDER BY e.id DESC LIMIT 1) AS origin
@@ -2016,7 +2076,7 @@ export class Store {
          WHERE s.kind = 'email' AND t.id NOT IN (SELECT task_id FROM email_tasks)
          ORDER BY t.status = 'open' DESC, t.id`,
       )
-      .all() as { id: number; title: string; status: TaskStatus; origin: string | null }[];
+      .all() as { id: number; title: string; status: TaskStatus; origin: string | null }[]).map((r) => ({ ...r, origin: this.opened(r.origin) }));
     const named = subject.trim();
     const found = rows.find(
       (r) => (r.title.startsWith('Reply to ') && r.title.endsWith(`: ${named}`)) || r.origin?.endsWith(`— “${named.slice(0, 80)}”`),
@@ -2036,14 +2096,14 @@ export class Store {
    * 4410"), in the same mailbox. Returns how many.
    */
   dismissArchived(mailbox: string, subject: string, now: Date): number {
-    const rows = this.db
+    const rows = (this.db
       .query(
         `SELECT t.id,
                 (SELECT detail FROM evidence e WHERE e.task_id = t.id AND e.kind = 'origin' ORDER BY e.id DESC LIMIT 1) AS origin
          FROM tasks t JOIN sources s ON s.id = t.source
          WHERE s.kind = 'email' AND s.ref = ? AND t.status IN ('open', 'snoozed')`,
       )
-      .all(mailbox) as { id: number; origin: string | null }[];
+      .all(mailbox) as { id: number; origin: string | null }[]).map((r) => ({ ...r, origin: this.opened(r.origin) }));
     const hit = rows.filter((r) => {
       const from = r.origin?.match(/— “(.*)”$/)?.[1];
       return from !== undefined && sameMatter(from, subject.trim());
@@ -2061,14 +2121,14 @@ export class Store {
    * the note says.
    */
   mailTasksWithSubject(mailbox: string, subject: string): { id: number; from: string }[] {
-    const rows = this.db
+    const rows = (this.db
       .query(
         `SELECT t.id,
                 (SELECT detail FROM evidence e WHERE e.task_id = t.id AND e.kind = 'origin' ORDER BY e.id DESC LIMIT 1) AS origin
          FROM tasks t JOIN sources s ON s.id = t.source
          WHERE s.kind = 'email' AND s.ref = ? AND t.status IN ('open', 'snoozed')`,
       )
-      .all(mailbox) as { id: number; origin: string | null }[];
+      .all(mailbox) as { id: number; origin: string | null }[]).map((r) => ({ ...r, origin: this.opened(r.origin) }));
     const want = baseSubject(subject);
     const found: { id: number; from: string }[] = [];
     for (const r of rows) {
@@ -2223,9 +2283,9 @@ export class Store {
         // A promise of yours (SCR-98): remembered by its wording, so the same line is not taken again.
         this.addLesson('chats', 'not-an-action', dedupeKey(step.capturedTitle), `In ${step.criteria.promise.app}, "${step.capturedTitle}" was not a promise of mine.`, now);
       } else if (task.sourceKind === 'email') {
-        const origin = (this.db
+        const origin = this.opened((this.db
           .query("SELECT detail FROM evidence WHERE task_id = ? AND kind = 'origin' ORDER BY id DESC LIMIT 1")
-          .get(step.id) as { detail: string } | null)?.detail ?? '';
+          .get(step.id) as { detail: string } | null)?.detail ?? null) ?? '';
         const subject = origin.match(/— “(.*)”$/)?.[1] ?? '';
         if (subject) this.addLesson('emails', 'not-an-action', emailLessonKey(originSender(origin), subject), `An email like ${origin.replace(/^From an email: /, 'one from ')} asked nothing of me ("${step.capturedTitle}" was not a task).`, now);
       } else if (step.criteria?.chat) {
@@ -2431,7 +2491,8 @@ export class Store {
       .query('SELECT task_id, observation_id, ts, kind, marker, detail FROM evidence WHERE task_id = ? ORDER BY ts, id')
       .all(taskId) as { task_id: number; observation_id: number | null; ts: string; kind: Evidence['kind']; marker: string | null; detail: string | null }[];
     return rows.map((r) => ({
-      taskId: r.task_id, observationId: r.observation_id, ts: r.ts, kind: r.kind, marker: r.marker, detail: r.detail,
+      taskId: r.task_id, observationId: r.observation_id, ts: r.ts, kind: r.kind, marker: r.marker,
+      detail: r.kind === 'origin' ? this.opened(r.detail) : r.detail,
     }));
   }
 
@@ -2457,7 +2518,7 @@ export class Store {
   addNote(taskId: number, kind: Evidence['kind'], ts: string, detail: string): void {
     this.db
       .query('INSERT INTO evidence (task_id, observation_id, ts, kind, detail) VALUES (?, NULL, ?, ?, ?)')
-      .run(taskId, ts, kind, detail);
+      .run(taskId, ts, kind, kind === 'origin' ? this.sealed(detail) : detail);
   }
 
   // --- judgements (who a list is for, when its wording does not say)

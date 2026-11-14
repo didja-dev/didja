@@ -37,6 +37,7 @@ app/build/Build/Products/Debug/Didja.app/Contents/Helpers/didja status
 ## Hard rules
 
 - No Screenpipe or any third-party screen recorder. Capture uses Apple APIs only.
+- Screen text at rest is sealed (SCR-101): observation text, `task_context` lines and email notes go through `sealed.ts` in the engine and `Sealed` in the app (AES-256-GCM, key in the login Keychain, handed to the engine in its environment). A new column holding screen text is sealed the same way; the key is never written to disk.
 - Never store screenshots or video. OCR frames are processed in memory and dropped.
 - Store text only, deduped per window. Observations expire after 24 hours.
 - The exclude list applies before anything is read. Never read secure text fields. Evidence holds descriptions written by the engine, never raw screen text. The one exception, chosen by the maintainer: an email task's note keeps the email's sender name and subject, so you can see who asked (docs/DECISIONS.md).

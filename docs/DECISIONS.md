@@ -4,6 +4,12 @@ Choices made while building ScrolledAway, with the reason, so they are not re-ar
 
 ## 2026-11-14
 
+- **The app hands the key to the engine in its environment** (SCR-101), rather than the engine reading the Keychain itself: a Keychain item made by the app is readable without a prompt only by the app, and giving the helper its own access would mean changing entitlements and signing, which this repository does not do. The environment of a process started by the app is visible only to the same user, the same reach as the file it protects. So an engine started elsewhere (a terminal, `didja mcp` from your own Claude) cannot read sealed text; that is the safe side.
+- **Node's built-in `crypto` in the engine, not WebCrypto**: WebCrypto is asynchronous, the store is synchronous; the built-in module is just as much part of Bun, with no dependency.
+- **No schema step**: each sealed value carries an `enc1:` prefix, so plain and sealed rows can sit side by side during the migration, and an older engine sees sealed text as text it cannot use rather than failing.
+- **If the key cannot be read, capture keeps going unsealed** and Privacy says so, instead of stopping capture: a Keychain hiccup should not lose your tasks; the next start with the key seals what was written. **Reads fail closed**: a value sealed with another key, or with no key here, reads as nothing and is never overwritten or deleted (observations still expire after 24 hours as before).
+- **Sealed: observation text, kept lines, email notes.** Task titles stay readable: they are what the list shows and what matching and dedupe compare on every pass.
+
 - **Day Review is off until you choose a time** (SCR-100), and shown once a day only when you open the Quick View after it, with one notification: an unasked daily feed is noise. The morning list is not shown after noon if missed: by then it is stale.
 - **"Ticked for you today" lists only ticks still standing** (the step's last outcome is Didja's tick), so a tick you already reopened, or a step you ticked yourself, is not there. **Not Done** is the same as reopening it: the tick is counted wrong and the place loses trust; for a tick from what a screen showed, it also teaches "looks done".
 - **The first-tick note is now built** (it was left for a follow-up): shown once, for the first tick ever, while that tick still stands.

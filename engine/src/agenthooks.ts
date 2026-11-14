@@ -195,7 +195,7 @@ const DAY_MS = 24 * 3600_000;
 
 export function appendAgentEvent(path: string, e: AgentEvent): void {
   mkdirSync(dirname(path), { recursive: true });
-  appendFileSync(path, `${JSON.stringify(e)}\n`);
+  appendFileSync(path, `${JSON.stringify(e)}\n`, { mode: 0o600 });
 }
 
 /** The events of the last 24 hours; older lines are dropped from the file. */
@@ -219,7 +219,7 @@ export function readAgentEvents(path: string, now: Date): AgentEvent[] {
   const kept = all.filter((e) => now.getTime() - Date.parse(e.ts) <= DAY_MS);
   if (kept.length < all.length) {
     try {
-      writeFileSync(path, kept.map((e) => `${JSON.stringify(e)}\n`).join(''));
+      writeFileSync(path, kept.map((e) => `${JSON.stringify(e)}\n`).join(''), { mode: 0o600 });
     } catch {
       // try again next pass
     }

@@ -172,7 +172,7 @@ function logCall(p: McpPlaces, tool: string, args: Record<string, unknown>, at: 
   const brief = Object.fromEntries(Object.entries(args).map(([k, v]) => [k, typeof v === 'object' ? '(object)' : String(v).slice(0, 80)]));
   try {
     mkdirSync(dirname(p.log), { recursive: true });
-    appendFileSync(p.log, `${JSON.stringify({ ts: at.toISOString(), tool, args: brief })}\n`);
+    appendFileSync(p.log, `${JSON.stringify({ ts: at.toISOString(), tool, args: brief })}\n`, { mode: 0o600 });
   } catch {
     // A log that cannot be written does not stop the answer.
   }

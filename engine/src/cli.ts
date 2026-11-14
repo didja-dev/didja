@@ -66,6 +66,7 @@ const USAGE = `didja <command>
   lane                the model lane "run" starts: the full pass, with the on-device model (SCR-76)
   poll                one extraction pass, then exit
   nudges              checklists left unfinished for hours, as JSON (each is reported once)
+  encryption          whether screen text is encrypted on disk (SCR-101) [--json]
   review              Day Review (SCR-100): [evening|morning] [--json|--markdown] | due | time <evening|morning> <HH:MM|off> | undo <id>
   waiting             asks you sent that wait for an answer (SCR-99): [--json] | gotit <id> | stop <id> | why <id> | quiet [--chat <hours>] [--email <days>]
   why <id>            what would tick a task, and what has been seen so far
@@ -390,7 +391,24 @@ async function main(argv: string[]): Promise<number> {
 
   const store = new Store();
   try {
+    // Sealed screen text and no key (an engine started outside the app, SCR-101): reading screens
+    // here would pass over them unread. Fail closed: the app's own engine reads them.
+    // The app's own engine (DIDJA_FROM_APP) goes on even then: the app could not read the key, and
+    // capture keeps going unsealed rather than stopping.
+    if ((command === 'run' || command === 'poll') && store.lacksKey() && process.env.DIDJA_FROM_APP !== '1') {
+      console.error("Didja's database is encrypted and this engine has no key: run it from the app (it starts its own).");
+      return 1;
+    }
     switch (command) {
+      case 'encryption': {
+        const state = store.encryptionState();
+        console.log(args.includes('--json') ? JSON.stringify(state) : {
+          on: 'Encrypted on disk: screen text, kept lines and email notes are sealed (AES-256-GCM, key in your login Keychain).',
+          'no-key': 'Encrypted on disk, but this engine has no key (it was not started by the app): sealed text reads as nothing here.',
+          off: `Not encrypted yet: ${state.clear} values are stored in the clear. The app seals them when it starts with its key.`,
+        }[state.state]);
+        return 0;
+      }
       case 'observations':
         return await observations(store, args);
       case 'nudges': {
