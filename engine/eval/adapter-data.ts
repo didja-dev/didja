@@ -14,7 +14,9 @@
  * out, chosen by a hash of its id so the split never changes when samples are added elsewhere; an
  * adapter may be measured only on the held-out examples, never on what it was trained on.
  *
- *   bun eval/adapter-data.ts [out-dir]     (default: $TMPDIR/didja-adapter-data)
+ *   bun eval/adapter-data.ts [out-dir] [--synth]     (default: $TMPDIR/didja-adapter-data)
+ *
+ * With --synth, the generated corpus (synth.ts) is added: its held-out frames go to held-out.jsonl.
  *
  * Writes train.jsonl, held-out.jsonl and split.json (which ids went where). Nothing is sent anywhere.
  */
@@ -23,6 +25,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { ChatQuestion } from '../src/chat.ts';
 import { chatInstructions, chatPrompt, listInstructions, listPrompt, lookInstructions, lookPrompt, type LookRequest } from './prompts.ts';
+import { type Counts, DEFAULT_COUNTS, type Split, synthChats, synthLists, synthLooks } from './synth.ts';
 
 export type Job = 'list-owner' | 'chat-ask' | 'looks-done';
 export interface Message { role: 'system' | 'user' | 'assistant'; content: string }
@@ -38,30 +41,45 @@ const read = <T>(file: string) => JSON.parse(readFileSync(join(import.meta.dir, 
 const example = (job: Job, id: string, label: string, system: string, user: string, answer: object): Example =>
   ({ job, id, label, messages: [{ role: 'system', content: system }, { role: 'user', content: user }, { role: 'assistant', content: JSON.stringify(answer) }] });
 
-/** Every example, from the made-up samples only. */
+export const listExample = (s: ListSample, lists = listInstructions()): Example => {
+  // With the whole reply, as the engine asks (`replyAround`).
+  const reply = [...(s.before ?? []), s.leadIn, ...s.steps.map((t, i) => `${i + 1}. ${t}`), ...(s.after ?? [])].join('\n');
+  const prompt = listPrompt({ leadIn: s.leadIn, steps: s.steps, after: s.after ?? [], ...(s.asked ? { asked: s.asked } : {}), reply });
+  return example('list-owner', s.id, s.expect, lists, prompt, { audience: s.expect });
+};
+
+/** Null for an ask with no written task: it cannot teach the task's wording, so it is left out rather than guessed. */
+export const chatExample = (s: ChatSample): Example | null => {
+  if (s.expect && !s.task?.trim()) return null;
+  const q: ChatQuestion = { app: 'WhatsApp', chat: s.chat, group: s.group, ...(s.addressed ? { addressed: s.addressed } : {}), me: ME, from: s.from, message: s.message, before: s.before ?? [] };
+  return example('chat-ask', s.id, String(s.expect), chatInstructions(s.message), chatPrompt(q), { asks: s.expect, task: s.expect ? s.task!.trim() : 'none' });
+};
+
+export const lookExample = (s: LookSample, looks = lookInstructions()): Example => example('looks-done', s.id, s.expect, looks, lookPrompt(s.request), { seen: s.expect });
+
+/** Every example, from the hand-written made-up samples only. */
 export function examples(): Example[] {
-  const out: Example[] = [];
+  const lists = listInstructions(), looks = lookInstructions();
+  return [
+    ...read<ListSample[]>('lists-samples.json').map((s) => listExample(s, lists)),
+    ...read<ChatSample[]>('chat-samples.json').flatMap((s) => chatExample(s) ?? []),
+    ...read<LookSample[]>('looks-samples.json').map((s) => lookExample(s, looks)),
+  ];
+}
 
-  const lists = listInstructions();
-  for (const s of read<ListSample[]>('lists-samples.json')) {
-    // With the whole reply, as the engine asks (`replyAround`).
-    const reply = [...(s.before ?? []), s.leadIn, ...s.steps.map((t, i) => `${i + 1}. ${t}`), ...(s.after ?? [])].join('\n');
-    const prompt = listPrompt({ leadIn: s.leadIn, steps: s.steps, after: s.after ?? [], ...(s.asked ? { asked: s.asked } : {}), reply });
-    out.push(example('list-owner', s.id, s.expect, lists, prompt, { audience: s.expect }));
-  }
-
-  for (const s of read<ChatSample[]>('chat-samples.json')) {
-    // An ask with no written task cannot teach the task's wording: left out rather than guessed.
-    if (s.expect && !s.task?.trim()) continue;
-    const q: ChatQuestion = { app: 'WhatsApp', chat: s.chat, group: s.group, ...(s.addressed ? { addressed: s.addressed } : {}), me: ME, from: s.from, message: s.message, before: s.before ?? [] };
-    out.push(example('chat-ask', s.id, String(s.expect), chatInstructions(s.message), chatPrompt(q), { asks: s.expect, task: s.expect ? s.task!.trim() : 'none' }));
-  }
-
-  const looks = lookInstructions();
-  for (const s of read<LookSample[]>('looks-samples.json')) {
-    out.push(example('looks-done', s.id, s.expect, looks, lookPrompt(s.request), { seen: s.expect }));
-  }
-  return out;
+/**
+ * Examples from the generated corpus (synth.ts), each with the split of its frame: a held-out frame
+ * is a phrasing never trained on, so the held-out score says whether an adapter learnt the job or
+ * the sentences.
+ */
+export function synthExamples(counts: Counts = DEFAULT_COUNTS, seed = 1): { train: Example[]; heldOut: Example[] } {
+  const lists = listInstructions(), looks = lookInstructions();
+  const all: [Example, Split][] = [
+    ...synthLists(counts.lists, seed).map((s): [Example, Split] => [listExample(s, lists), s.split]),
+    ...synthChats(counts.chats, seed).flatMap((s): [Example, Split][] => { const e = chatExample(s); return e ? [[e, s.split]] : []; }),
+    ...synthLooks(counts.looks, seed).map((s): [Example, Split] => [lookExample(s, looks), s.split]),
+  ];
+  return { train: all.filter(([, sp]) => sp === 'train').map(([e]) => e), heldOut: all.filter(([, sp]) => sp === 'held-out').map(([e]) => e) };
 }
 
 /** FNV-1a, 32 bits: a stable hash, so the split does not depend on the order of the samples. */
@@ -95,8 +113,10 @@ export function split(all: Example[], every = 5): { train: Example[]; heldOut: E
 /** One line per example: the messages only, as the toolkit reads them. */
 export const jsonl = (list: Example[]) => list.map((e) => JSON.stringify(e.messages)).join('\n') + (list.length ? '\n' : '');
 
-export function write(outDir: string): { train: number; heldOut: number } {
-  const { train, heldOut } = split(examples());
+export function write(outDir: string, synth: Counts | null = null): { train: number; heldOut: number } {
+  const hand = split(examples());
+  const gen = synth ? synthExamples(synth) : { train: [], heldOut: [] };
+  const train = [...hand.train, ...gen.train], heldOut = [...hand.heldOut, ...gen.heldOut];
   mkdirSync(outDir, { recursive: true });
   writeFileSync(join(outDir, 'train.jsonl'), jsonl(train));
   writeFileSync(join(outDir, 'held-out.jsonl'), jsonl(heldOut));
@@ -106,13 +126,15 @@ export function write(outDir: string): { train: number; heldOut: number } {
 }
 
 if (import.meta.main) {
-  const outDir = process.argv[2] ?? join(process.env.TMPDIR ?? tmpdir(), 'didja-adapter-data');
-  const { train, heldOut } = write(outDir);
-  const all = examples();
+  const args = process.argv.slice(2);
+  const outDir = args.find((a) => !a.startsWith('--')) ?? join(process.env.TMPDIR ?? tmpdir(), 'didja-adapter-data');
+  const withSynth = args.includes('--synth');
+  const { train, heldOut } = write(outDir, withSynth ? DEFAULT_COUNTS : null);
+  const all = [...examples(), ...(withSynth ? Object.values(synthExamples()).flat() : [])];
   for (const job of ['list-owner', 'chat-ask', 'looks-done'] as const) {
     const of = all.filter((e) => e.job === job);
     const labels = [...new Set(of.map((e) => e.label))].map((l) => `${of.filter((e) => e.label === l).length} ${l}`).join(', ');
-    console.log(`${job.padEnd(11)} ${String(of.length).padStart(3)} examples (${labels})`);
+    console.log(`${job.padEnd(11)} ${String(of.length).padStart(4)} examples (${labels})`);
   }
   console.log(`\n${train} to train on, ${heldOut} held out, in ${outDir}`);
 }

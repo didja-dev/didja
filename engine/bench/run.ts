@@ -523,7 +523,10 @@ if (import.meta.main) {
     process.exit(2);
   }
   const only = flag('--only');
-  const scenarios = loadScenarios().filter((s) => !only || s.id === only);
+  // --synth N: N generated made-up scenarios (eval/synth.ts) instead of the hand-written ones.
+  const synth = flag('--synth');
+  const pool: Scenario[] = synth ? (await import('../eval/synth.ts')).synthScenarios(Number(synth), Number(flag('--seed') ?? 1)) : loadScenarios();
+  const scenarios = pool.filter((s) => !only || s.id === only);
   const opts = modelOptions(model);
   if (model !== 'none' && !opts.judge) {
     console.error(`No model: build the app first, or set DIDJA_JUDGE to Didja.app/Contents/MacOS/Didja.`);

@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { asksEveryone, asksForAcknowledgement, chatTaskTitle, isCheckmarkReaction, isEmojiOnly, chatTime, isMine, mayAskOfMe, namesMe, parseChatMessages, plainlyDefers } from '../src/chat.ts';
+import { asksEveryone, asksForAcknowledgement, chatTaskTitle, isCheckmarkReaction, isEmojiOnly, chatTime, isMine, mayAskOfMe, namesMe, onlyAcceptsMine, parseChatMessages, plainlyDefers } from '../src/chat.ts';
 import type { ChatQuestion, ChatReader, ReplyJudge, ReplyQuestion } from '../src/chat.ts';
 import { myNames, namesOf, pollOnce } from '../src/engine.ts';
 import { Store } from '../src/store.ts';
@@ -549,4 +549,48 @@ test('a ✅ that is not yours, on another message, from the chat list, or a 👍
   expect(task.status).toBe('open');
   expect(task.suggestion).not.toBeNull();
   store.close();
+});
+
+test('a plain yes to your own message is their answer, not an ask of you; a yes that asks something still is', () => {
+  const mine = { from: 'me' }, theirs = { from: 'Sam Carter' };
+  for (const yes of ['Sure, will do', 'ok', 'Sure thing!', 'No problem, sending it tonight', 'Yes, Tuesday works', 'בטח', 'סבבה, אשלח מחר']) {
+    expect(onlyAcceptsMine({ body: yes }, mine, ME)).toBe(true);
+  }
+  // Not after a message of yours, or not only a yes: still put to the model.
+  expect(onlyAcceptsMine({ body: 'Sure, will do' }, theirs, ME)).toBe(false);
+  expect(onlyAcceptsMine({ body: 'Sure, will do' }, undefined, ME)).toBe(false);
+  for (const ask of ['Sure, can you send me the deck first?', 'OK. Please sign the form too', 'Yes — which day works?', 'בטח, תוכל לשלוח את הקובץ?', 'Sounds good, will do']) {
+    expect(onlyAcceptsMine({ body: ask }, mine, ME)).toBe(false);
+  }
+});
+
+test('after you ask Sam for something, "Sure, will do" makes no task, even when a model would read it as one', () => {
+  const lines = [
+    section('Sam Carter', 'direct', 'me', 'Today at 9:05'), 'Could you send me the invoice for October?',
+    section('Sam Carter', 'direct', 'Sam Carter', 'Today at 9:20'), 'Sure, will do',
+  ];
+  const store = seeded(lines, 'Sam Carter');
+  const { read, asked } = reader(true, 'Approve Sam\'s invoice');
+  pollOnce(store, NOW, { chatReader: read });
+  expect(asked).toEqual([]);
+  expect(store.listTasks()).toEqual([]);
+  // A yes that asks something back is still read.
+  observe(store, [...lines, section('Sam Carter', 'direct', 'Sam Carter', 'Today at 9:30'), 'Sure, can you send me the PO number first?'], at(2), 'Sam Carter');
+  pollOnce(store, NOW, { chatReader: read });
+  expect(asked.map((q) => q.message)).toEqual(['Sure, can you send me the PO number first?']);
+});
+
+test('"Sure, will do" seen in a later reading, without your ask on screen, is still their answer to you', () => {
+  const store = seeded([section('Sam Carter', 'direct', 'me', 'Today at 9:05'), 'Could you send me the invoice for October?'], 'Sam Carter');
+  const { read, asked } = reader(true, 'Confirm action for Sam');
+  pollOnce(store, NOW, { chatReader: read });
+  expect(store.waitingItems().map((w) => w.who)).toEqual(['Sam Carter']);
+  observe(store, [section('Sam Carter', 'direct', 'Sam Carter', 'Today at 9:20'), 'Sure, will do'], at(2), 'Sam Carter');
+  pollOnce(store, NOW, { chatReader: read });
+  expect(asked).toEqual([]);
+  expect(store.listTasks()).toEqual([]);
+  // In another chat, with nothing of yours to answer, the same words are read as usual.
+  observe(store, [section('Dana Levi', 'direct', 'Dana Levi', 'Today at 9:25'), 'Sure, will do'], at(3), 'Dana Levi');
+  pollOnce(store, NOW, { chatReader: read });
+  expect(asked.map((q) => q.chat)).toEqual(['Dana Levi']);
 });

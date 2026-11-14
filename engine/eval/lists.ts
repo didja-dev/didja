@@ -6,6 +6,7 @@
  * Ollama on 127.0.0.1. Not part of `bun test` (needs Apple Intelligence and Ollama).
  *
  *   bun eval/lists.ts [ollama-model|none] [path/to/Didja.app/Contents/MacOS/Didja]
+ *   SAMPLES=$TMPDIR/didja-synth/lists-samples.json bun eval/lists.ts none   (the generated corpus, eval/synth.ts)
  *
  * "False yours" is a list of Claude's own taken as yours (a task that should not exist); "false
  * Claude's" is one of yours taken as Claude's (a task missed). A model may replace another for this
@@ -16,16 +17,17 @@ import { join } from 'node:path';
 import { askModel } from '../src/cli.ts';
 import { followUpActor, listActor, planActor } from '../src/extract.ts';
 import { type ListRequest, listInstructions, listPrompt } from './prompts.ts';
+import { splitTable } from './synth.ts';
 
 const model = process.argv[2] ?? 'qwen3.8:latest';
 const binary = process.argv[3] ?? join(import.meta.dir, '../../app/build/Build/Products/Debug/Didja.app/Contents/MacOS/Didja');
 const OLLAMA = 'http://127.0.0.1:11434/api/chat';
 const instructions = listInstructions();
 
-interface Sample { id: string; expect: 'user' | 'assistant'; leadIn: string; steps: string[]; before?: string[]; after?: string[]; asked?: string }
+interface Sample { id: string; split?: 'train' | 'held-out'; expect: 'user' | 'assistant'; leadIn: string; steps: string[]; before?: string[]; after?: string[]; asked?: string }
 type Request = ListRequest;
 
-const samples = JSON.parse(readFileSync(join(import.meta.dir, 'lists-samples.json'), 'utf8')) as Sample[];
+const samples = JSON.parse(readFileSync(process.env.SAMPLES ?? join(import.meta.dir, 'lists-samples.json'), 'utf8')) as Sample[];
 
 /** The whole reply as the engine gives it (`replyAround`): the prose, the lead-in, the steps, what follows. */
 const replyOf = (s: Sample) => [...(s.before ?? []), s.leadIn, ...s.steps.map((t, i) => `${i + 1}. ${t}`), ...(s.after ?? [])].join('\n');
@@ -62,12 +64,12 @@ function wording(s: Sample): string | null {
   return actor === 'you' ? 'user' : actor;
 }
 
-interface Tally { right: number; falseYours: number; falseClaudes: number; none: number; ms: number; wrong: string[] }
-const blank = (): Tally => ({ right: 0, falseYours: 0, falseClaudes: 0, none: 0, ms: 0, wrong: [] });
+interface Tally { right: number; falseYours: number; falseClaudes: number; none: number; ms: number; wrong: string[]; rightIds: string[] }
+const blank = (): Tally => ({ right: 0, falseYours: 0, falseClaudes: 0, none: 0, ms: 0, wrong: [], rightIds: [] });
 function score(t: Tally, s: Sample, got: string | null, ms: number) {
   t.ms += ms;
   if (got === null) t.none++;
-  else if (got === s.expect) t.right++;
+  else if (got === s.expect) { t.right++; t.rightIds.push(s.id); }
   else if (got === 'user') { t.falseYours++; t.wrong.push(s.id); }
   else { t.falseClaudes++; t.wrong.push(s.id); }
 }
@@ -98,3 +100,4 @@ for (const [name, t] of Object.entries(runs)) {
   if (t.wrong.length) console.log(' '.repeat(4), 'wrong:', t.wrong.join(', '));
 }
 console.log('\n(wording: "no answer" is a list the rules leave to the model.)');
+splitTable(samples, runs);

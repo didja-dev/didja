@@ -4,6 +4,10 @@ Choices made while building ScrolledAway, with the reason, so they are not re-ar
 
 ## 2026-11-14
 
+- **More training and test data is generated from made-up frames, not scraped**: public chat logs and email sets are other people's words under research licences, and the repository may hold only made-up content; generated samples can be committed as code, carry their answers, and can be aimed at the hard cases (someone else's ask, the assistant's own plan, a near-miss "done" screen) that real data seldom labels. Ticking has almost no public data at all. Public sets may still be used for local measurement, keeping scores only.
+- **Whole frames are held out, not single samples**: a held-out sample from a trained frame differs only in names and objects, so it would measure memorised sentences. Holding out about one in five frames of each job and answer (by a stable hash, at least one) measures whether an adapter learnt the job.
+- **A plain yes after your own message is not put to the model at all**: the model read "Sure, will do" as an ask of you; a rule in front of it is cheaper and certain. It is kept narrow (a short yes that asks nothing back, after your message or a Waiting-on ask of yours to them within the day), since "Ok, send it over" can be an ask; this only removes tasks.
+
 - **A lead-in that names nothing goes to the model, decided by a word list, not by length**: "Checklist" and "Two things to try" are short, so the length rule passed them as good titles. A lead-in is a placeholder when every word is one that only introduces a list (steps, next, try, things, where, your…); one naming anything else ("To test in Sandbox") is kept, since a model title can be worse than a plain heading. Lists already kept under such a lead-in are offered once more, once, so the fix reaches what is on the list now.
 - **The group heading names the tool and the conversation, not the window title**: the Claude window's title repeats the app's name and ends with its tab ("- Claude Code"), which hid the conversation's name. The engine's source text is unchanged (matching and ticking use it); only the label drawn is shorter, with the full title on hover.
 

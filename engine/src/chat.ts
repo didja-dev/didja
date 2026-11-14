@@ -267,6 +267,26 @@ const DEFERRING = /\b(later|tomorrow|tonight|next week|next month|soon|will (?:d
  * A reply that plainly puts the ask off ("later", "tomorrow", "I'll check"), whatever the model says.
  * A wrong tick is the bug this app exists to prevent: such a reply never ticks.
  */
+/** A reply that only says yes: "Sure, will do", "OK", "No problem", "בטח", "סבבה". */
+const ACCEPTS = /^(?:sure(?: thing)?|ok(?:ay)?|will do|on it|no problem|of course|yes|yep|absolutely|np|בטח|סבבה|אין בעיה|בסדר|כן)(?=$|[^\p{L}])/iu;
+/** Wording that puts something to the reader, which a yes can still carry ("Sure, can you send the deck?"). */
+const PUTS_TO_YOU = /\?|\b(?:can you|could you|would you|will you|please|pls|can u|you need to|don'?t forget)\b|תוכל|תוכלי|תוכלו|בבקשה|אתה יכול|את יכולה/iu;
+
+/**
+ * A short yes from someone else that answers the reader's own message just before it ("Could you
+ * send me the invoice?" — "Sure, will do"): their answer to you, never an ask of you, so it is not
+ * put to the model at all. A yes that also asks something, or asks a question, is not this.
+ */
+export function onlyAcceptsMine(message: Pick<ChatMessage, 'body'>, previous: Pick<ChatMessage, 'from'> | undefined, names: string[]): boolean {
+  return !!previous && isMine(previous, names) && plainYes(message.body);
+}
+
+/** Only a yes, asking nothing back: see `onlyAcceptsMine`. */
+export function plainYes(body: string): boolean {
+  const text = body.trim();
+  return text.length <= 80 && ACCEPTS.test(text) && !PUTS_TO_YOU.test(text);
+}
+
 export function plainlyDefers(reply: string): boolean {
   return DEFERRING.test(reply);
 }

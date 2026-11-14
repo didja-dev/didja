@@ -2,7 +2,7 @@ import { suggestMerges } from './related.ts';
 import { signedFromEmail } from './esign.ts';
 import { accountOf, baseSubject, responseAction, isAutomatic, isMine, isRecent, followsLink, mailKey, mailTime, mailLinks, mailOrigin, mailSnippet, mailSource, mailTaskTitle, parseEmails, replyTitle, settleNeed, signedName } from './email.ts';
 import type { MailIdentity, MailReader } from './email.ts';
-import { chatApp, chatKey, asksForAcknowledgement, chatTaskTitle, isCheckmarkReaction, isEmojiOnly, reactionEmoji, isPositiveEmoji, isReaction, lineHash, plainReactions, reactedTo, namesMe, chatSourceRef, chatTime, isMine as isMyMessage, chatAudience, isRecentChat, parseChatMessages, plainlyDefers, sentBefore } from './chat.ts';
+import { chatApp, chatKey, asksForAcknowledgement, chatTaskTitle, isCheckmarkReaction, isEmojiOnly, reactionEmoji, isPositiveEmoji, isReaction, lineHash, plainReactions, reactedTo, namesMe, chatSourceRef, chatTime, isMine as isMyMessage, chatAudience, isRecentChat, parseChatMessages, onlyAcceptsMine, plainYes, plainlyDefers, sentBefore } from './chat.ts';
 import type { ChatMessage, ChatReader, ReplyJudge } from './chat.ts';
 import { agentWork, assistantFor, hasTurns } from './assistants.ts';
 import { followUpOn, listedOn, targetsOf } from './done.ts';
@@ -1165,6 +1165,13 @@ function readChat(
       store.recordEmailCheck(key, 'answered', now);
       continue;
     }
+    // "Sure, will do" to a message of yours just before it, or to an ask of yours to them in this chat
+    // that an earlier reading saw (Waiting on): their answer to you, not an ask of you.
+    if (plainYes(m.body) && (onlyAcceptsMine(m, messages.slice(0, index).filter((b) => b.chat === m.chat).at(-1), me) || askedThemHere(store, app, m, now))) {
+      store.recordEmailCheck(key, 'none', now);
+      drop('chat', 'not-for-you');
+      continue;
+    }
     if (asked >= CHATS_PER_POLL) break;
     asked++;
     const before = messages.slice(Math.max(0, index - 6), index).filter((b) => b.chat === m.chat)
@@ -1306,6 +1313,16 @@ export function looksDelivered(body: string): boolean {
  * A promise that answers someone's ask is that ask's task already, and makes nothing. A later
  * message of yours there that hands something over only asks "looks done?".
  */
+/** An ask of yours to this message's sender in its chat, within the day before it (Waiting on, open or answered). */
+function askedThemHere(store: Store, app: string, m: ChatMessage, now: Date): boolean {
+  const sent = chatTime(m.time, now)?.getTime();
+  if (sent === undefined) return false;
+  return store.waitingItems({ app, place: m.chat, all: true }).some((w) => {
+    const asked = new Date(w.askedAt).getTime();
+    return w.via === 'chat' && asked <= sent && sent - asked < 24 * 3_600_000 && (w.direct || samePerson(w.who, m.from));
+  });
+}
+
 function readChatPromises(
   store: Store, messages: ChatMessage[], app: string, latest: Observation, modelReads: boolean, now: Date, drop: Drop,
 ): { created: number; suggested: number } {

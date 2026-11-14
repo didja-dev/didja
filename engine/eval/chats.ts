@@ -7,6 +7,7 @@
  * of `bun test` (needs Apple Intelligence and Ollama).
  *
  *   bun eval/chats.ts [ollama-model] [path/to/Didja.app/Contents/MacOS/Didja]
+ *   SAMPLES=$TMPDIR/didja-synth/chat-samples.json bun eval/chats.ts   (the generated corpus, eval/synth.ts)
  *
  * "Wrong asks" are messages that ask nothing of the reader taken as asks: a task that should not
  * exist. A model may take this job over only with more right and no more wrong asks.
@@ -16,13 +17,14 @@ import { join } from 'node:path';
 import { askModel } from '../src/cli.ts';
 import type { ChatQuestion } from '../src/chat.ts';
 import { chatInstructions, chatPrompt, isHebrew } from './prompts.ts';
+import { splitTable } from './synth.ts';
 
 const model = process.argv[2] ?? 'qwen3.8:latest';
 const binary = process.argv[3] ?? join(import.meta.dir, '../../app/build/Build/Products/Debug/Didja.app/Contents/MacOS/Didja');
 const OLLAMA = 'http://127.0.0.1:11434/api/chat';
 
-interface Sample { id: string; expect: boolean; group: boolean; addressed?: 'named' | 'everyone' | 'group'; chat: string; from: string; message: string; before?: { from: string; text: string }[] }
-const samples = JSON.parse(readFileSync(join(import.meta.dir, 'chat-samples.json'), 'utf8')) as Sample[];
+interface Sample { id: string; split?: 'train' | 'held-out'; expect: boolean; group: boolean; addressed?: 'named' | 'everyone' | 'group'; chat: string; from: string; message: string; before?: { from: string; text: string }[] }
+const samples = JSON.parse(readFileSync(process.env.SAMPLES ?? join(import.meta.dir, 'chat-samples.json'), 'utf8')) as Sample[];
 const ME = ['Mike', 'מייק'];
 
 const question = (s: Sample): ChatQuestion => ({
@@ -60,12 +62,12 @@ function apple(q: ChatQuestion): Answer {
   }
 }
 
-interface Tally { right: number; wrongAsks: number; missed: number; none: number; taskLanguage: number; asked: number; ms: number; wrong: string[] }
-const blank = (): Tally => ({ right: 0, wrongAsks: 0, missed: 0, none: 0, taskLanguage: 0, asked: 0, ms: 0, wrong: [] });
+interface Tally { right: number; wrongAsks: number; missed: number; none: number; taskLanguage: number; asked: number; ms: number; wrong: string[]; rightIds: string[] }
+const blank = (): Tally => ({ right: 0, wrongAsks: 0, missed: 0, none: 0, taskLanguage: 0, asked: 0, ms: 0, wrong: [], rightIds: [] });
 function score(t: Tally, s: Sample, got: Answer, ms: number) {
   t.ms += ms;
   if (got === null) { t.none++; return; }
-  if (got.asks === s.expect) t.right++;
+  if (got.asks === s.expect) { t.right++; t.rightIds.push(s.id); }
   else if (got.asks) { t.wrongAsks++; t.wrong.push(`${s.id} (asks)`); }
   else { t.missed++; t.wrong.push(`${s.id} (missed)`); }
   if (got.asks && s.expect) {
@@ -92,3 +94,4 @@ for (const [name, t] of Object.entries(runs)) {
     String(t.none).padStart(10), `${t.taskLanguage}/${t.asked}`.padStart(10), (t.ms / samples.length / 1000).toFixed(1).padStart(6));
   if (t.wrong.length) console.log(' '.repeat(4), 'wrong:', t.wrong.join(', '));
 }
+splitTable(samples, runs);
