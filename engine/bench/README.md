@@ -26,6 +26,8 @@ It prints one row per scenario and the totals:
 
 It exits 1 on any wrong tick, on any owner error (`OWNER_ERROR_LIMIT`, 0), on a wrong tick or owner error in a held-out run, and on a new task or sure tick with no model that takes over 3 s. CI runs it with `--held-out`. `bun test` runs it with no model too (`test/bench.test.ts`).
 
+**Published** (SCR-111): `bun bench/publish.ts` writes the no-model headline (tick precision, right and wrong ticks, recall, capture precision, owner errors, scenarios) to `site/src/bench.json`, which didja.dev's build reads, and to the marked block in the top-level README. `test/benchpublish.test.ts` fails when either differs from a fresh run, so after a change that moves the benchmark, run `bun bench/publish.ts` and commit both files.
+
 ## A scenario
 
 `scenarios/NN-<id>.json`, made-up content only: people and chats from `profiles/fixtures/names.txt`, addresses at `example.com` or `acme.com` (checked by `test/bench.test.ts`).

@@ -25,6 +25,9 @@ xcodebuild -project app/Didja.xcodeproj -scheme Didja -configuration Debug -deri
 pkill -f "Didja.app/Contents/MacOS/Didja"; pkill -f "Didja.app/Contents/Helpers/didja"
 open app/build/Build/Products/Debug/Didja.app
 
+# after a change that moves the benchmark's numbers (test/benchpublish.test.ts says so)
+cd engine && bun bench/publish.ts
+
 # a build for other people: Developer ID, notarised, stapled, in dist/*.dmg
 scripts/release.sh
 

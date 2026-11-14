@@ -1,0 +1,10 @@
+{
+  "scenarios": 105,
+  "tickPrecision": 1,
+  "rightTicks": 33,
+  "wrongTicks": 0,
+  "recall": 0.8819444444444444,
+  "precision": 0.9844961240310077,
+  "ownerErrors": 0,
+  "model": "none"
+}

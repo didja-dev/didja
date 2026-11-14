@@ -43,6 +43,16 @@ It reads your screen, so it never sends any of it anywhere.
 
 The only network traffic is the daily update check (its version only) and, if you connect them, your task tools. If you turn on Let My Own Claude Read Didja, what your Claude reads (masked) goes to your AI provider. **Settings › Privacy** in the app shows what is read, what is kept and where, with the live state of each. The full detail is in [docs/GUIDE.md](docs/GUIDE.md#privacy).
 
+## How often it ticks wrongly
+
+A missed tick is cheap; a wrong one is the bug Didja exists to prevent. The benchmark replays made-up sessions through the engine and counts both:
+
+<!-- benchmark:start (written by engine/bench/publish.ts; do not edit by hand) -->
+- **Tick precision: 100%.** Of the 33 ticks Didja made across 105 made-up sessions, 0 were wrong. CI fails on any wrong tick.
+- **It found 88% of the tasks it should have** (recall), and 98% of the tasks it made were real ones (capture precision). 0 tasks were given to the wrong person. Rules only, no language model.
+- The sessions are made up, written to look like real chats, emails, terminals and AI replies, so they show how Didja behaves on those shapes, not how it does on your Mac. How it works: [engine/bench/README.md](engine/bench/README.md).
+<!-- benchmark:end -->
+
 ## What it costs your Mac
 
 Measured on an Apple M5 Pro (Debug build, 10 minutes of ordinary work): the app uses about 14% of one core and 93 MB of memory, the engine under 1% and about 250 MB. The database grows about 11.5 MB an hour and levels off, because captured text is deleted after a day. Method, all the numbers and how to measure your own Mac: [docs/PERFORMANCE.md](docs/PERFORMANCE.md).
