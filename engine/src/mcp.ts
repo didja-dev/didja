@@ -29,7 +29,7 @@ import { contentWords, draftIssue, ISSUE_KINDS } from './issue.ts';
 import { missedReport } from './missed.ts';
 import type { ProfileInfo } from './profiles.ts';
 import { profiles as builtInProfiles, matchesApp, profilesDir, readProfiles } from './profiles.ts';
-import { DEFAULT_DB_PATH, Store } from './store.ts';
+import { DEFAULT_DB_PATH, Store, type Task } from './store.ts';
 
 /** Beside the database in use ($DIDJA_DB, else the app's own). */
 export const SUPPORT = dirname(process.env.DIDJA_DB ?? DEFAULT_DB_PATH);
@@ -104,6 +104,58 @@ export const TOOLS = [
     required: ['kind', 'miss', 'what', 'cause', 'fix'] } },
   { name: 'test_profile', description: "Run one fixture (the object, or the file name of a drafted one) through Didja's capture with the drafts in place, and through the engine: the lines kept, whether they match, and what the engine makes of them (messages and open asks, or emails).", inputSchema: { type: 'object', properties: { fixture: { description: 'a fixture object, or the file name of a drafted fixture' } }, required: ['fixture'] } },
 ] as const;
+
+/**
+ * Your open tasks for your own Claude (SCR-120): read-only, behind their own switch
+ * (`meta.mcp_tasks`, off by default, apart from `mcp_enabled`). Listed only while it is on. Titles
+ * are not masked: that is what the switch is for. Never kept lines, observations or evidence; the
+ * only "why" is the reason the engine wrote when it made the task.
+ */
+export const TASK_TOOLS = [
+  { name: 'list_tasks', description: "The user's open tasks in Didja (open and snoozed): id, title, status, where it came from (source kind and name), when it was captured, when it is due and until when it is snoozed. Filter by source (kind or name, any part, any case) or by due date (due_before: YYYY-MM-DD, only tasks due on or before it). Read-only.", inputSchema: { type: 'object', properties: { source: { type: 'string' }, due_before: { type: 'string', description: 'YYYY-MM-DD' } } } },
+  { name: 'task', description: 'One open task by id, with why Didja made it. Read-only.', inputSchema: { type: 'object', properties: { id: { type: 'number' } }, required: ['id'] } },
+] as const;
+const TASK_TOOL_NAMES = new Set<string>(TASK_TOOLS.map((t) => t.name));
+
+export const TASKS_OFF_MESSAGE = 'Didja does not let your Claude read your tasks right now. Turn it on in Didja: Settings › General › "Let Claude read my open tasks" (or run `didja mcp tasks on`).';
+
+export function tasksEnabled(store: Store): boolean {
+  return store.getMeta('mcp_tasks') === 'on';
+}
+
+/** The tools your Claude sees: the task tools only while their switch is on. */
+export function toolsFor(store: Store) {
+  return [...TOOLS, ...(tasksEnabled(store) ? TASK_TOOLS : [])].map((t) => ({ ...t }));
+}
+
+/** One task as your Claude may read it: no screen text beyond its title, no evidence. */
+export function taskView(t: Task, withWhy = false) {
+  return {
+    id: t.id, title: t.title, status: t.status,
+    source: { kind: t.sourceKind, name: t.sourceRef },
+    captured: t.createdAt, due: t.dueAt ?? null, snoozedUntil: t.snoozedUntil,
+    checklist: t.parentId,
+    ...(withWhy ? { why: t.capturedWhy ?? null } : {}),
+  };
+}
+
+function openTasks(store: Store): Task[] {
+  return store.listTasks({ all: true }).filter((t) => t.status === 'open' || t.status === 'snoozed');
+}
+
+function taskTool(name: string, args: Record<string, unknown>, store: Store): ToolResult {
+  if (name === 'task') {
+    const t = openTasks(store).find((x) => x.id === Number(args.id));
+    return t ? ok(taskView(t, true)) : fail('No open task with that id. list_tasks names them.');
+  }
+  const source = typeof args.source === 'string' ? args.source.trim().toLowerCase() : '';
+  const dueBefore = typeof args.due_before === 'string' ? args.due_before.trim() : '';
+  if (dueBefore && !/^\d{4}-\d{2}-\d{2}$/.test(dueBefore)) return fail('due_before is a day, as YYYY-MM-DD.');
+  return ok(openTasks(store)
+    .filter((t) => !source || t.sourceKind.toLowerCase().includes(source) || t.sourceRef.toLowerCase().includes(source))
+    .filter((t) => !dueBefore || (!!t.dueAt && t.dueAt.slice(0, 10) <= dueBefore))
+    .map((t) => taskView(t)));
+}
 
 export interface McpDeps {
   store: Store;
@@ -228,6 +280,7 @@ function testFixture(fixture: Fixture, deps: McpDeps, folder: string): unknown {
 export function callTool(name: string, args: Record<string, unknown>, deps: McpDeps): ToolResult {
   const now = deps.now?.() ?? new Date();
   logCall(deps.places, name, args, now);
+  if (TASK_TOOL_NAMES.has(name)) return tasksEnabled(deps.store) ? taskTool(name, args, deps.store) : fail(TASKS_OFF_MESSAGE);
   if (!enabled(deps.store)) return fail(OFF_MESSAGE);
   const p = deps.places;
   switch (name) {
@@ -339,7 +392,7 @@ export function callTool(name: string, args: Record<string, unknown>, deps: McpD
 /** Serve over stdin and stdout until the client goes away. */
 export async function serve(store: Store, p: McpPlaces = places()): Promise<void> {
   const server = new Server({ name: 'didja', version: '1' }, { capabilities: { tools: {} }, instructions: INSTRUCTIONS });
-  server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: TOOLS.map((t) => ({ ...t })) }));
+  server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: toolsFor(store) }));
   server.setRequestHandler(CallToolRequestSchema, async (req) =>
     callTool(req.params.name, (req.params.arguments ?? {}) as Record<string, unknown>, { store, places: p }));
   await server.connect(new StdioServerTransport());

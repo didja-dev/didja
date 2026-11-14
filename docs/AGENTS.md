@@ -31,6 +31,17 @@ This page is for you and for your Claude. If you are Claude: read all of it befo
 | `draft_issue` | A GitHub issue about a miss, for the user to post on `didja-dev/didja`. You give the task (or report), the kind (`missed-task` or `app-support`), a miss type in lowercase words joined by hyphens, and your diagnosis in general words (what was missed, the likely cause, a suggested fix). Didja writes the rest from what it knows (app, bundle id, profile, versions, what capture kept, masked by Didja) and refuses a draft whose words hold anything from the user's screen or tasks, an email address, a link with a path, or a number of three or more digits. It returns the title, the body, a link that opens the issue form filled in (or the bare form and the body to paste, when the body is too long for a link), and a search for issues with the same fingerprint (`<bundle id>:<miss type>`). It posts nothing. |
 | `test_profile` | Runs one fixture through Didja's own capture (with your drafts in place) and through the engine: the lines kept, whether they match, and what the engine makes of them. |
 
+### Your open tasks (a second switch, off by default)
+
+**Let Claude read my open tasks** (Settings › General, or `didja mcp tasks on`) adds two read-only tools. They work only while that switch is on, apart from the one above.
+
+| Tool | What it returns |
+| --- | --- |
+| `list_tasks` | Your open and snoozed tasks: id, title as it is (not masked), status, where it came from (kind and name), when it was captured, when it is due and until when it is snoozed. Filter by `source` (any part of the kind or name) or `due_before` (`YYYY-MM-DD`). |
+| `task` | One open task by id, with the reason the engine wrote when it made it. |
+
+Never the lines kept with a task, observations, or evidence notes (an email task's note holds its sender and subject), and neither can change a task. Task titles are written from your screen, so **they go to your AI provider unmasked**: that is what this switch is for.
+
 It cannot read your screen, unmasked text you did not choose to show, or files outside its two folders. It sends nothing anywhere itself. **What it returns does go to your AI provider**, as anything you show Claude does. That is why it starts only when you turn it on, masks what Didja kept, and logs every call (Privacy shows how many and when; `didja mcp log` lists them).
 
 ## The rules (for Claude)

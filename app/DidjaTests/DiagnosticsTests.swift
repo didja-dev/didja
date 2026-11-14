@@ -88,6 +88,32 @@ final class DiagnosticsTests: XCTestCase {
         XCTAssertTrue(OwnClaude.command.hasSuffix("Contents/Helpers/didja\" mcp"))
     }
 
+    // SCR-120: your open tasks for your own Claude, a switch of its own.
+
+    func testTheTaskSwitchIsItsOwnAndReadFromTheEngine() throws {
+        let both = try JSONDecoder().decode(OwnClaude.Status.self, from: Data(#"{"on":false,"tasks":true,"calls":1,"last":null}"#.utf8))
+        XCTAssertFalse(both.on)
+        XCTAssertTrue(both.tasksOn)
+        XCTAssertTrue(both.anyOn)
+        XCTAssertEqual(OwnClaude.words(both), "On: 1 call.")
+        // An engine from before the switch says nothing about it: off.
+        let old = try JSONDecoder().decode(OwnClaude.Status.self, from: Data(#"{"on":true,"calls":0,"last":null}"#.utf8))
+        XCTAssertFalse(old.tasksOn)
+        XCTAssertEqual(OwnClaude.Status(on: false, calls: 0, last: nil).anyOn, false)
+        var ran: [[String]] = []
+        OwnClaude.setTasks(true, run: { ran.append($0); return true })
+        OwnClaude.setTasks(false, run: { ran.append($0); return true })
+        XCTAssertEqual(ran, [["mcp", "tasks", "on"], ["mcp", "tasks", "off"]])
+    }
+
+    func testTheTaskSwitchSaysTitlesGoToYourAIProvider() {
+        let words = OwnClaude.tasksExplanation
+        XCTAssertTrue(words.contains("not masked"))
+        XCTAssertTrue(words.contains("goes to your AI provider"))
+        XCTAssertTrue(words.contains("cannot change a task"))
+        XCTAssertTrue(words.contains("logged"))
+    }
+
     /// Draws the preview to $TMPDIR/didja-ui/diagnostics.png.
     @MainActor
     func testRenderDiagnostics() throws {

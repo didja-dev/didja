@@ -300,6 +300,13 @@ struct GeneralSettingsView: View {
                     }))
                     .toggleStyle(.switch).labelsHidden()
                 }
+                row("Let Claude read my open tasks", OwnClaude.tasksExplanation) {
+                    Toggle("", isOn: Binding(get: { ownClaude.tasksOn }, set: { on in
+                        OwnClaude.setTasks(on)
+                        ownClaude = OwnClaude.status()
+                    }))
+                    .toggleStyle(.switch).labelsHidden()
+                }
             }
             .onAppear { ownClaude = OwnClaude.status() }
 

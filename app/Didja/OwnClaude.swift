@@ -9,7 +9,16 @@ enum OwnClaude {
         var on: Bool
         var calls: Int
         var last: String?
+        /// Your open tasks for your own Claude (SCR-120), a switch of its own (`meta.mcp_tasks`).
+        var tasks: Bool? = nil
+
+        var tasksOn: Bool { tasks ?? false }
+        /// Your own Claude can read something of Didja's: the masked diagnostics, your tasks, or both.
+        var anyOn: Bool { on || tasksOn }
     }
+
+    /// What turning on "Let Claude read my open tasks" means, said where the switch is.
+    static let tasksExplanation = "Claude Code or Claude Desktop, set up with `didja mcp`, can list your open tasks and read one with why Didja made it: titles as they are, not masked, where each came from and when it is due. Never the text kept with a task or anything else from your screen, and it cannot change a task. What it reads, task titles included, goes to your AI provider under your account. Every call is logged."
 
     static var sharedFolder: URL { ObservationStore.defaultDirectory.appendingPathComponent("Shared with Claude") }
 
@@ -26,6 +35,12 @@ enum OwnClaude {
 
     @discardableResult
     static func set(_ on: Bool) -> Bool { EngineRunner.run(["mcp", on ? "on" : "off"]) }
+
+    /// The engine command for the task switch (SCR-120).
+    static func tasksArguments(_ on: Bool) -> [String] { ["mcp", "tasks", on ? "on" : "off"] }
+
+    @discardableResult
+    static func setTasks(_ on: Bool, run: ([String]) -> Bool = { EngineRunner.run($0) }) -> Bool { run(tasksArguments(on)) }
 
     /// A diagnostics file, as you left it, where `didja mcp` can read it.
     static func share(_ text: String, name: String, in folder: URL = sharedFolder) throws -> URL {
@@ -143,7 +158,7 @@ enum OwnClaude {
 
     /// "On: 12 calls, the last at 10:40." or "Off."
     static func words(_ s: Status) -> String {
-        guard s.on else { return "Off." }
+        guard s.anyOn else { return "Off." }
         guard s.calls > 0 else { return "On: no calls yet." }
         let last = s.last.flatMap { ISO8601DateFormatter().date(from: $0) }
             .map { DateFormatter.localizedString(from: $0, dateStyle: .short, timeStyle: .short) }

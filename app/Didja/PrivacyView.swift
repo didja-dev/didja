@@ -196,7 +196,7 @@ struct PrivacyContent: View {
                     } else {
                         line("Apple Reminders (Connections) is off: nothing is written to Reminders.")
                     }
-                    if facts.ownClaude.on {
+                    if facts.ownClaude.anyOn {
                         line("And what your own Claude reads through `didja mcp` (Your own Claude, below): it goes to your AI provider.")
                     }
                 }
@@ -218,6 +218,9 @@ struct PrivacyContent: View {
                     line(facts.ownClaude.on
                          ? "On (Settings › General): your own Claude app, if you set it up with `didja mcp`, can read the reports you give it from Report a Problem, the text Didja kept with every letter and digit masked, and the app profiles, draft a profile in its own folder, and draft a GitHub issue about a miss (masked) for you to post yourself. What it reads goes to your AI provider under your account. Every call is logged: \(OwnClaude.words(facts.ownClaude))"
                          : "Off. Turned on in Settings › General, your own Claude app (Claude Code, Claude Desktop) could help you fix how Didja reads an app, through `didja mcp`. It would see only masked text and the reports you give it.")
+                    line(facts.ownClaude.tasksOn
+                         ? "Your open tasks: on (Settings › General › Let Claude read my open tasks). Through `didja mcp`, your own Claude can list your open tasks and read one with why Didja made it: titles as they are, not masked, where each came from and when it is due. Never the text kept with a task or anything else from your screen, and it cannot change a task. What it reads goes to your AI provider. Every call is logged in mcp-log.jsonl in Didja's data folder."
+                         : "Your open tasks: off. Turned on in Settings › General, your own Claude could read your open tasks' titles, sources and due dates, unmasked, through `didja mcp`, read-only.")
                 }
 
                 section("slider.horizontal.3", "Your controls") {
