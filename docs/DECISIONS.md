@@ -4,6 +4,10 @@ Choices made while building ScrolledAway, with the reason, so they are not re-ar
 
 ## 2026-11-14
 
+- **Model answers are checked in the engine, not the app** (SCR-102): the engine owns every rule about tasks, and checking at one place covers Apple's model, the local model and the judge server alike. A failed field becomes the answer that does the least, never one that ticks.
+- **A name counts as on screen when its first word is in what the model was shown, as a whole word.** The rest of a signature ("Tamar - Finance") is still completed by `signedName` from the email; a name not shown at all is left out rather than guessed.
+- **No flattening was needed**: the audit found every `@Generable` type already flat; the test keeps it so.
+
 - **The app hands the key to the engine in its environment** (SCR-101), rather than the engine reading the Keychain itself: a Keychain item made by the app is readable without a prompt only by the app, and giving the helper its own access would mean changing entitlements and signing, which this repository does not do. The environment of a process started by the app is visible only to the same user, the same reach as the file it protects. So an engine started elsewhere (a terminal, `didja mcp` from your own Claude) cannot read sealed text; that is the safe side.
 - **Node's built-in `crypto` in the engine, not WebCrypto**: WebCrypto is asynchronous, the store is synchronous; the built-in module is just as much part of Bun, with no dependency.
 - **No schema step**: each sealed value carries an `enc1:` prefix, so plain and sealed rows can sit side by side during the migration, and an older engine sees sealed text as text it cannot use rather than failing.

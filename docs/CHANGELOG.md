@@ -6,6 +6,12 @@ Each entry says what changed, and what was **not verified** where that applies: 
 
 ## 2026-11-14
 
+### Every model answer checked field by field; answer types kept flat (SCR-102)
+- One module, `engine/src/validate.ts`, checks each field a model answers before the engine uses it: the list owner, "looks done?", your chat reply, an email's need, a chat ask, a title, done criteria, and who asked in an email. A field that does not pass becomes the answer that does the least ("unsure", which asks; no verdict; or the field left out), never one that ticks. New: a name the model gives as the email's asker is kept only when the email shows it, so a made-up name never reaches a title or a note.
+- Audit: the app's `@Generable` answer types were already flat (text, booleans, lists of text, string enums); a test now reads the Swift source and fails if one gains a nested type.
+- Eval (`bun eval/mail.ts`, Apple's on-device model, 14 made-up emails): 11/14 before and after the checks on the same answers; no asker left out. The other jobs' checks match what each reader already did, so their numbers cannot move; not re-run.
+- Tests: `engine/test/validate.test.ts` (6): each validator, including odd values for every enum; a validator never turns an answer into a tick or a task; names on screen or yours, made-up ones left out (English and Hebrew); the flat-schema check.
+
 ### Screen text encrypted on disk (SCR-101)
 - Captured text, the lines kept around open tasks and an email task's note (sender and subject) are sealed with AES-256-GCM in Didja's database. The key is made once and kept in your login Keychain ("Didja database key"); the app hands it to the engine it starts, in that process's environment, and never writes it anywhere else. CryptoKit in the app and Node's built-in crypto in the engine: no new dependency, no network.
 - An existing database is sealed the first time the new version starts (`sealExisting`, idempotent). Didja's folder is now 0700 and the database and logs 0600; the engine's logs are created 0600.

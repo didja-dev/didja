@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import { namedIn, validAudience, validChatAnswer, validNeed, validReplyVerdict, validSeen, validStrings, validTitle } from './validate.ts';
 import { buildReview, dueReview, firstTickNote, firstTickSeen, reviewMarkdown, reviewTimes, setReviewTime, undoTick } from './review.ts';
 import { doctorReport, formatDoctor } from './doctor.ts';
 import { firstRunStatus } from './firstrun.ts';
@@ -209,8 +210,9 @@ export function findJudge(local: () => string | null = () => null): Judge | unde
     try {
       // The local model, if one is on, is asked first (SCR-70: it measured better on engine/eval/lists.ts).
       const reply = askModel(binary, 'judge', { ...list, ...localField(local()) }, 45_000, local()) as { available?: boolean; audience?: string; model?: string };
-      if (!reply.available || (reply.audience !== 'user' && reply.audience !== 'assistant')) return null;
-      return { audience: reply.audience, model: reply.model ?? 'on-device' };
+      const audience = reply.available ? validAudience(reply.audience) : null;
+      if (!audience) return null;
+      return { audience, model: typeof reply.model === 'string' ? reply.model : 'on-device' };
     } catch {
       return null;
     }
@@ -224,7 +226,7 @@ export function findTitler(): Titler | undefined {
   return (list) => {
     try {
       const reply = askModel(binary, 'title', list, 30_000) as { available?: boolean; title?: string };
-      return reply.available && typeof reply.title === 'string' ? reply.title : null;
+      return reply.available ? validTitle(reply.title) : null;
     } catch {
       return null;
     }
@@ -242,7 +244,7 @@ export function findLooker(local: () => string | null = () => null): Looker | un
     try {
       const reply = askModel(binary, 'looks-done', { ...input, ...localField(local()) }, 45_000, local()) as { available?: boolean; seen?: string };
       if (!reply.available) return null;
-      return reply.seen === 'done' || reply.seen === 'notDone' ? reply.seen : 'unsure';
+      return validSeen(reply.seen);
     } catch {
       return null;
     }
@@ -257,7 +259,7 @@ export function findChatReader(): ChatReader | undefined {
     try {
       const reply = askModel(binary, 'chat', question, 30_000) as { available?: boolean; asks?: boolean; task?: string };
       if (!reply.available) return null;
-      return { asks: reply.asks === true, task: reply.task ?? '' };
+      return validChatAnswer(reply);
     } catch {
       return null;
     }
@@ -272,7 +274,7 @@ export function findReplyJudge(): ReplyJudge | undefined {
     try {
       const reply = askModel(binary, 'chat-reply', question, 30_000) as { available?: boolean; verdict?: string };
       if (!reply.available) return null;
-      return reply.verdict === 'settles' || reply.verdict === 'defers' ? reply.verdict : 'unsure';
+      return validReplyVerdict(reply.verdict);
     } catch {
       return null;
     }
@@ -287,7 +289,7 @@ export function findCriteriaWriter(): CriteriaWriter | undefined {
     try {
       const reply = askModel(binary, 'criteria', question, 30_000) as { available?: boolean; where?: unknown; success?: unknown; pending?: unknown; tokens?: unknown };
       if (!reply.available) return null;
-      return cleanCriteria(reply);
+      return cleanCriteria({ where: validStrings(reply.where), success: validStrings(reply.success), pending: validStrings(reply.pending), tokens: validStrings(reply.tokens) });
     } catch {
       return null;
     }
@@ -302,8 +304,9 @@ export function findMailReader(local: () => string | null = () => null): MailRea
     try {
       const reply = askModel(binary, 'needs-reply', { ...email, ...localField(local()) }, 45_000, local()) as { available?: boolean; need?: string; task?: string; asker?: string };
       if (!reply.available) return null;
-      const need = reply.need === 'reply' || reply.need === 'action' ? reply.need : 'none';
-      return { need, task: reply.task ?? '', asker: reply.asker };
+      // Who asks must be someone the email shows: a name the model made up is left out (SCR-102).
+      const shown = [email.from, email.writtenBy ?? '', email.subject, email.body].join('\n');
+      return { need: validNeed(reply.need), task: typeof reply.task === 'string' ? reply.task : '', asker: namedIn(reply.asker, shown) };
     } catch {
       return null;
     }
