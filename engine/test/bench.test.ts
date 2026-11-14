@@ -5,6 +5,8 @@ import { byFamily, FAMILIES, FAMILY_TOOLS, familyTable, loadScenarios, recogniti
 import type { Scenario } from '../bench/run.ts';
 
 const scenarios = loadScenarios();
+/** Running every scenario takes about 2 s here and more on a CI runner: well past the 5 s default there. */
+const BENCH_MS = 60_000;
 const roster = new Set(readFileSync(join(import.meta.dir, '../../profiles/fixtures/names.txt'), 'utf8')
   .split('\n').map((l) => l.trim().toLowerCase()).filter((l) => l && !l.startsWith('#')));
 
@@ -51,7 +53,7 @@ test('with no model, nothing in the benchmark is ticked wrongly', () => {
   expect(results.flatMap((r) => r.wrongTicks)).toEqual([]);
   expect(t.wrongTicks).toBe(0);
   expect(table(results, t)).toContain('Wrong ticks: 0.');
-});
+}, BENCH_MS);
 
 test('every AI tool the corpus covers has scenarios, with at least one that must make a task and one that must not (SCR-82)', () => {
   const tools = ['claude-app', 'chatgpt', 'gemini', 'copilot', 'claude-code', 'codex', 'gemini-cli', 'copilot-cli', 'aider', 'opencode',
@@ -75,7 +77,7 @@ test('every AI tool family is recognised in every one of its scenarios (SCR-83)'
   }
   // A plain document or app is never taken for an AI tool.
   for (const r of results.filter((x) => x.family === 'editor' || x.family === 'notes')) expect(r.recognised).toEqual([]);
-});
+}, BENCH_MS);
 
 test('the report has one row per tool family, and its totals add up to the whole', () => {
   const some = scenarios.filter((s) => s.family === 'chatgpt' || s.family === 'codex');
