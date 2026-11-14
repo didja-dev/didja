@@ -23,6 +23,8 @@ import { acceptSuggestion, addManualTask, confirmChecking, keepTask, lookAgainAt
 import { startModelLane, wakeOnInput } from './lanes.ts';
 import { judgeServerFor } from './judgeserver.ts';
 import { ADAPTERS } from './adapters.ts';
+import { describeForget, forget } from './forget.ts';
+import type { ForgetResult } from './forget.ts';
 import { bringOf, forgetSecrets, KINDS, listConnections, openSession, saveConnections, signIn, updateConnection } from './connections.ts';
 import type { Bring, Connection } from './connections.ts';
 import { mcpRemote, syncConnections, writebackWaiting } from './sync.ts';
@@ -68,6 +70,9 @@ const USAGE = `didja <command>
   poll                one extraction pass, then exit
   nudges              checklists left unfinished for hours, as JSON (each is reported once)
   encryption          whether screen text is encrypted on disk (SCR-101) [--json]
+  forget captured|everything|hour [--tasks] [--json] | last
+                      delete captured text; or everything Didja learned (and its logs); or the last hour's
+                      text and log lines; --tasks also deletes tasks captured from the screen (SCR-104)
   review              Day Review (SCR-100): [evening|morning] [--json|--markdown] | due | time <evening|morning> <HH:MM|off> | undo <id>
   waiting             asks you sent that wait for an answer (SCR-99): [--json] | gotit <id> | stop <id> | why <id> | quiet [--chat <hours>] [--email <days>]
   why <id>            what would tick a task, and what has been seen so far
@@ -410,6 +415,22 @@ async function main(argv: string[]): Promise<number> {
           'no-key': 'Encrypted on disk, but this engine has no key (it was not started by the app): sealed text reads as nothing here.',
           off: `Not encrypted yet: ${state.clear} values are stored in the clear. The app seals them when it starts with its key.`,
         }[state.state]);
+        return 0;
+      }
+      case 'forget': {
+        // forget captured|everything|hour [--tasks] [--json] (SCR-104); last shows what the last one cleared.
+        const level = args[0];
+        if (level === 'last') {
+          const last = store.getMeta('last_forget');
+          console.log(args.includes('--json') ? (last ?? 'null') : last ? describeForget(JSON.parse(last) as ForgetResult) : 'Nothing forgotten yet.');
+          return 0;
+        }
+        if (level !== 'captured' && level !== 'everything' && level !== 'hour') {
+          console.error('usage: didja forget captured|everything|hour [--tasks] [--json] | last [--json]');
+          return 2;
+        }
+        const result = forget(store, dirOf(process.env.DIDJA_DB ?? DEFAULT_DB_PATH), level, { tasks: args.includes('--tasks') });
+        console.log(args.includes('--json') ? JSON.stringify(result) : describeForget(result));
         return 0;
       }
       case 'observations':

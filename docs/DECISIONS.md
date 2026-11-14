@@ -4,6 +4,12 @@ Choices made while building ScrolledAway, with the reason, so they are not re-ar
 
 ## 2026-11-14
 
+- **Forget's tasks box is off by default, and never reaches My List, tasks you added or connected items** (SCR-104): those are yours, not learned from the screen; a connected tool's item would come back on the next sync anyway. Waiting on goes with the tasks box, since it is a list you see, not something learned.
+- **Instructions you wrote in How It Decides stay with Forget Everything**: you wrote them, Didja did not learn them. So do your names, settings and the exclude list.
+- **"The last hour" means screen text, kept lines and log lines only**, as asked; what was learned in that hour (a correction, a verdict) stays, because it cannot be told apart by time from what it changed. A log line with no readable time stays: nothing older than the hour may be touched.
+- **Forget Everything clears the model verdicts Didja remembers** (lists, emails, "looks done?"), so a screen seen again is judged afresh instead of by a verdict reached on forgotten text. Only open merge suggestions go; merges you made or turned down are your choices.
+- **Every level runs through the engine** so each records what it cleared for Privacy; if the engine cannot run, Forget Captured Text Now still deletes directly in the app, as before.
+
 - **Owner errors are held to the wrong-tick standard: the benchmark allows none** (SCR-103). A task given to the wrong person is a wrong task on your list; with none in the corpus today, any new one should stop the change, not be averaged away. The limit is one constant (`OWNER_ERROR_LIMIT`) if a model run ever needs another.
 - **Held out means what was written for that family, nothing more**: an AI tool family loses its own assistant profile, messaging and email lose the app profiles of their windows, `done-target` loses the done catalogue. Holding out every profile a scenario touches (a chat open beside Claude, say) would measure something else. A family across tools (`first-day`) or with nothing of its own is left out.
 - **The held-out run fails only on wrong ticks and owner errors, not on the drop.** Without its profile a tool makes no tasks at all, which is the safe side; the drop is reported for reading, not gated.

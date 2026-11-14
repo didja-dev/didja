@@ -6,6 +6,12 @@ Each entry says what changed, and what was **not verified** where that applies: 
 
 ## 2026-11-14
 
+### Forget, three levels: captured text, the last hour, everything Didja learned (SCR-104)
+- **Forget the Last Hour…** deletes captured text, kept lines and log lines from the last 60 minutes, nothing older. **Forget Everything Didja Learned…** also deletes every store derived from screen text (corrections, written done criteria, outcomes, trust events, taught places, timings, capture and drop counts, remembered model verdicts, the Suggested tray, chat asks waiting, open merge suggestions) and the three logs. Each has an **Also delete tasks** box, off by default, that deletes tasks captured from the screen (and Waiting on); My List, tasks you added and connected items always stay. Forget Captured Text Now is unchanged in what it deletes.
+- All three run the engine (`didja forget captured|hour|everything [--tasks] [--json]`), which records what it cleared, store by store; Privacy shows it as **Last forgotten** (`didja forget last`). In the Quick View's Privacy menu and Settings › General.
+- Tests: `engine/test/forget.test.ts` (7): each store empty after the right level and untouched by the others; the last hour leaves every older row and log line (and a line with no time); tasks only with the box, never My List, your own or connected items. Swift: the engine arguments per level, and the Privacy summary.
+- Not verified: clicking through the new menu items and confirmation dialogs on the live app; the checkbox in the alert was not seen on screen.
+
 ### Benchmark: tick precision first, owner errors, held-out apps (SCR-103)
 - `bun bench/run.ts` now leads with **tick precision** (right ticks over all ticks Didja made), apart from recall; also in each tool family's row.
 - New measure, **owner errors**: a task given to the wrong person (someone else's on your list, an ask you sent on your list as your task, one of yours filed under Waiting on). Scenarios can label `theirs`, `waiting` and a task's `due` day. The run, `bun test` and CI fail on any owner error, as on a wrong tick.

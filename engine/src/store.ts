@@ -83,6 +83,12 @@ export interface CanvasItem {
 
 /** My List (SCR-46): tasks you keep, added by hand or by Siri; never ticked or cleared for you. */
 export const KEPT_KIND = 'kept';
+
+/** How much Forget removes (SCR-104): screen text, everything learned from it, or the last hour's screen text. */
+export type ForgetLevel = 'captured' | 'everything' | 'hour';
+/** The stores Forget clears in the database, by name (`forget.ts` has the words shown for each). */
+export type ForgetStore = 'observations' | 'task_context' | 'lessons' | 'criteria' | 'outcomes' | 'trust_events' | 'done_places'
+  | 'timings' | 'capture_outcomes' | 'engine_drops' | 'verdicts' | 'suggestions' | 'chat_pending' | 'merge_suggestions' | 'tasks' | 'waiting';
 export const KEPT_LIST = 'My List';
 
 export const DEFAULT_DB_PATH = join(
@@ -729,6 +735,62 @@ export class Store {
   pruneObservations(now: Date = new Date()): number {
     const cutoff = new Date(now.getTime() - this.retentionMs()).toISOString();
     return this.db.query('DELETE FROM observations WHERE ts < ?').run(cutoff).changes;
+  }
+
+  /**
+   * Forget (SCR-104), the database's part: what each level removes, as one transaction, with how
+   * many rows went from each store. `captured`: screen text (observations and the lines kept around
+   * tasks). `everything`: that, plus all Didja learned from it (corrections, written done criteria,
+   * outcomes, trust events, taught places, timings, capture and drop counts, model verdicts it
+   * remembers, the Suggested tray, asks waiting to become tasks, merge suggestions). `hour`: screen
+   * text from `since` on. With `tasks`, also the tasks captured from the screen (all of them, or
+   * those made since `since` for `hour`) and the asks you sent in Waiting on; never My List, tasks
+   * you added yourself or items from a connected tool. Instructions you wrote for a job stay.
+   */
+  forget(level: ForgetLevel, opts: { tasks?: boolean; since?: Date } = {}): { store: ForgetStore; removed: number }[] {
+    const out: { store: ForgetStore; removed: number }[] = [];
+    const since = level === 'hour' ? (opts.since ?? new Date(0)).toISOString() : null;
+    const run = (store: ForgetStore, sql: string, ...args: string[]) => {
+      out.push({ store, removed: this.db.query(sql).run(...args).changes });
+    };
+    this.db.transaction(() => {
+      if (opts.tasks) {
+        const captured = `SELECT t.id FROM tasks t JOIN sources s ON s.id = t.source WHERE s.kind NOT IN ('manual', '${KEPT_KIND}', 'external')`
+          + (since ? ' AND t.created_at >= ?' : '');
+        const args = since ? [since] : [];
+        const ids = (this.db.query(captured).all(...args) as { id: number }[]).map((r) => r.id);
+        const list = ids.join(',') || 'NULL';
+        // Nothing may point at a task that goes; rows with no foreign key go by hand.
+        this.db.query(`UPDATE tasks SET merged_into = NULL WHERE merged_into IN (${list})`).run();
+        for (const table of ['outcomes', 'timings', 'email_tasks']) this.db.query(`DELETE FROM ${table} WHERE task_id IN (${list})`).run();
+        run('tasks', `DELETE FROM tasks WHERE id IN (${list})`);
+        run('waiting', since ? 'DELETE FROM waiting WHERE created_at >= ?' : 'DELETE FROM waiting', ...(since ? [since] : []));
+      }
+      if (since) {
+        run('observations', 'DELETE FROM observations WHERE ts >= ?', since);
+        run('task_context', 'DELETE FROM task_context WHERE captured_at >= ?', since);
+        return;
+      }
+      run('observations', 'DELETE FROM observations');
+      run('task_context', 'DELETE FROM task_context');
+      if (level !== 'everything') return;
+      run('lessons', 'DELETE FROM lesson_notes');
+      this.db.query('DELETE FROM lessons').run();
+      run('criteria', 'UPDATE tasks SET criteria_model = NULL WHERE criteria_model IS NOT NULL');
+      run('outcomes', 'DELETE FROM outcomes');
+      run('trust_events', 'DELETE FROM trust_events');
+      run('done_places', 'DELETE FROM done_places');
+      run('timings', 'DELETE FROM timings');
+      run('capture_outcomes', 'DELETE FROM capture_outcomes');
+      run('engine_drops', 'DELETE FROM engine_drops');
+      let verdicts = 0;
+      for (const table of ['judgements', 'pending_judgements', 'looks_done_checks', 'email_checks']) verdicts += this.db.query(`DELETE FROM ${table}`).run().changes;
+      out.push({ store: 'verdicts', removed: verdicts });
+      run('suggestions', 'DELETE FROM suggestions');
+      run('chat_pending', 'DELETE FROM chat_pending');
+      run('merge_suggestions', "DELETE FROM merge_suggestions WHERE status = 'suggested'");
+    })();
+    return out;
   }
 
   // --- tasks
