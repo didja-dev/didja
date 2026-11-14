@@ -1,0 +1,67 @@
+{
+ "about": "A doc Claude opened beside the chat in the Claude app: a rich editor whose plain value has no boxes. Its checklist must keep them.",
+ "window": {
+  "app": "Claude",
+  "bundle": "com.anthropic.claudefordesktop",
+  "title": "Launch prep - Claude Code"
+ },
+ "outline": [
+  "AXWindow/AXStandardWindow title=\"Claude\"",
+  " AXWebArea title=\"Launch prep - Claude Code\" url=\"https://claude.ai/new\"",
+  "  AXGroup/AXLandmarkMain",
+  "   AXGroup",
+  "   AXWebArea title=\"Launch notes\" url=\"https://doc.example.com/\"",
+  "    AXGroup/AXDocumentArticle",
+  "     AXTextArea class=\"tiptap ProseMirror\" title=\"Doc\" value=\"Launch notes\\nYour action items\\nStart with 1.\\nPaste docs/owner/lists-plan.md into Copilot to create the 9 lists.\\nAsk Sam for the sign-off.\\nAdd the 16 columns to the 6 existing tables.\"",
+  "      AXHeading title=\"Launch notes\"",
+  "       AXStaticText value=\"Launch notes\"",
+  "      AXHeading title=\"Your action items\"",
+  "       AXStaticText value=\"Your action items\"",
+  "      AXGroup",
+  "       AXStaticText value=\"Start with 1: it unblocks the most.\"",
+  "      AXList/AXContentList",
+  "       AXGroup",
+  "        AXGroup class=\"ldoc-check\"",
+  "         AXCheckBox title=\"Paste docs/owner/lists-plan.md into Copilot to create the 9 lists.\" value=\"0\" desc=\"Paste docs/owner/lists-plan.md into Copilot to create the 9 lists.\"",
+  "        AXGroup",
+  "         AXStaticText value=\"Paste \"",
+  "         AXGroup/AXCodeStyleGroup",
+  "          AXStaticText value=\"docs/owner/lists-plan.md\"",
+  "         AXStaticText value=\" into Copilot to create the 9 lists.\"",
+  "       AXGroup",
+  "        AXGroup class=\"ldoc-check\"",
+  "         AXCheckBox title=\"Ask Sam for the sign-off on the new tables.\" value=\"1\" desc=\"Ask Sam for the sign-off on the new tables.\"",
+  "        AXGroup",
+  "         AXStaticText value=\"Ask Sam for the sign-off on the new tables.\"",
+  "       AXGroup",
+  "        AXGroup class=\"ldoc-check\"",
+  "         AXCheckBox title=\"Add the 16 columns to the 6 existing tables.\" value=\"0\" desc=\"Add the 16 columns to the 6 existing tables.\"",
+  "        AXGroup",
+  "         AXStaticText value=\"Add the 16 columns to the 6 existing tables.\"",
+  "       AXGroup",
+  "        AXGroup class=\"ldoc-check\"",
+  "         AXCheckBox title=\"Import each list in Power Apps, then apply the fixes in section B.\" value=\"0\" desc=\"Import each list in Power Apps, then apply the fixes in section B.\"",
+  "        AXGroup",
+  "         AXStaticText value=\"Import each list in Power Apps, then apply the fixes in section B.\""
+ ],
+ "lines": [
+  "⟦section⟧",
+  "Launch notes",
+  "Your action items",
+  "Start with 1: it unblocks the most.",
+  "[ ] Paste `docs/owner/lists-plan.md` into Copilot to create the 9 lists.",
+  "[x] Ask Sam for the sign-off on the new tables.",
+  "[ ] Add the 16 columns to the 6 existing tables.",
+  "[ ] Import each list in Power Apps, then apply the fixes in section B."
+ ],
+ "expect": {
+  "tasks": [
+   "Paste `docs/owner/lists-plan.md` into Copilot to create the 9 lists.",
+   "Add the 16 columns to the 6 existing tables.",
+   "Import each list in Power Apps, then apply the fixes in section B."
+  ],
+  "notTasks": [
+   "Ask Sam for the sign-off on the new tables."
+  ]
+ }
+}

@@ -534,7 +534,18 @@ enum AXCapture {
                 if value.count > limits.maxFieldChars { value = String(value.suffix(limits.maxFieldChars)) }
                 node.text = value
                 chars += value.count
-                return node // text elements have no children worth reading
+                // A rich editor (a doc in the Claude app's side pane) is a text area with structure
+                // under it, and its value has lost the boxes. Its children are kept only when they
+                // hold a checkbox or a list marker; other text elements have no children worth reading.
+                if role == "AXTextArea" {
+                    let kids = element.children()
+                    if !kids.isEmpty {
+                        var rich = node
+                        rich.children = kids.compactMap { self.node(for: $0, depth: depth + 1) }
+                        if AXCapture.holdsCheckbox(rich) { return rich }
+                    }
+                }
+                return node
             }
 
             if role == "AXWebArea" {
@@ -595,9 +606,12 @@ enum AXCapture {
         }
     }
 
-    /// True when a node holds a box someone ticks (not a toolbar toggle) with a state to read.
+    /// True when a node holds what a rich editor's plain value loses: a box someone ticks (not a
+    /// toolbar toggle) with a state to read, or a list marker ("1.", "•") the page draws itself.
     static func holdsCheckbox(_ node: AXNode) -> Bool {
-        node.children.contains { ($0.role == "AXCheckBox" && $0.subrole != "AXToggleButton" && $0.state != nil) || holdsCheckbox($0) }
+        node.children.contains {
+            ($0.role == "AXCheckBox" && $0.subrole != "AXToggleButton" && $0.state != nil) || $0.role == "AXListMarker" || holdsCheckbox($0)
+        }
     }
 
     static func hasText(_ node: AXNode) -> Bool {
@@ -650,8 +664,8 @@ enum AXCapture {
                 markerOnly = true
                 startsWithMarker = true
             case "AXTextArea" where AXCapture.holdsCheckbox(node):
-                // A rich editor (a doc in the Claude app's side pane): its value is plain text with
-                // every box gone, so read its structure instead, as a page, to keep "[ ]" and "[x]".
+                // A rich editor (a doc in the Claude app's side pane, a canvas): its value is plain text with
+                // every box and list number gone, so read its structure instead, as a page.
                 flush()
                 visitBlock(node)
             case "AXTextArea", "AXTextField":

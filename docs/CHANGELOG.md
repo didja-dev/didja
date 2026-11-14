@@ -6,6 +6,12 @@ Each entry says what changed, and what was **not verified** where that applies: 
 
 ## 2026-11-14
 
+### Capture coverage: surface fixtures, and the doc pane fix completed
+- New: **surface fixtures** (`profiles/fixtures/surfaces/`), each a place an AI tool shows steps, as a window outline with made-up text, the lines capture must keep and the tasks the engine must make and must not. `SurfaceFixtureTests` and `engine/test/surfaces.test.ts` run every one. [COVERAGE.md](COVERAGE.md) lists every place where AI tools show steps, which are checked, and how to add one.
+- The first surface fixture showed the previous fix worked only on its own: capture never read under a text area at all, so a doc in the Claude app's side pane still came out without its boxes. Now a text area's children are read too, and kept only when they hold a box someone ticks or a list marker the page draws (a numbered list's "1." is not in an editor's plain value either); otherwise it is read as its value, as before.
+- Tests: `claude-desktop-doc-pane.json` (the doc pane's recorded structure with made-up words: three unticked boxes become tasks, the ticked one does not) and `claude-desktop-doc-pane-numbered.json` (a numbered list drawn by the page: three tasks; made up, not recorded live).
+- Not verified: the live doc pane with this build; every place marked "Not checked" in COVERAGE.md.
+
 ### Checklists in a doc in the Claude app's side pane are captured
 - A doc Claude opens beside the chat in the Claude app is an editable text area. Capture read such an area as its plain text, which has no boxes, so a doc's "Your action items" checklist reached the engine as prose and made no tasks. Now an editable text area that holds checkboxes is read by its structure, like a page: each box is kept as `[ ]` or `[x]`, its words written once (the text beside the box, with `code` kept, replaces the box's own label). The engine already reads boxes in Claude's text as steps: unticked ones become tasks, ticked ones do not. A text area with no boxes (terminals, editors, message fields) is read as before; a toolbar toggle inside one does not count as a box.
 - Tests: `DocChecklistTests` (4): a doc's boxes kept once each, with code; an item longer than a label still gets its box; a text area without boxes, or with only a toolbar toggle, is read as its text; the same words later on are kept. `engine/test/docchecklist.test.ts` (2): unticked boxes in a doc section become tasks and a ticked one does not, nor the doc's numbered headings; the same doc without boxes still makes none.

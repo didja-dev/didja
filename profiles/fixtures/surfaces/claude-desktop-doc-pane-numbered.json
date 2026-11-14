@@ -1,0 +1,46 @@
+{
+ "about": "The doc pane with a numbered list drawn by the page, so the editor's plain value has no numbers. Made up from the doc pane's shape; not recorded live.",
+ "window": {
+  "app": "Claude",
+  "bundle": "com.anthropic.claudefordesktop",
+  "title": "Release - Claude Code"
+ },
+ "outline": [
+  "AXWindow/AXStandardWindow title=\"Claude\"",
+  " AXWebArea title=\"Release - Claude Code\" url=\"https://claude.ai/new\"",
+  "  AXGroup/AXLandmarkMain",
+  "   AXWebArea title=\"Release steps\" url=\"https://doc.example.com/\"",
+  "    AXGroup/AXDocumentArticle",
+  "     AXTextArea class=\"tiptap ProseMirror\" title=\"Doc\" value=\"Release steps\\nBefore Friday, on your side:\\nSet STRIPE_WEBHOOK_SECRET in Vercel\\nRun the migration with supabase db push\\nAdd the redirect URL in Supabase auth settings\"",
+  "      AXHeading title=\"Release steps\"",
+  "       AXStaticText value=\"Release steps\"",
+  "      AXGroup",
+  "       AXStaticText value=\"Before Friday, on your side:\"",
+  "      AXList/AXContentList",
+  "       AXGroup",
+  "        AXListMarker value=\"1. \"",
+  "        AXStaticText value=\"Set STRIPE_WEBHOOK_SECRET in Vercel\"",
+  "       AXGroup",
+  "        AXListMarker value=\"2. \"",
+  "        AXStaticText value=\"Run the migration with supabase db push\"",
+  "       AXGroup",
+  "        AXListMarker value=\"3. \"",
+  "        AXStaticText value=\"Add the redirect URL in Supabase auth settings\""
+ ],
+ "lines": [
+  "⟦section⟧",
+  "Release steps",
+  "Before Friday, on your side:",
+  "1. Set STRIPE_WEBHOOK_SECRET in Vercel",
+  "2. Run the migration with supabase db push",
+  "3. Add the redirect URL in Supabase auth settings"
+ ],
+ "expect": {
+  "tasks": [
+   "Set STRIPE_WEBHOOK_SECRET in Vercel",
+   "Run the migration with supabase db push",
+   "Add the redirect URL in Supabase auth settings"
+  ],
+  "notTasks": []
+ }
+}

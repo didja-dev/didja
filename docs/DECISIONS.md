@@ -4,6 +4,9 @@ Choices made while building ScrolledAway, with the reason, so they are not re-ar
 
 ## 2026-11-14
 
+- **A text area's structure is kept only when it holds a box or a list marker**: the two things a rich editor's plain value is known to lose. Everything else in a text area (terminals, code editors, message fields) is read as its value, as before, so their exact lines and indentation are unchanged. The text area you are typing in is still never read.
+- **Surface fixtures start from a recorded shape where one exists, and say when they are made up**: a made-up outline can only show what we already expect, which is how the doc pane gap went unseen.
+
 - **An editable text area is read by its structure only when it holds checkboxes**: a rich editor's value loses its boxes, but terminals and editors rely on the value's exact lines and indentation, so the change is limited to the one case where the value is missing something. A doc in the Claude app's side pane is read as Claude's text, as other sections there are; its ticked boxes do not tick tasks yet (a missed tick is the cheaper mistake).
 
 - **Calendar snooze never sees event titles** (SCR-117): the times need only starts, ends and attendee names, so titles are not read into what the engine gets, which keeps the smallest amount of calendar text in play.
