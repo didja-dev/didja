@@ -208,6 +208,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let panel = MenuBarPanel(content: content, pinnedContent: pinnedContent)
         // A search lasts as long as the panel is open: it always opens on the whole list.
         panel.onClose = { [weak self] in self?.popoverNavigator.endSearch() }
+        panel.onShow = { [weak self] in self?.capture.checkReview() }
         return panel
     }
 
@@ -332,6 +333,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             .choice("Older Messages", [("Capture Tasks From Them", false), ("Ignore Them (New Messages Only)", true)],
                     current: capture.onlyNewMessages) { [weak self] in self?.capture.onlyNewMessages = $0 },
             .action("Remind Me About Unfinished Checklists", checked: Nudger.isEnabled) { Nudger.isEnabled.toggle() },
+            .separator,
+            .action("Day Review") { [weak self] in self?.capture.showReview("evening") },
+            .action("Morning List") { [weak self] in self?.capture.showReview("morning") },
         ]
         var privacy: [MenuEntry] = [
             .action("Privacy…", close { [weak self] in self?.showPrivacy() }),

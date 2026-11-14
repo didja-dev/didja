@@ -299,6 +299,8 @@ final class MenuBarPanel: NSObject, NSPopoverDelegate, NSWindowDelegate {
     private var previousApp: NSRunningApplication?
     /// Called each time the panel has closed.
     var onClose: (() -> Void)?
+    /// Called each time the panel opens (SCR-100: the Day Review that is due, the first-tick note).
+    var onShow: (() -> Void)?
     /// The same panel as a small window of its own, used while it is pinned (SCR-25).
     private let pinnedContent: NSViewController
     private var pinnedWindow: NSPanel?
@@ -426,6 +428,7 @@ final class MenuBarPanel: NSObject, NSPopoverDelegate, NSWindowDelegate {
     @discardableResult
     func show() -> Bool {
         shownAt = Date()
+        onShow?()
         let front = NSWorkspace.shared.frontmostApplication
         let previous = front?.processIdentifier == ProcessInfo.processInfo.processIdentifier ? nil : front
         if let saved = PanelPlacement.saved {

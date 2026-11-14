@@ -49,6 +49,7 @@ final class Nudger: NSObject, UNUserNotificationCenterDelegate {
     private func check() {
         guard Self.isEnabled else { return }
         DispatchQueue.global(qos: .utility).async {
+            Self.remindOfReview()
             guard let json = EngineRunner.output(["nudges"]), let nudges = try? Self.decode(json), !nudges.isEmpty else { return }
             let center = UNUserNotificationCenter.current()
             // Asks once, the first time there is something to say.
@@ -61,6 +62,30 @@ final class Nudger: NSObject, UNUserNotificationCenterDelegate {
                     center.add(UNNotificationRequest(identifier: nudge.identifier, content: content, trigger: nil))
                 }
             }
+        }
+    }
+
+    /// The Day Review you chose a time for (SCR-100): one notification when it is due; opening the
+    /// panel shows it. Once a day per review, kept here so the engine still shows it when you open the panel.
+    static func reviewReminder(_ kind: String) -> (title: String, body: String) {
+        kind == "morning"
+            ? ("Morning list", "Due today, overdue, and who you are waiting on.")
+            : ("Day Review", "What Didja ticked for you today, and what is left.")
+    }
+
+    private static func remindOfReview() {
+        guard let kind = DayReviewEngine.due(take: false) else { return }
+        let key = "reviewReminded"
+        let stamp = "\(kind)-\(Calendar.current.startOfDay(for: Date()).timeIntervalSince1970)"
+        guard UserDefaults.standard.string(forKey: key) != stamp else { return }
+        UserDefaults.standard.set(stamp, forKey: key)
+        let (title, body) = reviewReminder(kind)
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = body
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert]) { granted, _ in
+            guard granted else { return }
+            UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: "review-\(kind)", content: content, trigger: nil))
         }
     }
 

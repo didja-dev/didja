@@ -101,6 +101,10 @@ final class CaptureCoordinator: ObservableObject {
     @Published private(set) var suggestions: [SuggestedAsk] = []
     /// Waiting On (SCR-99): asks you sent, waiting for an answer. Not tasks.
     @Published private(set) var waiting: [WaitingItem] = []
+    /// Day Review (SCR-100), shown at the top of the Quick View until closed; nil when none.
+    @Published var dayReview: DayReview?
+    /// The first tick Didja made for you, shown once with Undo (SCR-100).
+    @Published var firstTick: FirstTickNote?
     /// What the engine says about the first run (SCR-89): apps being read, the first list, the nudge.
     @Published private(set) var firstRun: FirstRunStatus?
     /// Tasks the engine has found, for the menu. Read-only here.

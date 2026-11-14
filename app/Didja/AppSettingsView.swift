@@ -99,6 +99,7 @@ struct GeneralSettingsView: View {
     @State private var appearance = AppearanceSetting.saved
     @State private var nudges = Nudger.isEnabled
     @State private var waitingQuiet = WaitingQuiet.Status(chatHours: 24, emailDays: 2)
+    @State private var reviewTimes = DayReviewEngine.Times()
     @ObservedObject private var updates = Updates.shared
     @StateObject private var hotKey = HotKeyRecording()
     @State private var ocrOn = OCRCapture.isEnabled
@@ -214,7 +215,18 @@ struct GeneralSettingsView: View {
                 .onAppear {
                     DispatchQueue.global(qos: .userInitiated).async {
                         let status = WaitingQuiet.status()
-                        DispatchQueue.main.async { waitingQuiet = status }
+                        let times = DayReviewEngine.times()
+                        DispatchQueue.main.async { waitingQuiet = status; reviewTimes = times }
+                    }
+                }
+                row("Day Review", "Off unless you choose a time. In the evening: what Didja ticked for you today (each with Not Done), asks that were answered, what is still open from today, and what is due tomorrow. In the morning: what is due today, what is overdue, and who you are waiting on. Shown in the \(ViewNames.quick) once a day, with one notification; Copy as Markdown puts it on the clipboard.") {
+                    reviewPicker("Evening", choices: DayReviewEngine.eveningChoices, current: reviewTimes.evening) { time in
+                        reviewTimes.evening = time
+                        DispatchQueue.global(qos: .userInitiated).async { DayReviewEngine.setTime("evening", time) }
+                    }
+                    reviewPicker("Morning", choices: DayReviewEngine.morningChoices, current: reviewTimes.morning) { time in
+                        reviewTimes.morning = time
+                        DispatchQueue.global(qos: .userInitiated).async { DayReviewEngine.setTime("morning", time) }
                     }
                 }
             }
@@ -343,6 +355,15 @@ struct GeneralSettingsView: View {
                 .padding(.vertical, 4)
                 .background(RoundedRectangle(cornerRadius: 10).fill(Color.primary.opacity(0.04)))
         }
+    }
+
+    /// Off, or one of the times (and the time already chosen, if it is not one of them).
+    private func reviewPicker(_ label: String, choices: [String], current: String?, set: @escaping (String?) -> Void) -> some View {
+        Picker(label, selection: Binding(get: { current ?? "off" }, set: { set($0 == "off" ? nil : $0) })) {
+            Text("\(label): Off").tag("off")
+            ForEach(Array(Set(choices + (current.map { [$0] } ?? []))).sorted(), id: \.self) { Text("\(label): \($0)").tag($0) }
+        }
+        .labelsHidden().fixedSize()
     }
 
     private func row<Control: View>(_ title: String, _ about: String, @ViewBuilder control: () -> Control) -> some View {

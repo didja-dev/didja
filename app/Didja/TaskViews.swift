@@ -898,9 +898,18 @@ struct PopoverView: View {
             // The menu bar panel sizes itself to its content, and a scroll view on its
             // own asks for no height at all there. So measure the list and say how tall to be.
             KeyboardScrollView(navigator: navigator) {
-                PopoverTaskList(board: capture.tasks, actions: actions, navigator: navigator,
-                                toggleRecentlyDone: { capture.showsRecentlyDone.toggle() }, query: navigator.query,
-                                suggestions: capture.suggestions, waiting: capture.waiting)
+                VStack(alignment: .leading, spacing: 10) {
+                    if let note = capture.firstTick {
+                        FirstTickBanner(note: note, undo: { capture.undoTick(note.id) }, dismiss: { capture.dismissFirstTick() })
+                    }
+                    if let review = capture.dayReview {
+                        DayReviewSheet(review: review, notDone: { capture.undoTick($0.id) }, copy: { capture.copyReview() },
+                                       close: { capture.dayReview = nil })
+                    }
+                    PopoverTaskList(board: capture.tasks, actions: actions, navigator: navigator,
+                                    toggleRecentlyDone: { capture.showsRecentlyDone.toggle() }, query: navigator.query,
+                                    suggestions: capture.suggestions, waiting: capture.waiting)
+                }
                     .padding(.horizontal, 14)
                     .padding(.vertical, 8)
                     .background(GeometryReader { proxy in
