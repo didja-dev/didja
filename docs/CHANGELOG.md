@@ -6,6 +6,11 @@ Each entry says what changed, and what was **not verified** where that applies: 
 
 ## 2026-11-14
 
+### Checklists in a doc in the Claude app's side pane are captured
+- A doc Claude opens beside the chat in the Claude app is an editable text area. Capture read such an area as its plain text, which has no boxes, so a doc's "Your action items" checklist reached the engine as prose and made no tasks. Now an editable text area that holds checkboxes is read by its structure, like a page: each box is kept as `[ ]` or `[x]`, its words written once (the text beside the box, with `code` kept, replaces the box's own label). The engine already reads boxes in Claude's text as steps: unticked ones become tasks, ticked ones do not. A text area with no boxes (terminals, editors, message fields) is read as before; a toolbar toggle inside one does not count as a box.
+- Tests: `DocChecklistTests` (4): a doc's boxes kept once each, with code; an item longer than a label still gets its box; a text area without boxes, or with only a toolbar toggle, is read as its text; the same words later on are kept. `engine/test/docchecklist.test.ts` (2): unticked boxes in a doc section become tasks and a ticked one does not, nor the doc's numbered headings; the same doc without boxes still makes none.
+- Not verified: the live Claude app, until it is next read with a doc open. Ticking a box in the doc does not tick its task yet.
+
 ### Didja 0.11.0 (build 13)
 - Released from GitHub on a version tag, with SCR-93 to SCR-121: honest claims, default exclusions for banking, health and payment pages, capture sensitivity with a Suggested tray, why a task was made, due dates, your own commitments, waiting on replies, Day Review, the database encrypted at rest, flat model schemas, benchmark owner and held-out measures, Forget that reaches what Didja learned, ticks from your own explicit signals, merge suggestions across apps, meeting action items, Ollama for chat asks, answers in another app, published resource use and tick precision, the network guide, the comparison page, the licence and data pledge with Export All Tasks, This Week, calendar-aware snooze, adapter training data, Add This to My List with Siri, your open tasks for your own Claude, and Apple Reminders. Release builds now carry the calendar entitlement that EventKit needs.
 

@@ -4,6 +4,8 @@ Choices made while building ScrolledAway, with the reason, so they are not re-ar
 
 ## 2026-11-14
 
+- **An editable text area is read by its structure only when it holds checkboxes**: a rich editor's value loses its boxes, but terminals and editors rely on the value's exact lines and indentation, so the change is limited to the one case where the value is missing something. A doc in the Claude app's side pane is read as Claude's text, as other sections there are; its ticked boxes do not tick tasks yet (a missed tick is the cheaper mistake).
+
 - **Calendar snooze never sees event titles** (SCR-117): the times need only starts, ends and attendee names, so titles are not read into what the engine gets, which keeps the smallest amount of calendar text in play.
 - **"Before" a meeting is 15 minutes before it starts; "after" is when it ends** (SCR-117): a task meant for a meeting should be in front of you before it, and one put off by a meeting should come back as soon as you are out. Overlapping meetings: after the last of the ones you are in.
 - **"With them" matches only a whole name, or a first name alone** (SCR-117): a wrong match only snoozes to the wrong time, but a loose rule ("Sam" in "Samantha") would make that common. The person is taken only from a chat's name; email notes and AI steps have no person here, the conservative reading until a sender can be read without guessing.

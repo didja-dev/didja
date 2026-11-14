@@ -595,6 +595,11 @@ enum AXCapture {
         }
     }
 
+    /// True when a node holds a box someone ticks (not a toolbar toggle) with a state to read.
+    static func holdsCheckbox(_ node: AXNode) -> Bool {
+        node.children.contains { ($0.role == "AXCheckBox" && $0.subrole != "AXToggleButton" && $0.state != nil) || holdsCheckbox($0) }
+    }
+
     static func hasText(_ node: AXNode) -> Bool {
         node.children.contains { (["AXStaticText", "AXTextArea", "AXTextField"].contains($0.role) && !$0.text.isEmpty) || hasText($0) }
     }
@@ -624,6 +629,8 @@ enum AXCapture {
 
     private struct LineBuilder {
         var lines: [String] = []
+        /// A checkbox's words just written as "[ ] words": the same words as the next line are dropped.
+        var repeatedLabel: String?
         private var buffer = ""
         /// True while the buffer holds only a list marker, waiting for the item's text.
         private var markerOnly = false
@@ -642,6 +649,11 @@ enum AXCapture {
                 buffer = node.text
                 markerOnly = true
                 startsWithMarker = true
+            case "AXTextArea" where AXCapture.holdsCheckbox(node):
+                // A rich editor (a doc in the Claude app's side pane): its value is plain text with
+                // every box gone, so read its structure instead, as a page, to keep "[ ]" and "[x]".
+                flush()
+                visitBlock(node)
             case "AXTextArea", "AXTextField":
                 flush()
                 // Keep indentation: terminals wrap long lines with leading spaces.
@@ -709,6 +721,8 @@ enum AXCapture {
                     startsWithMarker = true
                 }
                 flush()
+                // A doc repeats a box's words as text beside it: written once, with its box.
+                repeatedLabel = label
             } else if isMidLine {
                 buffer += " \(mark)"
                 node.children.forEach { visit($0) }
@@ -794,6 +808,17 @@ enum AXCapture {
                 if !line.isEmpty, level > 0 { line = String(repeating: "  ", count: level) + line }
             }
             guard !line.allSatisfy(\.isWhitespace) else { return }
+            if let label = repeatedLabel {
+                // Only the very next line, and only when it is the same words. The text beside the box
+                // keeps code as `code`, so it replaces the box's own words, after the box.
+                repeatedLabel = nil
+                let words = line.split(whereSeparator: \.isWhitespace).joined(separator: " ")
+                if words.replacingOccurrences(of: "`", with: "") == label, let box = lines.last,
+                   let end = box.range(of: label, options: .backwards), end.upperBound == box.endIndex {
+                    lines[lines.count - 1] = box.replacingCharacters(in: end, with: words)
+                    return
+                }
+            }
             lines.append(String(line.prefix(maxLineLength)))
         }
     }
