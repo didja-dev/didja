@@ -2409,6 +2409,32 @@ final class ForgetPromptTests: XCTestCase {
         XCTAssertTrue(ForgetPrompt.message(observations: 1).hasPrefix("1 piece of text"))
         XCTAssertTrue(ForgetPrompt.message(observations: 5).contains("Tasks already found stay"))
     }
+
+    /// SCR-104: each level runs `didja forget`; tasks go only with the box ticked, and never at the captured-text level.
+    func testForgetLevelsRunTheEngineAndTasksOnlyWhenTicked() {
+        XCTAssertEqual(ForgetPrompt.Level.captured.arguments(tasks: false), ["forget", "captured", "--json"])
+        XCTAssertEqual(ForgetPrompt.Level.captured.arguments(tasks: true), ["forget", "captured", "--json"], "captured text only never deletes tasks")
+        XCTAssertNil(ForgetPrompt.Level.captured.tasksBox)
+        XCTAssertEqual(ForgetPrompt.Level.hour.arguments(tasks: false), ["forget", "hour", "--json"])
+        XCTAssertEqual(ForgetPrompt.Level.hour.arguments(tasks: true), ["forget", "hour", "--tasks", "--json"])
+        XCTAssertEqual(ForgetPrompt.Level.everything.arguments(tasks: true), ["forget", "everything", "--tasks", "--json"])
+        XCTAssertNotNil(ForgetPrompt.Level.everything.tasksBox)
+        XCTAssertEqual(ForgetPrompt.Level.captured.title, ForgetPrompt.title)
+        XCTAssertTrue(ForgetPrompt.Level.hour.message(observations: 3).contains("Nothing older is touched"))
+        XCTAssertTrue(ForgetPrompt.Level.everything.message(observations: 3).contains("Instructions you wrote stay"))
+    }
+
+    /// SCR-104: Privacy lists every store the last Forget cleared, as the engine wrote it.
+    func testLastForgetListsEveryStoreCleared() throws {
+        let json = #"{"at":"2026-11-14T10:00:00.000Z","level":"hour","tasks":true,"since":"2026-11-14T09:00:00.000Z","cleared":[{"store":"tasks","label":"Tasks captured from the screen","removed":2},{"store":"observations","label":"Captured text","removed":12},{"store":"shell.log","label":"Commands you ran (shell.log)","removed":0}]}"#
+        let last = try XCTUnwrap(LastForget.decode(json))
+        XCTAssertEqual(last.cleared.count, 3)
+        XCTAssertTrue(last.words.hasPrefix("The last hour, with tasks, "))
+        XCTAssertTrue(last.words.hasSuffix("Cleared: Tasks captured from the screen 2; Captured text 12; Commands you ran (shell.log) 0."))
+        XCTAssertNil(LastForget.decode("null"))
+        XCTAssertNil(LastForget.decode(nil))
+        XCTAssertNil(LastForget.decode("not json"))
+    }
 }
 
 final class WelcomeWindowTests: XCTestCase {

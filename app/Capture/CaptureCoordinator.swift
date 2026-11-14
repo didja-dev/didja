@@ -41,6 +41,79 @@ enum ForgetPrompt {
     static func deletes(_ response: NSApplication.ModalResponse) -> Bool {
         response == .alertFirstButtonReturn
     }
+
+    /// How much to forget (SCR-104). The engine does it (`didja forget`), and lists what it cleared.
+    enum Level: String, CaseIterable {
+        case captured, everything, hour
+
+        var menuTitle: String {
+            switch self {
+            case .captured: return "Forget Captured Text Now…"
+            case .everything: return "Forget Everything Didja Learned…"
+            case .hour: return "Forget the Last Hour…"
+            }
+        }
+
+        var title: String {
+            switch self {
+            case .captured: return ForgetPrompt.title
+            case .everything: return "Forget everything Didja learned?"
+            case .hour: return "Forget the last hour?"
+            }
+        }
+
+        func message(observations: Int) -> String {
+            switch self {
+            case .captured:
+                return ForgetPrompt.message(observations: observations)
+            case .everything:
+                return "All captured text is deleted, and everything Didja learned from it: corrections you taught, written \u{201C}what done looks like\u{201D}, outcomes, trust for auto-ticking, taught places, remembered model verdicts, the Suggested tray, and the logs of commands, agent hooks and didja mcp calls. Instructions you wrote stay. Privacy lists what was cleared."
+            case .hour:
+                return "Captured text, the lines kept around tasks, and log lines from the last 60 minutes are deleted. Nothing older is touched. Privacy lists what was cleared."
+            }
+        }
+
+        /// The checkbox that also deletes tasks; off unless you tick it. None for captured text only.
+        var tasksBox: String? {
+            switch self {
+            case .captured: return nil
+            case .everything: return "Also delete tasks captured from the screen, and Waiting on (My List, tasks you added and connected items stay)"
+            case .hour: return "Also delete tasks captured in the last hour"
+            }
+        }
+
+        func arguments(tasks: Bool) -> [String] {
+            ["forget", rawValue] + (tasks && tasksBox != nil ? ["--tasks"] : []) + ["--json"]
+        }
+    }
+}
+
+/// What the last Forget cleared (SCR-104), as the engine wrote it (`didja forget last --json`).
+struct LastForget: Decodable, Equatable {
+    struct Cleared: Decodable, Equatable {
+        var store: String
+        var label: String
+        var removed: Int
+    }
+    var at: String
+    var level: String
+    var tasks: Bool
+    var cleared: [Cleared]
+
+    static func decode(_ json: String?) -> LastForget? {
+        guard let json, json != "null" else { return nil }
+        return try? JSONDecoder().decode(LastForget.self, from: Data(json.utf8))
+    }
+
+    /// "Everything Didja learned, with tasks, 14 Nov 2026 at 10:20. Cleared: Captured text 12; …": every store it cleared.
+    var words: String {
+        let what = ["captured": "Captured text only", "everything": "Everything Didja learned", "hour": "The last hour"][level] ?? level
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let when = formatter.date(from: at).map { DateFormatter.localizedString(from: $0, dateStyle: .medium, timeStyle: .short) } ?? at
+        let list = cleared.map { "\($0.label) \($0.removed)" }.joined(separator: "; ")
+        return "\(what)\(tasks ? ", with tasks" : ""), \(when). Cleared: \(list)."
+    }
 }
 
 /// Decides when to capture, runs the capture, and writes observations.
@@ -368,12 +441,20 @@ final class CaptureCoordinator: ObservableObject {
     @Published private(set) var capturingSince: Date?
 
     func forgetCapturedText() {
+        forget(.captured, tasks: false)
+    }
+
+    /// Forget at a level (SCR-104): the engine deletes and records what it cleared, for Privacy.
+    /// Captured text is deleted here directly if the engine cannot run, as it was before.
+    func forget(_ level: ForgetPrompt.Level, tasks: Bool) {
         queue.async {
-            _ = try? self.store?.deleteObservations(olderThan: .distantFuture)
-            // And the lines kept around open tasks (SCR-31): they are screen text too.
-            try? self.store?.deleteTaskContext()
+            if !EngineRunner.run(level.arguments(tasks: tasks)), level == .captured {
+                _ = try? self.store?.deleteObservations(olderThan: .distantFuture)
+                // And the lines kept around open tasks (SCR-31): they are screen text too.
+                try? self.store?.deleteTaskContext()
+            }
+            DispatchQueue.main.async { self.refreshSummary() }
         }
-        refreshSummary()
     }
 
     func openAccessibilitySettings() {

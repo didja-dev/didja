@@ -343,7 +343,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             .choice("Keep Captured Text For", Retention.allCases.map { ($0.label, $0) }, current: capture.retention) { [weak self] in
                 self?.capture.retention = $0
             },
-            .action("Forget Captured Text Now…", close { [weak self] in self?.confirmForget() }),
+            .action(ForgetPrompt.Level.captured.menuTitle, close { [weak self] in self?.confirmForget() }),
+            .action(ForgetPrompt.Level.hour.menuTitle, close { [weak self] in self?.confirmForget(.hour) }),
+            .action(ForgetPrompt.Level.everything.menuTitle, close { [weak self] in self?.confirmForget(.everything) }),
         ]
         if !OCRCapture.isPermitted {
             privacy += [.separator, .action("Enable OCR Fallback (Screen Recording)…") { OCRCapture.requestPermission() }]
@@ -649,19 +651,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         namesWindow?.makeKeyAndOrderFront(nil)
     }
 
-    /// Ask before deleting all captured text; delete only on an explicit Delete.
-    func confirmForget() {
+    /// Ask before forgetting; delete only on an explicit Delete. Tasks go only if their box is ticked (SCR-104).
+    func confirmForget(_ level: ForgetPrompt.Level = .captured) {
         let alert = AppIcon.alert()
         alert.alertStyle = .warning
-        alert.messageText = ForgetPrompt.title
-        alert.informativeText = ForgetPrompt.message(observations: capture.observationCount)
+        alert.messageText = level.title
+        alert.informativeText = level.message(observations: capture.observationCount)
         for title in ForgetPrompt.buttons { alert.addButton(withTitle: title) }
+        var box: NSButton?
+        if let label = level.tasksBox {
+            let check = NSButton(checkboxWithTitle: label, target: nil, action: nil)
+            check.state = .off
+            alert.accessoryView = check
+            box = check
+        }
         // Return and Escape both cancel: the destructive button is never the default.
         alert.buttons[0].keyEquivalent = ""
         alert.buttons[1].keyEquivalent = "\r"
         alert.buttons[0].hasDestructiveAction = true
         NSApplication.shared.activate(ignoringOtherApps: true)
-        if ForgetPrompt.deletes(alert.runModal()) { capture.forgetCapturedText() }
+        if ForgetPrompt.deletes(alert.runModal()) { capture.forget(level, tasks: box?.state == .on) }
     }
 
     /// The facts the Privacy window states, read now.
@@ -679,7 +688,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             connections: Self.connectedTools(), profiles: AppProfiles.builtIn.map(\.summary), ownClaude: OwnClaude.status(),
             localModel: LocalModel.status().model, shellHook: ShellHook.status(), agentHooks: AgentHooks.status(),
             defaultExclusions: ExcludeList.defaultLabels(in: list),
-            encryption: .decode(EngineRunner.output(["encryption", "--json"])))
+            encryption: .decode(EngineRunner.output(["encryption", "--json"])),
+            lastForget: LastForget.decode(EngineRunner.output(["forget", "last", "--json"])))
     }
 
     /// The names of the connected task tools, from the engine.
@@ -1047,6 +1057,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             changed: { [capture] in capture.reloadPolicy() }),
         privacyFacts: { [unowned self] in self.privacyFacts() },
         forgetCapturedText: { [unowned self] in self.confirmForget() },
+        forget: { [unowned self] in self.confirmForget($0) },
         openWelcome: { [unowned self] in self.showWelcome() },
         revealDataFolder: {
             let folder = ObservationStore.defaultDirectory

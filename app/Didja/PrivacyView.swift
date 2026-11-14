@@ -31,6 +31,8 @@ struct PrivacyFacts: Equatable {
     var defaultExclusions: [String] = []
     /// Encrypted on disk (SCR-101): the engine's live state, "on", "no-key" or "off", and how many values are still in the clear.
     var encryption = Encryption(state: "on", clear: 0)
+    /// What the last Forget cleared (SCR-104), store by store; nil when nothing was forgotten yet.
+    var lastForget: LastForget? = nil
 
     struct Encryption: Decodable, Equatable {
         var state: String
@@ -147,8 +149,9 @@ struct PrivacyContent: View {
                         .textSelection(.enabled)
                         .fixedSize(horizontal: false, vertical: true)
                     bullet("Encrypted on disk", facts.encryption.words)
+                    if let last = facts.lastForget { bullet("Last forgotten", last.words) }
                     bullet("Captured text", "Only lines that are new since the window was last read, as text, sealed as above. Deleted after \(facts.retentionWords). Now: \(facts.observationCount) pieces of text.")
-                    bullet("Tasks", "Each task's wording, where it came from (the app and conversation, or the email's sender and subject), links from the email it came from, and short notes on why it was ticked. Kept after the captured text is gone, including done and dismissed tasks; there is no way to delete tasks yet. Now: \(facts.taskCount).")
+                    bullet("Tasks", "Each task's wording, where it came from (the app and conversation, or the email's sender and subject), links from the email it came from, and short notes on why it was ticked. Kept after the captured text is gone, including done and dismissed tasks, unless you tick \u{201C}Also delete tasks\u{201D} when you forget the last hour or everything Didja learned. Now: \(facts.taskCount).")
                     bullet("How a task looked", "A few lines around each open task (at most seven, as text) from the window it was captured in, so you can see it as it was (V). Deleted when the task is done or dismissed, with Forget Captured Text Now, and when you exclude that window.")
                     bullet("Fingerprints", "So the model is not asked about the same email or screen twice, a one-way fingerprint of it is kept with the answer. The text itself is not, except a list waiting a few seconds to be judged.")
                     bullet("Your names", "Your Mac account's full name, or the name you set, and the names and nicknames you add in Your Names…, so your own chat messages, and messages that tag or name you, can be told from others'.")
@@ -217,6 +220,8 @@ struct PrivacyContent: View {
                     bullet("Exclude List…", "Apps, window titles and sites never to read. Adding one also deletes what was already kept from it.")
                     bullet("Keep Captured Text For", "1, 6 or 24 hours.")
                     bullet("Forget Captured Text Now…", "Asks, then deletes all captured text at once. Tasks stay.")
+                    bullet("Forget the Last Hour…", "Asks, then deletes captured text, kept lines and log lines from the last 60 minutes; nothing older. Tick the box to delete tasks captured in that hour too.")
+                    bullet("Forget Everything Didja Learned…", "Asks, then deletes captured text and everything learned from it (corrections, done criteria, outcomes, trust, taught places, remembered verdicts, the Suggested tray, its logs). Tick the box to delete captured tasks too. Instructions you wrote stay.")
                     bullet("Dismiss", "Takes a task off your lists. It is still kept, under Dismissed.")
                     bullet("Fresh Start…", "Marks every open task done for a clear list. Nothing is deleted; Undo Fresh Start brings them back for a day.")
                     bullet("Siri", "\u{201C}Add to Didja\u{201D} puts what you say on My List. Siri is Apple's; Didja receives only the words.")

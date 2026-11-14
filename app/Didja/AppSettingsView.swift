@@ -42,14 +42,18 @@ final class SettingsHub: ObservableObject {
     let exclude: ExcludeListModel
     var privacyFacts: () -> PrivacyFacts
     var forgetCapturedText: () -> Void
+    /// Forget the last hour, or everything Didja learned (SCR-104): asks first.
+    var forget: (ForgetPrompt.Level) -> Void
     var openWelcome: () -> Void
     var revealDataFolder: () -> Void
 
     init(exclude: ExcludeListModel, privacyFacts: @escaping () -> PrivacyFacts, forgetCapturedText: @escaping () -> Void,
+         forget: @escaping (ForgetPrompt.Level) -> Void = { _ in },
          openWelcome: @escaping () -> Void, revealDataFolder: @escaping () -> Void) {
         self.exclude = exclude
         self.privacyFacts = privacyFacts
         self.forgetCapturedText = forgetCapturedText
+        self.forget = forget
         self.openWelcome = openWelcome
         self.revealDataFolder = revealDataFolder
     }
@@ -144,6 +148,12 @@ struct GeneralSettingsView: View {
                 }
                 row("Forget captured text now", "Deletes every reading kept so far. Tasks stay.") {
                     Button("Forget Now…", action: hub.forgetCapturedText)
+                }
+                row("Forget the last hour", "Text, kept lines and log lines from the last 60 minutes. Nothing older.") {
+                    Button("Forget Last Hour…") { hub.forget(.hour) }
+                }
+                row("Forget everything Didja learned", "Text, and everything learned from it. Privacy lists what was cleared.") {
+                    Button("Forget Everything…") { hub.forget(.everything) }
                 }
                 row("Read windows without accessibility text", OCRCapture.isPermitted
                     ? (ocrOn ? "On: windows that offer no text are read from their pixels, in memory only, never stored. macOS asks you to confirm this now and then."
