@@ -216,7 +216,25 @@ export function keepFromScreen(store: Store, text: string, app: string | null, n
 }
 
 export function needsShortTitle(title: string): boolean {
-  return title.length > 48 || /[.!?…]/.test(title) || /^(I|I['’]\w+|We|It|This|That|There|So|The)\b/.test(title);
+  return title.length > 48 || /[.!?…]/.test(title) || /^(I|I['’]\w+|We|It|This|That|There|So|The)\b/.test(title)
+    || /^(Yes|No|OK|Okay|Sure|Right|Great|Got it|Done|Working)\b/i.test(title) || /\bI['’](ll|m|ve|d)\b/.test(title)
+    || isPlaceholderTitle(title);
+}
+
+/**
+ * Words that say a list is coming, or when or how to go through it, but not what it is about:
+ * "Checklist", "Two things to try", "Where to find it", "When it's done", "Your test".
+ */
+const PLACEHOLDER_WORDS = new Set(`checklist checklists list lists step steps next to do todo todos to-do task tasks action actions
+  item items plan plans here heres what whats you youll youre your yours need needs this these that those it its the a an and then
+  now once when where after before first finally find try again test tests testing thing things one two three four five few quick
+  last left remaining in order on side for me my i ill we lets go ready done finish fix set up setup required follow following
+  below above more how check checks`.split(/\s+/));
+
+/** True when a lead-in names no subject: every word is one that only introduces a list. */
+export function isPlaceholderTitle(title: string): boolean {
+  const words = title.toLowerCase().replace(/['’]/g, '').split(/[^\p{L}\p{N}_-]+/u).filter(Boolean);
+  return words.length > 0 && words.every((w) => PLACEHOLDER_WORDS.has(w));
 }
 
 /** Tidy what the model wrote; null if it is not usable as a title. */
@@ -231,6 +249,7 @@ export function cleanModelTitle(raw: string, leadIn: string): string | null {
 }
 
 const TITLES_PER_POLL = 2;
+const PLACEHOLDER_TITLES_REOFFERED = 'placeholder_titles_reoffered';
 
 /** How long a queued list must sit unchanged before it is judged (it may still be streaming). */
 const JUDGE_SETTLE_MS = 6_000;
@@ -1856,6 +1875,12 @@ function writeCriteria(store: Store, writer: CriteriaWriter): number {
  * does not work as one. Each checklist is offered to the model once.
  */
 function titlePending(store: Store, titler: Titler, now: Date): number {
+  // Once: lists kept under a lead-in that names nothing ("Checklist") before such lead-ins were
+  // offered to the model are offered now.
+  if (!store.getMeta(PLACEHOLDER_TITLES_REOFFERED)) {
+    store.reofferTitles(needsShortTitle);
+    store.setMeta(PLACEHOLDER_TITLES_REOFFERED, now.toISOString());
+  }
   let titled = 0;
   let asked = 0;
   for (const list of store.checklistsAwaitingTitle(new Date(now.getTime() - JUDGE_SETTLE_MS), 20)) {

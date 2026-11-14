@@ -1837,6 +1837,16 @@ export class Store {
   }
 
   /** Record the model's title for a checklist. '' records that it was asked and gave nothing usable. */
+  /** Open checklists kept with their captured title, offered to the titler again when `again` says so. */
+  reofferTitles(again: (title: string) => boolean): number {
+    const rows = this.db
+      .query(`SELECT id, title FROM tasks WHERE is_group = 1 AND parent_id IS NULL AND status = 'open' AND model_title = '' AND custom_title IS NULL`)
+      .all() as { id: number; title: string }[];
+    const ids = rows.filter((r) => again(r.title)).map((r) => r.id);
+    for (const id of ids) this.db.query('UPDATE tasks SET model_title = NULL WHERE id = ?').run(id);
+    return ids.length;
+  }
+
   setModelTitle(id: number, title: string): void {
     this.db.query('UPDATE tasks SET model_title = ? WHERE id = ?').run(title, id);
   }

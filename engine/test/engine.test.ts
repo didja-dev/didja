@@ -1,7 +1,7 @@
 import { rmSync } from 'node:fs';
 import { expect, test } from 'bun:test';
 import { formatObservation, formatTasks, formatWhy, parseSnooze } from '../src/cli.ts';
-import { MANUAL_SOURCE, addManualTask, cleanModelTitle, needsShortTitle, pollOnce } from '../src/engine.ts';
+import { MANUAL_SOURCE, addManualTask, cleanModelTitle, isPlaceholderTitle, needsShortTitle, pollOnce } from '../src/engine.ts';
 import type { Judge } from '../src/engine.ts';
 import { CHECKING_CONFIDENCE, dedupeKey, Store, similarity } from '../src/store.ts';
 import type { Observation } from '../src/store.ts';
@@ -685,6 +685,34 @@ test('which lead-ins need a title, and what counts as a usable one', () => {
   expect(cleanModelTitle('ok', 'x')).toBeNull();
   expect(cleanModelTitle('A'.repeat(80), 'x')).toBeNull();
   expect(cleanModelTitle('Next steps', 'next steps')).toBeNull();
+});
+
+test('a lead-in that names nothing is offered to the model: "Checklist", "Two things to try"', () => {
+  for (const t of ['Checklist', 'Next steps', 'Two things to try', 'Where to find it', 'When it’s done', 'Your test', 'To try again', 'Steps for you', 'To do']) {
+    expect({ t, generic: isPlaceholderTitle(t), asks: needsShortTitle(t) }).toEqual({ t, generic: true, asks: true });
+  }
+  for (const t of ['To test in Sandbox', 'To install it on your Mac', 'Before this works in prod', 'Quick terminal check', 'Stripe webhook setup']) {
+    expect({ t, asks: needsShortTitle(t) }).toEqual({ t, asks: false });
+  }
+  // Conversation, not a heading.
+  expect(needsShortTitle('Yes, that’s right, and it matches the plan')).toBe(true);
+  expect(needsShortTitle('Once you’re in, I’ll')).toBe(true);
+});
+
+test('a checklist kept as "Checklist" before this is offered to the model once more', () => {
+  const store = new Store(':memory:');
+  observe(store, { ts: NOW.toISOString(), text: 'Claude responded: x\nChecklist:\n1. Add the A record at your registrar\n2. Add the domain to the project in Vercel' });
+  pollOnce(store, NOW);
+  const root = store.listTree().find((n) => n.task.isGroup)!.task;
+  store.setModelTitle(root.id, ''); // kept as it was, as before placeholder lead-ins were asked about
+  let asked = 0;
+  const titler = () => { asked++; return 'Point the domain at Vercel'; };
+  pollOnce(store, at(7), { titler });
+  expect(asked).toBe(1);
+  expect(store.getTask(root.id)).toMatchObject({ title: 'Point the domain at Vercel', modelTitled: true });
+  pollOnce(store, at(14), { titler });
+  expect(asked).toBe(1); // once
+  store.close();
 });
 
 // --- reminders for unfinished checklists

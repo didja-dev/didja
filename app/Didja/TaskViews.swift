@@ -561,13 +561,31 @@ struct SourceHeader: View {
 
     static let tickHelp = "Mark everything from this conversation done"
 
+    /// Where the tasks came from, said plainly: the tool, then the conversation, chat or mailbox.
+    /// "Claude — Release plan - Claude Code" is "Claude Code · Release plan"; "WhatsApp — Sam
+    /// Carter" is "WhatsApp · Sam Carter". A source in no known shape is shown as it is.
+    static func label(_ source: String) -> String {
+        let parts = source.components(separatedBy: " — ")
+        guard parts.count >= 2, let app = parts.first?.trimmingCharacters(in: .whitespaces), !app.isEmpty else { return source }
+        var name = parts.dropFirst().joined(separator: " — ").trimmingCharacters(in: .whitespaces)
+        var tool = app
+        // The Claude app's window title ends with the tab it is on.
+        for (suffix, tab) in [(" - Claude Code", "Claude Code"), (" - Claude", "Claude")] where app == "Claude" && name.hasSuffix(suffix) {
+            name = String(name.dropLast(suffix.count)).trimmingCharacters(in: .whitespaces)
+            tool = tab
+            break
+        }
+        return name.isEmpty || name == tool ? tool : "\(tool) · \(name)"
+    }
+
     var body: some View {
         HStack(alignment: .center, spacing: 6) {
             Circle().fill(Palette.source).frame(width: 6, height: 6)
-            Text(section.source)
+            Text(Self.label(section.source))
                 .font(.caption.weight(.medium))
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
+                .help(section.source)
             if allowsTickAll, let handle = section.tickAllHandle {
                 Button { actions.completeConversation(handle) } label: {
                     Image(systemName: "checkmark.circle").font(.caption).foregroundStyle(.tertiary)
@@ -1137,7 +1155,7 @@ struct TasksWindowView: View {
                         navigator.sourceFilter = nil
                     }
                     ForEach(board.sections(navigator.filter)) { section in
-                        sidebarRow(section.source, count: section.entries.count,
+                        sidebarRow(SourceHeader.label(section.source), count: section.entries.count,
                                    selected: settings.page == nil && !showsWeek && navigator.sourceFilter == section.source) {
                             settings.page = nil
                             showsWeek = false

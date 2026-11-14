@@ -45,7 +45,8 @@ Milestones 1 to 5 of the [roadmap](ROADMAP.md) are built, except Apple Mail; Win
 - Copy a row to the clipboard as text with ⌘C, the copy button on the row, or its right-click menu. A step copies as its title; a parent copies with everything under it as an indented checklist (`- [ ]`, `- [x]` for done steps), whether or not it is folded.
 - The Full View shows everything by state and by conversation, with a detail pane for the highlighted item.
 
-- A checklist introduced by a long sentence gets a short title from the on-device model; rename it if you prefer your own.
+- A checklist introduced by a long sentence, or by a line that names nothing ("Checklist", "Next steps", "Two things to try"), gets a short title from the on-device model that says what its steps are for; rename it if you prefer your own.
+- The heading over each group names the tool, then the conversation, chat or mailbox: "Claude Code · Release plan", "WhatsApp · Sam Carter". Hover it for the window title as captured.
 - If a checklist sits unfinished for four hours with nothing ticked, you get one reminder. Turn it off in the Quick View's "…" menu.
 - ⌃⌥P pauses and resumes capture from anywhere.
 - Go to Source: right-click a task (or press G on a highlighted row) to bring back the window it was captured in, scrolled to its line. A closed browser tab is reopened from its address; a conversation that is not open is opened from the sidebar, and earlier messages are scrolled up to for at most 5 seconds. It stops the moment you move the pointer, press a key (Esc), click, scroll or switch apps, never moves your pointer, and never presses a button, except a sidebar entry that is exactly the conversation's name (with at most a status such as "Running" after it).

@@ -6,6 +6,11 @@ Each entry says what changed, and what was **not verified** where that applies: 
 
 ## 2026-11-14
 
+### Checklist titles say what a list is for, and headings say where it came from
+- A checklist whose lead-in names nothing ("Checklist", "Next steps", "Two things to try", "Where to find it", "Your test") or is conversation rather than a heading ("Yes, that's right…", "Once you're in, I'll") is now offered to the on-device model for a short title, as long lead-ins already were. Open checklists kept under such a lead-in before this are offered once more (`placeholder_titles_reoffered` in meta).
+- The heading over each conversation reads "Claude Code · <conversation>" or "Claude · <conversation>" instead of the Claude window's title ("Claude — <conversation> - Claude Code"); chats and mail read "WhatsApp · Sam Carter". The window and the task window's sidebar both use it; the full title is on hover.
+- Tests: placeholder lead-ins and ones that name something (`engine.test.ts`), the once-only re-offer, and the heading label (`SourceLabelTests`). Seen on the live app: the open "Checklist" lists were re-titled after a restart. Titles are only as good as the on-device model's; with no model a list keeps its lead-in.
+
 ### Capture coverage: surface fixtures, and the doc pane fix completed
 - New: **surface fixtures** (`profiles/fixtures/surfaces/`), each a place an AI tool shows steps, as a window outline with made-up text, the lines capture must keep and the tasks the engine must make and must not. `SurfaceFixtureTests` and `engine/test/surfaces.test.ts` run every one. [COVERAGE.md](COVERAGE.md) lists every place where AI tools show steps, which are checked, and how to add one.
 - The first surface fixture showed the previous fix worked only on its own: capture never read under a text area at all, so a doc in the Claude app's side pane still came out without its boxes. Now a text area's children are read too, and kept only when they hold a box someone ticks or a list marker the page draws (a numbered list's "1." is not in an editor's plain value either); otherwise it is read as its value, as before.

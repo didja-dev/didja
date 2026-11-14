@@ -4,6 +4,9 @@ Choices made while building ScrolledAway, with the reason, so they are not re-ar
 
 ## 2026-11-14
 
+- **A lead-in that names nothing goes to the model, decided by a word list, not by length**: "Checklist" and "Two things to try" are short, so the length rule passed them as good titles. A lead-in is a placeholder when every word is one that only introduces a list (steps, next, try, things, where, your…); one naming anything else ("To test in Sandbox") is kept, since a model title can be worse than a plain heading. Lists already kept under such a lead-in are offered once more, once, so the fix reaches what is on the list now.
+- **The group heading names the tool and the conversation, not the window title**: the Claude window's title repeats the app's name and ends with its tab ("- Claude Code"), which hid the conversation's name. The engine's source text is unchanged (matching and ticking use it); only the label drawn is shorter, with the full title on hover.
+
 - **A text area's structure is kept only when it holds a box or a list marker**: the two things a rich editor's plain value is known to lose. Everything else in a text area (terminals, code editors, message fields) is read as its value, as before, so their exact lines and indentation are unchanged. The text area you are typing in is still never read.
 - **Surface fixtures start from a recorded shape where one exists, and say when they are made up**: a made-up outline can only show what we already expect, which is how the doc pane gap went unseen.
 
