@@ -14,6 +14,9 @@
 # notarising, the update is signed with that key and added to site/public/appcast.xml when
 # APPCAST_DOWNLOAD_BASE is set, e.g. https://github.com/didja-dev/releases/releases/download
 # (the DMG is then uploaded there as v<version>/Didja.dmg, and the site deployed).
+#
+# Each release (SCR-110): with the new build running, `bun scripts/measure.ts` and update the
+# numbers in docs/PERFORMANCE.md, the README and site/src/content.ts if they moved.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
