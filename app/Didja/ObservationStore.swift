@@ -204,7 +204,7 @@ final class ObservationStore {
                    (SELECT group_concat(ms2.ref, char(10)) FROM tasks m JOIN sources ms2 ON ms2.id = m.source WHERE m.merged_into = t.id),
                    json_extract(t.criteria, '$.chat.from'),
                    (SELECT e.detail FROM evidence e WHERE e.task_id = t.id AND e.kind = 'origin' ORDER BY e.id DESC LIMIT 1),
-                   t.confidence, t.captured_why
+                   t.confidence, t.captured_why, t.due_at
             FROM tasks t JOIN sources s ON s.id = t.source
             WHERE t.merged_into IS NULL
             ORDER BY s.id DESC, t.parent_id IS NOT NULL,
@@ -245,7 +245,8 @@ final class ObservationStore {
                 maybe: TaskItem.doubt(confidence: sqlite3_column_type(statement, 23) == SQLITE_NULL ? nil : sqlite3_column_double(statement, 23)).maybe,
                 checking: TaskItem.doubt(confidence: sqlite3_column_type(statement, 23) == SQLITE_NULL ? nil : sqlite3_column_double(statement, 23)).checking,
                 capturedWhy: text(24),
-                unjudged: TaskItem.doubt(confidence: sqlite3_column_type(statement, 23) == SQLITE_NULL ? nil : sqlite3_column_double(statement, 23)).0))
+                unjudged: TaskItem.doubt(confidence: sqlite3_column_type(statement, 23) == SQLITE_NULL ? nil : sqlite3_column_double(statement, 23)).0,
+                dueAt: text(25)))
         }
         return rows
     }

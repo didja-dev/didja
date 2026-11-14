@@ -176,7 +176,7 @@ struct GeneralSettingsView: View {
                         ForEach(capture.tasks.apps, id: \.self) { Text("Only \($0)").tag(String?.some($0)) }
                     }.labelsHidden().fixedSize()
                 }
-                row("Sort", "Group by where tasks came from, or put the latest activity first.") {
+                row("Sort", "Group by where tasks came from, put the latest activity first, or put the soonest due first (a due date is read from an ask that says \"by Thursday\", \"tomorrow\" and the like).") {
                     Picker("", selection: $capture.sort) {
                         ForEach(TaskBoard.Sort.allCases) { Text($0.label).tag($0) }
                     }.labelsHidden().fixedSize()
@@ -192,7 +192,7 @@ struct GeneralSettingsView: View {
                         Text("New Messages Only").tag(true)
                     }.labelsHidden().fixedSize()
                 }
-                row("Remind me about unfinished checklists", "A notification when a checklist has sat untouched for hours.") {
+                row("Remind me about unfinished checklists", "A notification when a checklist has sat untouched for hours, and once on the day a task falls due.") {
                     Toggle("", isOn: Binding(get: { nudges }, set: { nudges = $0; Nudger.isEnabled = $0 }))
                         .toggleStyle(.switch).labelsHidden()
                 }

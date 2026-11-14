@@ -51,6 +51,34 @@ struct TaskItem: Identifiable, Equatable {
     var capturedWhy: String? = nil
     /// Kept while no model could judge its list (SCR-70): the same as the quiet tag the row draws.
     var unjudged = false
+    /// The day it is due (SCR-97), "YYYY-MM-DD", as the engine read it from the ask.
+    var dueAt: String? = nil
+
+    /// The small tag for a due date (SCR-97): "overdue", "due today", or "due soon" up to three days
+    /// ahead ("due tomorrow", "due Fri"). Nil when it has none, is further off, or is finished.
+    func dueTag(today: Date = Date(), calendar: Calendar = .current) -> (text: String, overdue: Bool)? {
+        guard let dueAt, status == .open || status == .snoozed, let day = Self.day(dueAt, calendar: calendar) else { return nil }
+        let days = calendar.dateComponents([.day], from: calendar.startOfDay(for: today), to: day).day ?? 0
+        switch days {
+        case ..<0: return ("overdue", true)
+        case 0: return ("due today", false)
+        case 1: return ("due tomorrow", false)
+        case 2...3:
+            let formatter = DateFormatter()
+            formatter.calendar = calendar
+            formatter.locale = Locale(identifier: "en_GB")
+            formatter.dateFormat = "EEE"
+            return ("due \(formatter.string(from: day))", false)
+        default: return nil
+        }
+    }
+
+    /// "2026-11-12" as the start of that local day.
+    static func day(_ text: String, calendar: Calendar = .current) -> Date? {
+        let parts = text.split(separator: "-").compactMap { Int($0) }
+        guard parts.count == 3 else { return nil }
+        return calendar.date(from: DateComponents(year: parts[0], month: parts[1], day: parts[2]))
+    }
 
     /// The hover text for a row: why it was made and how sure Didja is (the engine's `why` has the rest).
     var madeHelp: String? {
@@ -164,9 +192,17 @@ struct TaskBoard: Equatable {
         case source
         /// Whatever was asked or seen most recently first, whichever app it came from.
         case latest
+        /// The soonest due first (SCR-97); what has no due date keeps its place after them.
+        case due
 
         var id: String { rawValue }
-        var label: String { self == .source ? "By Source" : "Latest Activity First" }
+        var label: String {
+            switch self {
+            case .source: return "By Source"
+            case .latest: return "Latest Activity First"
+            case .due: return "Due Soonest First"
+            }
+        }
     }
 
     /// In the order the store returns them: newest source first, steps after their parent.
@@ -284,8 +320,28 @@ struct TaskBoard: Equatable {
             entries = stamped.enumerated()
                 .sorted { $0.element.at != $1.element.at ? $0.element.at > $1.element.at : $0.offset < $1.offset }
                 .map(\.element.entry)
+        } else if sort == .due {
+            // Soonest due first, by the earliest of a list's open steps; the rest keep their order after.
+            let stamped = entries.map { (entry: $0, due: dueDay(of: $0.task)) }
+            entries = stamped.enumerated()
+                .sorted { a, b in
+                    switch (a.element.due, b.element.due) {
+                    case let (x?, y?) where x != y: return x < y
+                    case (_?, nil): return true
+                    case (nil, _?): return false
+                    default: return a.offset < b.offset
+                    }
+                }
+                .map(\.element.entry)
         }
         return entries
+    }
+
+    /// The earliest due day of a task or of the open steps under it ("YYYY-MM-DD" sorts as text).
+    func dueDay(of item: TaskItem) -> String? {
+        let own = item.status == .open || item.status == .snoozed ? item.dueAt : nil
+        let under = item.isGroup ? steps(under: item).filter { $0.status == .open || $0.status == .snoozed }.compactMap(\.dueAt) : []
+        return ([own].compactMap { $0 } + under).min()
     }
 
     /// The rows shown under a parent, depth first. A collapsed parent shows none.

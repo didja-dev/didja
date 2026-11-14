@@ -4,6 +4,12 @@ Choices made while building ScrolledAway, with the reason, so they are not re-ar
 
 ## 2026-11-14
 
+- **Due dates: the parser only, no model yet** (SCR-97): an ambiguous date is left empty rather than guessed; a missing date costs nothing, a wrong one moves a task or wakes it early. The model as a tie-breaker can come once it has made-up samples and measures better.
+- **A calendar date needs a deadline word before it** ("by", "due", "on", "until", "עד"): "meeting Nov 20th" is not a deadline. **"Next Friday" is left empty**: people mean this coming one or the one after. **"Next week" is its Monday**: the earliest reading, so the task comes back early rather than late.
+- **Numeric dates only when unambiguous** (one part above 12, or both equal): 3/4 could be either.
+- **The due day is local, stored as "YYYY-MM-DD"**, so it means the same day wherever the engine runs; a past day is kept and shown as overdue.
+- **Only emails and chats are dated**: those are asks from people with deadlines; steps from AI tools rarely carry one, and dating them would need its own samples.
+
 - **A task's reason names no one** (SCR-96): "Someone tagged or named you", not the sender's name. The source and the asker already show who; a reason that repeats names would be one more place holding them, against the rule that evidence is the engine's description, not screen text.
 - **The reason is stored, the band is not**: why a task was made is fixed at capture (and rewritten only when the model's verdict or your tick settles a list), but how sure Didja is follows the task's confidence, so it is read when shown.
 - **No back-fill**: tasks from before schema 30 have no reason, since the engine can no longer tell how they were decided.

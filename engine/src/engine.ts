@@ -27,6 +27,7 @@ import { splitSession, terminalLines } from './terminal.ts';
 import type { Checklist, ChecklistItem } from './extract.ts';
 import type { Job, NewChecklist, NewNode, Observation, Outcome, PendingChatAsk, Store, Task, Teaching, TimingPath } from './store.ts';
 import { WHY } from './capturewhy.ts';
+import { dueFrom } from './due.ts';
 import { CHECKING_CONFIDENCE, KEPT_KIND, KEPT_LIST, trustKey, TRUST_YES } from './store.ts';
 
 export interface PollStats {
@@ -797,6 +798,8 @@ function readMail(
     if (result.created) {
       created++;
       store.setOrigin(result.id, latest.ts, origin);
+      // "by Thursday": relative to when it was sent (SCR-97).
+      store.setDue(result.id, dueFrom(`${email.subject}\n${email.body}`, mailTime(email.date, now) ?? new Date(latest.ts)));
     }
   }
   return { created, completed, suggested };
@@ -985,6 +988,7 @@ function readChat(
     const sentAt = chatTime(m.time, now);
     const ask: PendingChatAsk = {
       key, app, chat: m.chat, from: m.from, title, at: (sentAt ?? now).toISOString(), observationId: latest.id, ts: latest.ts,
+      due: dueFrom(m.body, sentAt ?? now),
       why: audience === 'direct' ? WHY.chatDirect : audience === 'named' ? WHY.chatNamed : audience === 'everyone' ? WHY.chatEveryone : WHY.chatAccepted,
     };
     // Put to the group, naming nobody (Capture: Everything): a suggestion, never a task (SCR-95).
@@ -1019,6 +1023,7 @@ function addChatAsk(store: Store, ask: PendingChatAsk, now: Date): boolean {
   if (open) {
     store.addAskToChatTask(open.id, chat, ask.title, now);
     store.linkMail(ask.key, open.id);
+    store.setDue(open.id, ask.due);
     return false;
   }
   const result = store.upsertTask({
@@ -1035,6 +1040,7 @@ function addChatAsk(store: Store, ask: PendingChatAsk, now: Date): boolean {
     criteria: { service: null, hosts: [], chat },
   });
   store.linkMail(ask.key, result.id);
+  if (result.created) store.setDue(result.id, ask.due);
   return result.created;
 }
 

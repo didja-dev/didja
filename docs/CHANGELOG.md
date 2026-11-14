@@ -6,6 +6,12 @@ Each entry says what changed, and what was **not verified** where that applies: 
 
 ## 2026-11-14
 
+### Due dates from asks, a due tag and sort, and a snoozed task back on its day (SCR-97)
+- An email or chat ask that names a day gives its task a due date (schema 031 `tasks.due_at`), read by a fixed parser from the message, relative to when it was sent: today/EOD/tonight, tomorrow, end of the week, next week, a weekday after "by", "before", "until", "due", "on" or "this", ISO dates, "20 November" / "Nov 20th", numeric dates whose day and month cannot be swapped, and Hebrew (היום, מחר, סוף היום, סוף השבוע, בשבוע הבא, עד/ב/לפני יום חמישי, עד 20/11).
+- The Quick View shows **overdue**, **due today** or **due soon** (up to three days ahead) on a row; Sort has **Due Soonest First**; a snoozed task comes back on its due day; one reminder that day ("Due today · …") with the existing reminders switch; `didja why` shows "Due: …". Ordering and reminders only: nothing is ticked by a date.
+- Tests: `engine/test/due.test.ts` (7): English and Hebrew phrases, relative to the message's date, past dates kept as overdue, ambiguous or two-day phrases left empty, an email and a chat ask (through the reply wait) dated, a snoozed task woken on its day with one reminder and still open. Swift `DueTests` (3): the tag, the sort, the reminder's words; the popover render shows a due tag (looked at).
+- **Not built:** the model resolving ambiguous dates (they are left empty); dates on steps from AI tools. **Not verified:** the live tag, sort and reminder.
+
 ### Why a task was made, kept from the moment it is captured (SCR-96)
 - Every new task keeps one engine-written line saying why it is a task (schema 030 `tasks.captured_why`): a list handed to you by its wording, one the model judged yours, one no model could judge, one you settled by ticking a step, a command step, an email asking for a reply or an action, a chat ask (one-to-one, tagged or named, to every member, accepted from Suggested), your own tasks, a connection's item, a follow-up Didja added.
 - `didja why` starts with "Made: <why> · <how sure> · captured <when> from <where>"; the band (sure, possibly yours, checking whose it is) follows the task's confidence, so it changes when the model decides. The Full View's detail pane shows it (it shows `why`), and the Quick View shows the reason and band when you point at a row's title.

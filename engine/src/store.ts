@@ -32,6 +32,8 @@ import schema27 from '../../schema/027_trust.sql' with { type: 'text' };
 import schema28 from '../../schema/028_troubleshooting.sql' with { type: 'text' };
 import schema29 from '../../schema/029_suggestions.sql' with { type: 'text' };
 import schema30 from '../../schema/030_capture_reason.sql' with { type: 'text' };
+import schema31 from '../../schema/031_due.sql' with { type: 'text' };
+import { dayOf } from './due.ts';
 import { defaultWhy, WHY } from './capturewhy.ts';
 import { contextLines } from './context.ts';
 import { parseCriteria } from './donecriteria.ts';
@@ -214,6 +216,8 @@ export interface Task {
   auto: boolean;
   /** Why it was made (SCR-96), written by the engine at capture; null on tasks from before. */
   capturedWhy?: string | null;
+  /** The day it is due (SCR-97), "YYYY-MM-DD", read from the ask; null when none was named. */
+  dueAt?: string | null;
 }
 
 /** A task with everything nested under it. */
@@ -299,6 +303,8 @@ export interface PendingChatAsk {
   ts: string;
   /** Why it is an ask of yours (SCR-96). */
   why?: string;
+  /** The day the message asks for (SCR-97). */
+  due?: string | null;
 }
 
 /** How eagerly asks become tasks (SCR-95). Ticking is the same at every level. */
@@ -432,6 +438,7 @@ interface TaskRow {
   collapsed: number;
   auto: number;
   captured_why: string | null;
+  due_at: string | null;
 }
 
 const SELECT_TASK = `
@@ -439,7 +446,7 @@ const SELECT_TASK = `
          t.custom_title, t.model_title, t.suggestion, t.suggested_at, t.accepted_from,
          t.collapsed, t.auto, t.source, s.kind AS source_kind, s.ref AS source_ref, t.criteria,
          t.markers, t.status, t.confidence, t.position, t.created_at, t.last_seen_at,
-         t.parent_id, t.is_group, t.done_at, t.snoozed_until, t.captured_why
+         t.parent_id, t.is_group, t.done_at, t.snoozed_until, t.captured_why, t.due_at
   FROM tasks t JOIN sources s ON s.id = t.source`;
 
 function toObservation(r: ObservationRow): Observation {
@@ -483,6 +490,7 @@ function toTask(r: TaskRow): Task {
     collapsed: r.collapsed === 1,
     auto: r.auto === 1,
     capturedWhy: r.captured_why,
+    dueAt: r.due_at,
   };
 }
 
@@ -514,7 +522,7 @@ export class Store {
     // The app migrates the same file. Take the write lock first so only one side runs each step.
     this.db.transaction(() => {
       const { user_version } = this.db.query('PRAGMA user_version').get() as { user_version: number };
-      [schema1, schema2, schema3, schema4, schema5, schema6, schema7, schema8, schema9, schema10, schema11, schema12, schema13, schema14, schema15, schema16, schema17, schema18, schema19, schema20, schema21, schema22, schema23, schema24, schema25, schema26, schema27, schema28, schema29, schema30].forEach((sql, i) => {
+      [schema1, schema2, schema3, schema4, schema5, schema6, schema7, schema8, schema9, schema10, schema11, schema12, schema13, schema14, schema15, schema16, schema17, schema18, schema19, schema20, schema21, schema22, schema23, schema24, schema25, schema26, schema27, schema28, schema29, schema30, schema31].forEach((sql, i) => {
         if (user_version < i + 1) this.db.exec(sql);
       });
     }).immediate();
@@ -1536,12 +1544,21 @@ export class Store {
     return this.setStatus(id, 'snoozed', now, until);
   }
 
-  /** Reopen snoozed tasks whose time has come. Returns how many came back. */
+  /**
+   * When a task is due (SCR-97): a local day, "YYYY-MM-DD". Kept only when it is one; a later ask in
+   * the same conversation with an earlier day moves it earlier, never later.
+   */
+  setDue(id: number, day: string | null | undefined): void {
+    if (!day || !/^\d{4}-\d{2}-\d{2}$/.test(day)) return;
+    this.db.query('UPDATE tasks SET due_at = ?2 WHERE id = ?1 AND (due_at IS NULL OR due_at > ?2)').run(id, day);
+  }
+
+  /** Reopen snoozed tasks whose time has come, or that fall due today (SCR-97). Returns how many came back. */
   wakeSnoozed(now: Date = new Date()): number {
     return this.db.transaction(() => {
       const due = this.db
-        .query("SELECT id, parent_id FROM tasks WHERE is_group = 0 AND status = 'snoozed' AND snoozed_until <= ?")
-        .all(now.toISOString()) as { id: number; parent_id: number | null }[];
+        .query("SELECT id, parent_id FROM tasks WHERE is_group = 0 AND status = 'snoozed' AND (snoozed_until <= ? OR (due_at IS NOT NULL AND due_at <= ?))")
+        .all(now.toISOString(), dayOf(now)) as { id: number; parent_id: number | null }[];
       for (const row of due) {
         this.db.query("UPDATE tasks SET status = 'open', snoozed_until = NULL WHERE id = ?").run(row.id);
       }
@@ -1693,17 +1710,17 @@ export class Store {
   addPendingChatAsk(p: PendingChatAsk, now: Date): void {
     this.db
       .query(
-        `INSERT OR IGNORE INTO chat_pending (key, app, chat, sender, title, at, observation_id, ts, created_at, why)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT OR IGNORE INTO chat_pending (key, app, chat, sender, title, at, observation_id, ts, created_at, why, due)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
-      .run(p.key, p.app, p.chat, p.from, p.title, p.at, p.observationId, p.ts, now.toISOString(), p.why ?? null);
+      .run(p.key, p.app, p.chat, p.from, p.title, p.at, p.observationId, p.ts, now.toISOString(), p.why ?? null, p.due ?? null);
   }
 
   /** Asks sent at least `waitMs` ago, oldest first. */
   duePendingChatAsks(now: Date, waitMs: number): PendingChatAsk[] {
     return this.db
       .query(
-        `SELECT key, app, chat, sender AS "from", title, at, observation_id AS observationId, ts, why FROM chat_pending
+        `SELECT key, app, chat, sender AS "from", title, at, observation_id AS observationId, ts, why, due FROM chat_pending
          WHERE at <= ? ORDER BY at, key`,
       )
       .all(new Date(now.getTime() - waitMs).toISOString()) as PendingChatAsk[];
@@ -2197,8 +2214,21 @@ export class Store {
    * no step ticked, not snoozed, and not reminded about before. Marks them as
    * reminded, so each is returned once.
    */
-  takeNudges(now: Date = new Date(), hours = 4): { id: number; title: string; source: string; left: number; total: number }[] {
+  takeNudges(now: Date = new Date(), hours = 4): { id: number; title: string; source: string; left: number; total: number; due?: string }[] {
     const cutoff = new Date(now.getTime() - hours * 3600_000).toISOString();
+    // One reminder on the day an open task falls due (SCR-97), whatever else it has been reminded of.
+    const today = dayOf(now);
+    const dueToday = this.db.transaction(() => {
+      const rows = (this.db
+        .query(`${SELECT_TASK} WHERE t.is_group = 0 AND t.status = 'open' AND t.due_at IS NOT NULL AND t.due_at <= ? AND t.due_nudged_at IS NULL AND t.merged_into IS NULL ORDER BY t.due_at, t.id`)
+        .all(today) as TaskRow[]).map(toTask);
+      for (const t of rows) this.db.query('UPDATE tasks SET due_nudged_at = ? WHERE id = ?').run(now.toISOString(), t.id);
+      return rows.map((t) => ({ id: t.id, title: t.title, source: t.sourceRef, left: 1, total: 1, due: t.dueAt! }));
+    })();
+    return [...dueToday, ...this.takeIdleNudges(now, cutoff)];
+  }
+
+  private takeIdleNudges(now: Date, cutoff: string): { id: number; title: string; source: string; left: number; total: number }[] {
     return this.db.transaction(() => {
       const due = this.listTree().filter((node) => {
         const steps = node.children.length > 0 ? this.stepsUnder(node.task.id) : [node.task];

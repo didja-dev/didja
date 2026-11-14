@@ -331,6 +331,16 @@ struct TaskRow: View {
                             .overlay(Capsule().stroke(Palette.done.opacity(0.4), lineWidth: 1))
                             .help("Ticked for you because it looked done in \(item.acceptedFrom ?? ""). Reopen it if it is not done.")
                     }
+                    if let due = item.dueTag() {
+                        // When the ask said it was due (SCR-97): orders the list and reminds you once; never ticks.
+                        Text(due.text)
+                            .font(.caption2.weight(.medium))
+                            .foregroundStyle(due.overdue ? Palette.attention : .secondary)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 1)
+                            .overlay(Capsule().stroke((due.overdue ? Palette.attention : Color.secondary).opacity(0.4), lineWidth: 1))
+                            .help("Due \(item.dueAt ?? ""), as the ask said. Didja reminds you once that day.")
+                    }
                     if item.checking, item.status == .open, item.parentID == nil {
                         // The on-device model is deciding whether this list is yours (SCR-78).
                         Text("checking…")

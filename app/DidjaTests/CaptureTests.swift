@@ -301,7 +301,7 @@ final class ObservationStoreTests: XCTestCase {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: dir) }
         let migrations = ObservationStore.bundledMigrations()
-        XCTAssertEqual(migrations.map(\.version).sorted(), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30], "every schema step must be bundled with the app")
+        XCTAssertEqual(migrations.map(\.version).sorted(), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31], "every schema step must be bundled with the app")
         let store = try ObservationStore(directory: dir, migrations: migrations)
 
         let now = Date()
@@ -1132,6 +1132,11 @@ final class TaskBoardTests: XCTestCase {
             if board.tasks[index].id == 5 { board.tasks[index].maybe = true }
             // Being checked by the model (SCR-78): drawn quiet, with its tag.
             if [10, 11, 12].contains(board.tasks[index].id) { board.tasks[index].checking = true }
+            // Due today, as the ask said (SCR-97): drawn with its tag.
+            if board.tasks[index].id == 4 {
+                let d = Calendar.current.dateComponents([.year, .month, .day], from: Date())
+                board.tasks[index].dueAt = String(format: "%04d-%02d-%02d", d.year!, d.month!, d.day!)
+            }
             if board.tasks[index].id == 2 {
                 board.tasks[index].mergeWith = 99
                 board.tasks[index].mergeWithTitle = "Sign the loan agreement Sam is sending"

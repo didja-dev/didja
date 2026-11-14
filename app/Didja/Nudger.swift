@@ -11,9 +11,14 @@ final class Nudger: NSObject, UNUserNotificationCenterDelegate {
         var source: String
         var left: Int
         var total: Int
+        /// Set when the reminder is for the day a task falls due (SCR-97).
+        var due: String? = nil
 
         var heading: String { "Didja finish that? \(title)" }
-        var detail: String { total > 1 ? "\(left) of \(total) steps left · \(source)" : source }
+        var detail: String {
+            if due != nil { return "Due today · \(source)" }
+            return total > 1 ? "\(left) of \(total) steps left · \(source)" : source
+        }
     }
 
     private static let enabledKey = "nudgesOff"

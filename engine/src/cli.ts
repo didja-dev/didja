@@ -310,6 +310,7 @@ export function formatWhy(task: Task, evidence: Evidence[], done: DoneCriteria |
   const lines = [`#${task.id} ${MARK[task.status]} ${task.title}`, `  from ${task.sourceRef}`];
   const made = captureLine(task);
   if (made) lines.push(`  Made: ${made}`);
+  if (task.dueAt) lines.push(`  Due: ${task.dueAt} (read from the ask; it orders the list and reminds you once, never ticks)`);
   for (const note of evidence.filter((e) => e.kind === 'origin')) lines.push(`  ${note.detail}`);
   if (task.isGroup) {
     lines.push('  A checklist: done when none of its steps is left open. Ticking it ticks every open step.');
