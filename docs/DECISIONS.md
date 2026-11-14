@@ -4,6 +4,9 @@ Choices made while building ScrolledAway, with the reason, so they are not re-ar
 
 ## 2026-11-14
 
+- **The list of connections is guarded by a test, not only written down** (SCR-112): any new network code outside `LocalModel.swift` and `connections.ts` fails `bun test`, so a connection cannot be added without the page (and CLAUDE.md's rule) being looked at. Sparkle is a framework, so its feed is checked in the Info.plist instead.
+- **Pages Didja opens in your browser are not listed as Didja's connections** (SCR-112): the browser makes them when you click, and they carry only what the page shows you first (an issue form, an email draft).
+
 - **The published benchmark numbers are a committed file checked by a test, not computed in the site's build** (SCR-111). The site builds on its own (Astro, no engine or SQLite), so `bun bench/publish.ts` writes `site/src/bench.json` and the README block, and `test/benchpublish.test.ts` fails when they differ from a fresh run. Never typed by hand, never stale on main.
 - **The no-model run is the one published** (SCR-111): it is what CI runs and is deterministic; runs with Apple's model or Ollama vary by machine. The page says "rules only".
 

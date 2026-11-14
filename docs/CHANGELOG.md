@@ -6,6 +6,11 @@ Each entry says what changed, and what was **not verified** where that applies: 
 
 ## 2026-11-14
 
+### Every network connection documented, and how to watch them (SCR-112)
+- New: `docs/NETWORK.md`: the update check (didja.dev, daily) and update download (GitHub), Connections (each tool's MCP server, every 5 minutes, only once connected) and its sign-in callback on `localhost:33418`, Ollama on `127.0.0.1:11434` (only with the local model on); for each, the host, when, what is sent and the switch. What is not a connection (stdio for the engine and `didja mcp`, pages opened in your browser). Step-by-step for LuLu and Little Snitch. Linked from the README, the GUIDE and a new FAQ entry on didja.dev.
+- Tests: `engine/test/network.test.ts` (2): network code (URLSession, sockets, fetch, MCP HTTP transports, servers) appears only in `LocalModel.swift` and `connections.ts`, both ways; the update feed is didja.dev daily; the page names every Connections host, the callback port and Ollama's address.
+- Not verified: the LuLu and Little Snitch steps were written from their documented features, not tried on this Mac; Sparkle's exact download host depends on GitHub's redirects.
+
 ### Tick precision published on didja.dev and in the README, from the benchmark (SCR-111)
 - New: `engine/bench/publish.ts` writes the no-model benchmark headline to `site/src/bench.json` and to a marked block in README.md. Today: tick precision 100% (33 right ticks, 0 wrong) over 105 made-up sessions, recall 88%, capture precision 98%, 0 owner errors.
 - didja.dev has a "Measured" section under the recording, built from `bench.json`, with the limit (made-up sessions, rules only) and a link to how the benchmark works. The README has "How often it ticks wrongly".

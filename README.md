@@ -41,7 +41,7 @@ It reads your screen, so it never sends any of it anywhere.
 - **Skips the sensitive stuff.** Password fields, card and bank-account fields, password managers, system password prompts, private browser windows and anything on your exclude list are never read. The exclude list starts with well-known banks, brokerages, payment checkouts and patient portals; remove any you want read, or add your own.
 - **Pause any time** from the menu bar or with ⌃⌥P.
 
-The only network traffic is the daily update check (its version only) and, if you connect them, your task tools. If you turn on Let My Own Claude Read Didja, what your Claude reads (masked) goes to your AI provider. **Settings › Privacy** in the app shows what is read, what is kept and where, with the live state of each. The full detail is in [docs/GUIDE.md](docs/GUIDE.md#privacy).
+The only network traffic is the daily update check (its version only) and, if you connect them, your task tools. If you turn on Let My Own Claude Read Didja, what your Claude reads (masked) goes to your AI provider. **Settings › Privacy** in the app shows what is read, what is kept and where, with the live state of each. The full detail is in [docs/GUIDE.md](docs/GUIDE.md#privacy). Every connection Didja can make, with its host, what it sends and how to turn it off, and how to watch them with LuLu or Little Snitch: [docs/NETWORK.md](docs/NETWORK.md).
 
 ## How often it ticks wrongly
 
