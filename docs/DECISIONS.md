@@ -4,6 +4,11 @@ Choices made while building ScrolledAway, with the reason, so they are not re-ar
 
 ## 2026-11-14
 
+- **Day Review is off until you choose a time** (SCR-100), and shown once a day only when you open the Quick View after it, with one notification: an unasked daily feed is noise. The morning list is not shown after noon if missed: by then it is stale.
+- **"Ticked for you today" lists only ticks still standing** (the step's last outcome is Didja's tick), so a tick you already reopened, or a step you ticked yourself, is not there. **Not Done** is the same as reopening it: the tick is counted wrong and the place loses trust; for a tick from what a screen showed, it also teaches "looks done".
+- **The first-tick note is now built** (it was left for a follow-up): shown once, for the first tick ever, while that tick still stands.
+- **Copy as Markdown goes to the clipboard only**; nothing is written to a file or sent anywhere.
+
 - **Waiting On is its own table, not tasks** (SCR-99): an ask you sent is not your task, so it must never be ticked, counted in how Didja is doing, or caught by a tick path. Like Suggested, a separate table makes that true by construction. It closes as **answered**, never done.
 - **Closing needs that person, there, after the ask**: in a one-to-one chat the other side; in a group only the member the ask names first (an ask naming no one in a group is not kept, since anyone could answer); in mail only an email from the sole recipient's address (or name, when no address shows) in the same conversation. A reaction is not an answer; a message in the ask's own minute counts only when shown below it.
 - **Only plain, concrete asks, by wording**: "can/could/would you…?" as a question, "please…", or "can I get…?", with a verb that hands something over or does something, and an object that is not just "it". "Let me know", "thoughts?" and hedged asks are left out: a missed item is cheap, a tray full of chatter is not. An email to several people is left out: who owes the answer is unclear.

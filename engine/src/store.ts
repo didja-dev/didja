@@ -1138,6 +1138,22 @@ export class Store {
       .all(sinceIso) as Timing[];
   }
 
+  /** Why Didja ticked a task (SCR-100): its newest evidence written at or after the tick, or null. */
+  tickReason(taskId: number): string | null {
+    const row = this.db
+      .query("SELECT detail FROM evidence WHERE task_id = ? AND detail IS NOT NULL AND detail != '' AND kind != 'origin' ORDER BY id DESC LIMIT 1")
+      .get(taskId) as { detail: string } | null;
+    return row?.detail ?? null;
+  }
+
+  /** The step Didja ticked first, ever (SCR-100), or null. */
+  firstTick(): number | null {
+    const row = this.db
+      .query(`SELECT task_id FROM outcomes WHERE outcome IN (${TICKS.map(() => '?').join(', ')}) ORDER BY id LIMIT 1`)
+      .get(...TICKS) as { task_id: number } | null;
+    return row?.task_id ?? null;
+  }
+
   /** The step's newest outcome, if any. */
   lastOutcome(taskId: number): Outcome | null {
     const row = this.db.query('SELECT outcome FROM outcomes WHERE task_id = ? ORDER BY id DESC LIMIT 1').get(taskId) as { outcome: Outcome } | null;

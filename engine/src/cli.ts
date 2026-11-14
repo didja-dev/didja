@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import { buildReview, dueReview, firstTickNote, firstTickSeen, reviewMarkdown, reviewTimes, setReviewTime, undoTick } from './review.ts';
 import { doctorReport, formatDoctor } from './doctor.ts';
 import { firstRunStatus } from './firstrun.ts';
 import { assistants, assistantsDir } from './assistants.ts';
@@ -65,6 +66,7 @@ const USAGE = `didja <command>
   lane                the model lane "run" starts: the full pass, with the on-device model (SCR-76)
   poll                one extraction pass, then exit
   nudges              checklists left unfinished for hours, as JSON (each is reported once)
+  review              Day Review (SCR-100): [evening|morning] [--json|--markdown] | due | time <evening|morning> <HH:MM|off> | undo <id>
   waiting             asks you sent that wait for an answer (SCR-99): [--json] | gotit <id> | stop <id> | why <id> | quiet [--chat <hours>] [--email <days>]
   why <id>            what would tick a task, and what has been seen so far
   place <id>          where a task was captured (JSON), for "Go to Source"
@@ -638,6 +640,49 @@ async function main(argv: string[]): Promise<number> {
         }
         console.error('usage: didja suggested [--json] | accept <id> | notanaction <id>');
         return 1;
+      }
+      case 'review': {
+        // review [evening|morning] [--json|--markdown] | due [--take] | time <evening|morning> <HH:MM|off> | times
+        //   | undo <id> | first-tick [seen]   (SCR-100)
+        const [action, ...rest] = args;
+        if (action === 'due') {
+          console.log(JSON.stringify({ due: dueReview(store, new Date(), rest.includes('--take')) }));
+          return 0;
+        }
+        if (action === 'times') {
+          console.log(JSON.stringify(reviewTimes(store)));
+          return 0;
+        }
+        if (action === 'time' && (rest[0] === 'evening' || rest[0] === 'morning') && rest[1]) {
+          if (!setReviewTime(store, rest[0], rest[1] === 'off' ? null : rest[1])) {
+            console.error('usage: didja review time <evening|morning> <HH:MM|off>');
+            return 1;
+          }
+          console.log(rest[1] === 'off' ? `The ${rest[0]} review is off.` : `The ${rest[0]} review is at ${rest[1]}.`);
+          return 0;
+        }
+        if (action === 'undo') {
+          const id = Number(rest[0]);
+          if (!Number.isInteger(id) || !undoTick(store, id)) {
+            console.error('usage: didja review undo <id>   (a task Didja ticked)');
+            return 1;
+          }
+          console.log(`#${id} reopened: not done`);
+          return 0;
+        }
+        if (action === 'first-tick') {
+          if (rest[0] === 'seen') firstTickSeen(store);
+          else console.log(JSON.stringify(firstTickNote(store)));
+          return 0;
+        }
+        const kind = action === 'morning' ? 'morning' : 'evening';
+        if (action !== undefined && action !== 'evening' && action !== 'morning' && !action.startsWith('--')) {
+          console.error('usage: didja review [evening|morning] [--json|--markdown] | due [--take] | time <evening|morning> <HH:MM|off> | times | undo <id> | first-tick [seen]');
+          return 1;
+        }
+        const review = buildReview(store, kind);
+        console.log(args.includes('--json') ? JSON.stringify(review) : reviewMarkdown(review));
+        return 0;
       }
       case 'waiting': {
         // waiting [--json] | gotit <id> | stop <id> | why <id> | quiet [--chat <hours>] [--email <days>] (SCR-99)
