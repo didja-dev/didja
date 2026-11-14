@@ -29,6 +29,7 @@ import type { Job, NewChecklist, NewNode, Observation, Outcome, PendingChatAsk, 
 import { WHY } from './capturewhy.ts';
 import { dueFrom } from './due.ts';
 import { promisesIn, promiseTitle, samePromise } from './promises.ts';
+import { asksIn, firstName, quietUntil, samePerson, waitingTitle } from './waiting.ts';
 import { CHECKING_CONFIDENCE, KEPT_KIND, KEPT_LIST, trustKey, TRUST_YES } from './store.ts';
 
 export interface PollStats {
@@ -714,6 +715,7 @@ function readMail(
     }
   }
 
+  readMailWaiting(store, emails, me, mailbox, now);
   const promised = readMailPromises(store, emails, me, mailbox, latest, now);
   created += promised.created;
   suggested += promised.suggested;
@@ -867,6 +869,55 @@ function readMailPromises(
   return { created, suggested };
 }
 
+/** The one person an email was sent to, or null when it went to several (or the line is unreadable). */
+function soleRecipient(to: string): { name: string; address: string | null } | null {
+  const addresses = to.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi) ?? [];
+  if (addresses.length > 1 || /;|\band\b|\+\d/.test(to)) return null;
+  const name = to.replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '').replace(/[<>,"]+/g, ' ').replace(/\s+/g, ' ').trim();
+  if (!name && addresses.length === 0) return null;
+  if (/^(to )?me$/i.test(name)) return null;
+  return { name: name || addresses[0]!.split('@')[0]!, address: addresses[0]?.toLowerCase() ?? null };
+}
+
+/**
+ * Waiting On (SCR-99), in mail: an email you sent to one person that asks them for something is
+ * kept as a waiting item. It closes as answered only on an email from that person (by address, or
+ * by name when no address shows) in the same conversation, sent after yours.
+ */
+function readMailWaiting(store: Store, emails: ReturnType<typeof parseEmails>, me: MailIdentity, mailbox: string, now: Date): void {
+  const replyTo = (w: { place: string; who: string; whoAddress: string | null; askedAt: string }) => emails.find((e) => {
+    if (isMine(e, me) || baseSubject(e.subject) !== w.place) return false;
+    const theirs = w.whoAddress && e.fromAddress ? e.fromAddress === w.whoAddress : samePerson(w.who, e.fromName);
+    const when = mailTime(e.date, now);
+    return theirs && when !== null && when.getTime() > new Date(w.askedAt).getTime();
+  });
+  for (const w of store.waitingItems({ app: mailbox })) {
+    if (w.via !== 'email') continue;
+    const reply = replyTo(w);
+    if (!reply) continue;
+    const when = mailTime(reply.date, now)!;
+    store.closeWaiting(w.id, 'answered', `${firstName(reply.fromName)} replied in ${mailbox} at ${clockOf(when)}`, now);
+  }
+  const start = store.onlyNewMessages() ? store.captureStartedAt() : null;
+  const quiet = store.waitingQuiet();
+  for (const email of emails) {
+    if (!isMine(email, me) || !isRecent(email.date, now) || isAutomatic(email)) continue;
+    const sent = mailTime(email.date, now);
+    if (sent === null || (start && sent.getTime() < start.getTime())) continue;
+    const to = soleRecipient(email.to);
+    if (!to) continue;
+    // Already answered on screen: nothing to wait for.
+    if (replyTo({ place: baseSubject(email.subject), who: to.name, whoAddress: to.address, askedAt: sent.toISOString() })) continue;
+    for (const ask of asksIn(ownLines(email.body).join('\n'))) {
+      store.addWaiting({
+        key: `waiting:${mailKey(email)}:${lineHash(ask.what)}`, via: 'email', app: mailbox, place: baseSubject(email.subject),
+        who: to.name, whoAddress: to.address, direct: false, title: waitingTitle(to.name, ask),
+        askedAt: sent, quietUntil: quietUntil('email', sent, quiet.chatHours, quiet.emailDays),
+      }, now);
+    }
+  }
+}
+
 const CHATS_PER_POLL = 3;
 
 /** Who you are, for chats: set in the app's Your Names window (or `didja names`). */
@@ -989,6 +1040,7 @@ function readChat(
   if (!reader) {
     drop('chat', 'no-model');
     const promised = readChatPromises(store, messages, app, latest, false, now, drop);
+    readChatWaiting(store, messages, app, now);
     return { created: created + promised.created, completed, suggested: suggested + promised.suggested };
   }
   let asked = 0;
@@ -1070,7 +1122,65 @@ function readChat(
     if (addChatAsk(store, ask, now)) created++;
   }
   const promised = readChatPromises(store, messages, app, latest, true, now, drop);
+  readChatWaiting(store, messages, app, now);
   return { created: created + promised.created, completed, suggested: suggested + promised.suggested };
+}
+
+/** "10:42", for saying when a reply came. */
+function clockOf(date: Date): string {
+  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+}
+
+/**
+ * Waiting On (SCR-99), in a chat: an ask of yours ("Can you send me the signed contract?") is kept
+ * as a waiting item, never a task. In a one-to-one chat it waits on the other person; in a group
+ * only on the person it names first ("Sam, can you…"). It closes as answered only on a message from
+ * that person, in that chat, sent after the ask: not your own follow-up, not a reaction, not someone
+ * else in the group, not anything sent before it.
+ */
+function readChatWaiting(store: Store, messages: ChatMessage[], app: string, now: Date): void {
+  const me = myNames(store);
+  const theirReply = (m: ChatMessage, who: string, direct: boolean) =>
+    !isMyMessage(m, me) && m.time !== 'reaction' && !isReaction(m.body) && m.body.trim() !== '' && (direct || samePerson(who, m.from));
+  // A reply after the ask, to the minute; in the ask's own minute, only one shown below it.
+  const after = (m: ChatMessage, index: number, askedAt: number, askIndex: number) => {
+    const when = chatTime(m.time, now)?.getTime() ?? null;
+    if (when === null || when < askedAt) return false;
+    return when > askedAt || (askIndex >= 0 && index > askIndex);
+  };
+
+  for (const w of store.waitingItems({ app })) {
+    if (w.via !== 'chat') continue;
+    const askedAt = new Date(w.askedAt).getTime();
+    const askIndex = messages.findIndex((m) => isMyMessage(m, me) && m.chat === w.place && chatTime(m.time, now)?.getTime() === askedAt && asksIn(m.body).length > 0);
+    for (const [index, m] of messages.entries()) {
+      if (m.chat !== w.place || !theirReply(m, w.who, w.direct) || !after(m, index, askedAt, askIndex)) continue;
+      const when = chatTime(m.time, now)!;
+      store.closeWaiting(w.id, 'answered', `${firstName(m.from)} replied in ${chatSourceRef(app, m.chat)} at ${clockOf(when)}`, now);
+      break;
+    }
+  }
+
+  const start = store.onlyNewMessages() ? store.captureStartedAt() : null;
+  const quiet = store.waitingQuiet();
+  for (const [index, m] of messages.entries()) {
+    if (!isMyMessage(m, me) || m.time === 'reaction' || isReaction(m.body) || !isRecentChat(m, now)) continue;
+    if (start && sentBefore(m, start, now)) continue;
+    const sent = chatTime(m.time, now);
+    if (sent === null) continue;
+    const direct = m.kind === 'direct';
+    for (const ask of asksIn(m.body)) {
+      // In a group, only an ask that names who it is for.
+      const who = direct ? m.chat : ask.to;
+      if (!who) continue;
+      // Already answered on screen: nothing to wait for.
+      if (messages.some((r, i) => r.chat === m.chat && theirReply(r, who, direct) && after(r, i, sent.getTime(), index))) continue;
+      store.addWaiting({
+        key: `waiting:${chatKey(app, m)}:${lineHash(ask.what)}`, via: 'chat', app, place: m.chat, who, direct,
+        title: waitingTitle(who, ask), askedAt: sent, quietUntil: quietUntil('chat', sent, quiet.chatHours, quiet.emailDays),
+      }, now);
+    }
+  }
 }
 
 /**
@@ -1228,6 +1338,7 @@ function promotePendingChatAsks(store: Store, now: Date): number {
   }
   store.prunePendingChatAsks(now);
   store.pruneSuggestions(now);
+  store.pruneWaiting(now);
   return created;
 }
 

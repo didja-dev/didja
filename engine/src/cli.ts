@@ -65,6 +65,7 @@ const USAGE = `didja <command>
   lane                the model lane "run" starts: the full pass, with the on-device model (SCR-76)
   poll                one extraction pass, then exit
   nudges              checklists left unfinished for hours, as JSON (each is reported once)
+  waiting             asks you sent that wait for an answer (SCR-99): [--json] | gotit <id> | stop <id> | why <id> | quiet [--chat <hours>] [--email <days>]
   why <id>            what would tick a task, and what has been seen so far
   place <id>          where a task was captured (JSON), for "Go to Source"
   context <id>        how it looked there: the lines around it (JSON), kept while it is open
@@ -391,7 +392,13 @@ async function main(argv: string[]): Promise<number> {
       case 'observations':
         return await observations(store, args);
       case 'nudges': {
-        console.log(JSON.stringify(store.takeNudges()));
+        // Waiting On items past their quiet time (SCR-99) come too, once each, marked `waiting`.
+        const now = new Date();
+        const waiting = store.takeWaitingNudges(now).map((w) => ({
+          id: w.id, title: w.title, source: w.via === 'chat' ? `${w.app} — ${w.place}` : `${w.app} — “${w.place}”`,
+          left: 1, total: 1, waiting: w.askedAt,
+        }));
+        console.log(JSON.stringify([...store.takeNudges(now), ...waiting]));
         return 0;
       }
       case 'status': {
@@ -630,6 +637,47 @@ async function main(argv: string[]): Promise<number> {
           return 0;
         }
         console.error('usage: didja suggested [--json] | accept <id> | notanaction <id>');
+        return 1;
+      }
+      case 'waiting': {
+        // waiting [--json] | gotit <id> | stop <id> | why <id> | quiet [--chat <hours>] [--email <days>] (SCR-99)
+        const [action, which] = args;
+        if (action === undefined || action === '--json') {
+          const list = store.waitingItems();
+          console.log(action === '--json' ? JSON.stringify(list) : list.map((w) => `#${w.id}  ${w.title}  (${w.app} — ${w.place}, asked ${w.askedAt.slice(0, 16).replace('T', ' ')})`).join('\n') || 'Not waiting on anyone.');
+          return 0;
+        }
+        if (action === 'quiet') {
+          const get = (flag: string) => { const i = args.indexOf(flag); return i >= 0 ? Number(args[i + 1]) : undefined; };
+          const chatHours = get('--chat');
+          const emailDays = get('--email');
+          const bad = (v: number | undefined, max: number) => v !== undefined && !(Number.isInteger(v) && v >= 1 && v <= max);
+          if (bad(chatHours, 24 * 14) || bad(emailDays, 14)) {
+            console.error('usage: didja waiting quiet [--chat <hours, 1-336>] [--email <working days, 1-14>]');
+            return 1;
+          }
+          store.setWaitingQuiet({ ...(chatHours !== undefined ? { chatHours } : {}), ...(emailDays !== undefined ? { emailDays } : {}) });
+          const q = store.waitingQuiet();
+          console.log(args.includes('--json') ? JSON.stringify(q) : `Quiet for ${q.chatHours} hours after a chat ask, ${q.emailDays} working days after an email.`);
+          return 0;
+        }
+        const id = Number(which);
+        const item = Number.isInteger(id) ? store.waitingItem(id) : null;
+        if (item && action === 'why') {
+          console.log(item.title);
+          console.log(`Asked ${item.askedAt} in ${item.app} — ${item.place}; quiet until ${item.quietUntil}${item.nudgedAt ? `, reminded ${item.nudgedAt}` : ''}`);
+          console.log(item.status === 'waiting' ? `Waiting for a message from ${item.who} there, sent after the ask.` : `${item.status === 'answered' ? 'Answered' : 'Stopped'}: ${item.closedWhy}`);
+          return 0;
+        }
+        if (item && action === 'gotit' && store.closeWaiting(id, 'answered', 'You said you got it', new Date())) {
+          console.log(`#${id} answered`);
+          return 0;
+        }
+        if (item && action === 'stop' && store.closeWaiting(id, 'stopped', 'You stopped waiting', new Date())) {
+          console.log(`#${id} no longer waited on`);
+          return 0;
+        }
+        console.error('usage: didja waiting [--json] | gotit <id> | stop <id> | why <id> | quiet [--chat <hours>] [--email <days>]');
         return 1;
       }
       case 'notanaction': {

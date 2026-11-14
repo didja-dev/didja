@@ -33,6 +33,7 @@ import schema28 from '../../schema/028_troubleshooting.sql' with { type: 'text' 
 import schema29 from '../../schema/029_suggestions.sql' with { type: 'text' };
 import schema30 from '../../schema/030_capture_reason.sql' with { type: 'text' };
 import schema31 from '../../schema/031_due.sql' with { type: 'text' };
+import schema32 from '../../schema/032_waiting.sql' with { type: 'text' };
 import { dayOf } from './due.ts';
 import { defaultWhy, WHY } from './capturewhy.ts';
 import { contextLines } from './context.ts';
@@ -325,6 +326,45 @@ export interface Suggestion {
 /** Suggestions leave without a trace after this long. */
 export const SUGGESTION_TTL_MS = 24 * 60 * 60_000;
 
+/** An ask you sent, waiting for that person's answer (SCR-99). Not a task: never ticked, never counted. */
+export interface Waiting {
+  id: number;
+  via: 'chat' | 'email';
+  app: string;
+  /** The chat's name, or the email's subject without reply prefixes. */
+  place: string;
+  who: string;
+  whoAddress: string | null;
+  /** A one-to-one chat: any message from the other side is theirs. */
+  direct: boolean;
+  title: string;
+  askedAt: string;
+  quietUntil: string;
+  nudgedAt: string | null;
+  status: 'waiting' | 'answered' | 'stopped';
+  closedAt: string | null;
+  closedWhy: string | null;
+}
+
+export interface NewWaiting {
+  key: string;
+  via: 'chat' | 'email';
+  app: string;
+  place: string;
+  who: string;
+  whoAddress?: string | null;
+  direct: boolean;
+  title: string;
+  askedAt: Date;
+  quietUntil: Date;
+}
+
+const WAITING_SELECT = `SELECT id, via, app, place, who, who_address AS whoAddress, direct, title, asked_at AS askedAt,
+  quiet_until AS quietUntil, nudged_at AS nudgedAt, status, closed_at AS closedAt, closed_why AS closedWhy FROM waiting`;
+/** How long a closed waiting item is kept (for `why`), and an open one at most. */
+export const WAITING_CLOSED_TTL_MS = 24 * 3600_000;
+export const WAITING_OPEN_TTL_MS = 30 * 24 * 3600_000;
+
 export interface Evidence {
   taskId: number;
   observationId: number | null;
@@ -524,7 +564,7 @@ export class Store {
     // The app migrates the same file. Take the write lock first so only one side runs each step.
     this.db.transaction(() => {
       const { user_version } = this.db.query('PRAGMA user_version').get() as { user_version: number };
-      [schema1, schema2, schema3, schema4, schema5, schema6, schema7, schema8, schema9, schema10, schema11, schema12, schema13, schema14, schema15, schema16, schema17, schema18, schema19, schema20, schema21, schema22, schema23, schema24, schema25, schema26, schema27, schema28, schema29, schema30, schema31].forEach((sql, i) => {
+      [schema1, schema2, schema3, schema4, schema5, schema6, schema7, schema8, schema9, schema10, schema11, schema12, schema13, schema14, schema15, schema16, schema17, schema18, schema19, schema20, schema21, schema22, schema23, schema24, schema25, schema26, schema27, schema28, schema29, schema30, schema31, schema32].forEach((sql, i) => {
         if (user_version < i + 1) this.db.exec(sql);
       });
     }).immediate();
@@ -1787,6 +1827,71 @@ export class Store {
       }
     }
     return gone;
+  }
+
+  // --- Waiting On (SCR-99) ---------------------------------------------------------------------
+
+  /** Keeps an ask you sent. Once per message and ask; false if it was there. */
+  addWaiting(w: NewWaiting, now: Date): boolean {
+    const result = this.db
+      .query(
+        `INSERT OR IGNORE INTO waiting (key, via, app, place, who, who_address, direct, title, asked_at, quiet_until, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(w.key, w.via, w.app, w.place, w.who, w.whoAddress ?? null, w.direct ? 1 : 0, w.title, w.askedAt.toISOString(), w.quietUntil.toISOString(), now.toISOString());
+    return result.changes > 0;
+  }
+
+  /** Waiting items: open ones (in one place, or all), oldest ask first; with `all`, closed ones too. */
+  waitingItems(opts: { app?: string; place?: string; all?: boolean } = {}): Waiting[] {
+    const rows = this.db.query(`${WAITING_SELECT} ${opts.all ? '' : "WHERE status = 'waiting'"} ORDER BY asked_at, id`).all() as (Omit<Waiting, 'direct'> & { direct: number })[];
+    return rows
+      .map((r) => ({ ...r, direct: r.direct === 1 }))
+      .filter((r) => (opts.app === undefined || r.app === opts.app) && (opts.place === undefined || r.place === opts.place));
+  }
+
+  waitingItem(id: number): Waiting | null {
+    const r = this.db.query(`${WAITING_SELECT} WHERE id = ?`).get(id) as (Omit<Waiting, 'direct'> & { direct: number }) | null;
+    return r ? { ...r, direct: r.direct === 1 } : null;
+  }
+
+  /**
+   * Closes a waiting item: "answered" (their reply was seen, or you said Got it) or "stopped". Never a
+   * tick: no task changes and no outcome is counted. False if it was not waiting.
+   */
+  closeWaiting(id: number, status: 'answered' | 'stopped', why: string, now: Date): boolean {
+    return this.db
+      .query("UPDATE waiting SET status = ?, closed_at = ?, closed_why = ? WHERE id = ? AND status = 'waiting'")
+      .run(status, now.toISOString(), why, id).changes > 0;
+  }
+
+  /** Open waiting items past their quiet time and not yet reminded about: each is returned once. */
+  takeWaitingNudges(now: Date): Waiting[] {
+    return this.db.transaction(() => {
+      const due = this.waitingItems().filter((w) => w.nudgedAt === null && w.quietUntil <= now.toISOString());
+      for (const w of due) this.db.query('UPDATE waiting SET nudged_at = ? WHERE id = ?').run(now.toISOString(), w.id);
+      return due;
+    })();
+  }
+
+  /** Closed items go after 24 hours; open ones 30 days after the ask. */
+  pruneWaiting(now: Date): void {
+    this.db.query("DELETE FROM waiting WHERE status != 'waiting' AND closed_at < ?").run(new Date(now.getTime() - WAITING_CLOSED_TTL_MS).toISOString());
+    this.db.query("DELETE FROM waiting WHERE status = 'waiting' AND asked_at < ?").run(new Date(now.getTime() - WAITING_OPEN_TTL_MS).toISOString());
+  }
+
+  /** How long a waiting item stays quiet (SCR-99): hours for a chat (default 24), working days for email (default 2). */
+  waitingQuiet(): { chatHours: number; emailDays: number } {
+    const num = (key: string, fallback: number, max: number) => {
+      const v = Number(this.getMeta(key));
+      return Number.isFinite(v) && v >= 1 && v <= max ? Math.round(v) : fallback;
+    };
+    return { chatHours: num('waiting_chat_hours', 24, 24 * 14), emailDays: num('waiting_email_days', 2, 14) };
+  }
+
+  setWaitingQuiet(q: { chatHours?: number; emailDays?: number }): void {
+    if (q.chatHours !== undefined) this.setMeta('waiting_chat_hours', String(q.chatHours));
+    if (q.emailDays !== undefined) this.setMeta('waiting_email_days', String(q.emailDays));
   }
 
   /** Suggestions older than 24 hours are deleted, leaving nothing behind. */
