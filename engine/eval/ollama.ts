@@ -14,6 +14,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { askModel } from '../src/cli.ts';
 import { signedName } from '../src/email.ts';
+import { lookInstructions as readLookInstructions, lookPrompt } from './prompts.ts';
 
 const model = process.argv[2] ?? 'qwen3.8:latest';
 const binary = process.argv[3] ?? join(import.meta.dir, '../../app/build/Build/Products/Debug/Didja.app/Contents/MacOS/Didja');
@@ -28,7 +29,7 @@ function swiftString(name: string): string {
 }
 const mailInstructions = swiftString('mailInstructions');
 const hebrewMailInstructions = swiftString('hebrewMailInstructions');
-const lookInstructions = swiftString('lookInstructions');
+const lookInstructions = readLookInstructions();
 const isHebrew = (t: string) => (t.match(/[א-ת]/g)?.length ?? 0) > (t.match(/[A-Za-z]/g)?.length ?? 0);
 
 async function ollama(system: string, prompt: string, schema: object): Promise<Record<string, unknown>> {
@@ -83,8 +84,6 @@ function mailPrompt(e: MailSample['email']): string {
   }
   return `${header}\nSubject: ${e.subject.slice(0, 200)}\n\n${e.body.slice(0, 1600)}\n\nWhat does the reader have to do, and who is asking?`;
 }
-const lookPrompt = (r: LookSample['request']) =>
-  `To-do item: ${r.task.slice(0, 300)}\nApp: ${r.app.slice(0, 80)}\nPage: ${r.page.slice(0, 200)}\nText on screen:\n${r.text.slice(0, 1200)}\n\nHas the to-do item been carried out?`;
 
 type Score = { ok: number; wrong: number; ms: number[]; lines: string[] };
 const blank = (): Score => ({ ok: 0, wrong: 0, ms: [], lines: [] });

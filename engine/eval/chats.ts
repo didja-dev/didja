@@ -15,20 +15,11 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { askModel } from '../src/cli.ts';
 import type { ChatQuestion } from '../src/chat.ts';
+import { chatInstructions, chatPrompt, isHebrew } from './prompts.ts';
 
 const model = process.argv[2] ?? 'qwen3.8:latest';
 const binary = process.argv[3] ?? join(import.meta.dir, '../../app/build/Build/Products/Debug/Didja.app/Contents/MacOS/Didja');
 const OLLAMA = 'http://127.0.0.1:11434/api/chat';
-const swift = readFileSync(join(import.meta.dir, '../../app/Didja/ChatJudge.swift'), 'utf8');
-
-function swiftString(name: string): string {
-  const m = swift.match(new RegExp(`static let ${name} = """\\n([\\s\\S]*?)\\n\\s*"""`));
-  if (!m) throw new Error(`${name} not found in ChatJudge.swift`);
-  return m[1]!.split('\n').map((l) => l.trim()).join('\n').replace(/\\\n/g, '');
-}
-const chatInstructions = swiftString('chatInstructions');
-const hebrewChatInstructions = swiftString('hebrewChatInstructions');
-const isHebrew = (t: string) => (t.match(/[א-ת]/g)?.length ?? 0) > (t.match(/[A-Za-z]/g)?.length ?? 0);
 
 interface Sample { id: string; expect: boolean; group: boolean; addressed?: 'named' | 'everyone' | 'group'; chat: string; from: string; message: string; before?: { from: string; text: string }[] }
 const samples = JSON.parse(readFileSync(join(import.meta.dir, 'chat-samples.json'), 'utf8')) as Sample[];
@@ -38,21 +29,7 @@ const question = (s: Sample): ChatQuestion => ({
   app: 'WhatsApp', chat: s.chat, group: s.group, ...(s.addressed ? { addressed: s.addressed } : {}), me: ME, from: s.from, message: s.message, before: s.before ?? [],
 });
 
-/** Judge.chatPrompt(for:), the same as in ChatJudge.swift. */
-function prompt(q: ChatQuestion): string {
-  const earlier = q.before.slice(-6).map((b) => `${b.from === 'me' ? 'The reader' : b.from.slice(0, 60)}: ${b.text.slice(0, 300)}`).join('\n');
-  const addressed = q.addressed === 'everyone' ? '\nIt does not name the reader; it may be addressed to every member.'
-    : q.addressed === 'named' ? '\nIt tags or names the reader.'
-    : q.addressed === 'group' ? '\nIt names no one: it was said to the whole group. Answer true only if it asks the group for something the reader, as a member, could be the one to do.' : '';
-  const names = q.group ? `The reader's names: ${q.me.slice(0, 4).join(', ').slice(0, 160)}\n` : '';
-  const from = q.from.slice(0, 60);
-  return `App: ${q.app.slice(0, 40)}
-Chat: ${q.chat.slice(0, 80)} (${q.group ? 'a group chat' : 'a one-to-one chat with the sender'})${addressed}
-${names}${earlier ? `Earlier messages:\n${earlier}\n` : ''}The message, from ${from}, who is the person asking:
-${q.message.slice(0, 1200)}
-
-Does this message ask the reader to do something, and what? In the task, "me" in the message is ${from}; name ${from}, never the reader.`;
-}
+const prompt = chatPrompt;
 
 // The same shape as OnDeviceChat.Ask in ChatJudge.swift, guides included.
 const schema = { type: 'object', required: ['asks', 'task'], properties: {
@@ -62,7 +39,7 @@ const schema = { type: 'object', required: ['asks', 'task'], properties: {
 
 type Answer = { asks: boolean; task: string } | null;
 async function ollama(q: ChatQuestion): Promise<Answer> {
-  const system = isHebrew(q.message) ? `${chatInstructions} ${hebrewChatInstructions}` : chatInstructions;
+  const system = chatInstructions(q.message);
   try {
     const res = await fetch(OLLAMA, { method: 'POST', body: JSON.stringify({ model, stream: false, think: false, format: schema, options: { temperature: 0 }, keep_alive: '30m',
       messages: [{ role: 'system', content: system }, { role: 'user', content: prompt(q) }] }) });

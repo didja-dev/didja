@@ -15,21 +15,15 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { askModel } from '../src/cli.ts';
 import { followUpActor, listActor, planActor } from '../src/extract.ts';
+import { type ListRequest, listInstructions, listPrompt } from './prompts.ts';
 
 const model = process.argv[2] ?? 'qwen3.8:latest';
 const binary = process.argv[3] ?? join(import.meta.dir, '../../app/build/Build/Products/Debug/Didja.app/Contents/MacOS/Didja');
 const OLLAMA = 'http://127.0.0.1:11434/api/chat';
-const swift = readFileSync(join(import.meta.dir, '../../app/Didja/Judge.swift'), 'utf8');
-
-function swiftString(name: string): string {
-  const m = swift.match(new RegExp(`static let ${name} = """\\n([\\s\\S]*?)\\n\\s*"""`));
-  if (!m) throw new Error(`${name} not found in Judge.swift`);
-  return m[1]!.split('\n').map((l) => l.trim()).join('\n').replace(/\\\n/g, '');
-}
-const instructions = swiftString('instructions');
+const instructions = listInstructions();
 
 interface Sample { id: string; expect: 'user' | 'assistant'; leadIn: string; steps: string[]; before?: string[]; after?: string[]; asked?: string }
-interface Request { leadIn: string; steps: string[]; after?: string[]; asked?: string; reply?: string }
+type Request = ListRequest;
 
 const samples = JSON.parse(readFileSync(join(import.meta.dir, 'lists-samples.json'), 'utf8')) as Sample[];
 
@@ -39,17 +33,7 @@ const request = (s: Sample, withReply: boolean): Request => ({
   leadIn: s.leadIn, steps: s.steps, after: s.after ?? [], ...(s.asked ? { asked: s.asked } : {}), ...(withReply ? { reply: replyOf(s) } : {}),
 });
 
-/** Judge.prompt(for:), the same as in Judge.swift. */
-function prompt(r: Request): string {
-  const steps = r.steps.slice(0, 12).map((t, i) => `${i + 1}. ${t.slice(0, 300)}`).join('\n');
-  const after = (r.after ?? []).slice(0, 3).map((t) => t.slice(0, 240)).join(' ');
-  const tail = after ? `\nText after the list: "${after}"` : '';
-  const asked = (r.asked ?? '').trim();
-  const head = asked ? `The person asked: "${asked.slice(0, 240)}"\n` : '';
-  const reply = (r.reply ?? '').trim();
-  const whole = reply ? `The assistant's whole reply:\n"""\n${reply.slice(0, 2000)}\n"""\n` : '';
-  return `${head}${whole}Introduced by: "${r.leadIn.slice(0, 200)}"\n${steps}${tail}\n\nWho is this list for, taken as a whole?`;
-}
+const prompt = listPrompt;
 
 const schema = { type: 'object', required: ['audience'], properties: {
   audience: { type: 'string', enum: ['user', 'assistant'], description: "user: the list tells the reader what to do themselves. assistant: the list is the assistant's own plan, or a report of what it did or how something works." },
