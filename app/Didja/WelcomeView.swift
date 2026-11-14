@@ -42,7 +42,8 @@ struct WelcomeView: View {
 
             section("eye.slash", "What it never reads") {
                 line("Password managers and password prompts.")
-                line("Password fields, and private or incognito browser windows.")
+                line("Password fields, card and bank-account fields, and private or incognito browser windows.")
+                line("Banks, payment pages and patient portals, from a default list you can change.")
                 line("The text box you are typing in, except in a terminal.")
                 HStack(spacing: 8) {
                     line("Apps, window titles and sites you add to the exclude list.")

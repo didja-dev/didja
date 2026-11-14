@@ -46,10 +46,44 @@ final class ExcludeListModel: ObservableObject {
             .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
 
-    /// The excluded apps, by name where the app can be found on this Mac.
+    /// The apps you excluded, by name where the app can be found on this Mac. Default entries are shown apart.
     var apps: [App] {
-        list.bundleIds.map { App(name: nameOf($0) ?? $0, bundleID: $0) }
+        list.bundleIds.filter { !DefaultExclusions.isDefault(bundleID: $0) }.map { App(name: nameOf($0) ?? $0, bundleID: $0) }
     }
+
+    /// The window titles and sites you added yourself.
+    var windowPatterns: [String] { list.windowPatterns.filter { !DefaultExclusions.isDefault(windowPattern: $0) } }
+    var urlPatterns: [String] { list.urlPatterns.filter { !DefaultExclusions.isDefault(urlPattern: $0) } }
+
+    /// One entry of the default list still on yours (SCR-94).
+    struct DefaultEntry: Identifiable, Equatable {
+        enum Kind { case site, title, app }
+        var kind: Kind
+        var stored: String
+        var label: String
+        var id: String { stored }
+    }
+
+    /// The default entries still on the list: sites, then window titles, then apps.
+    var defaults: [DefaultEntry] {
+        list.urlPatterns.filter(DefaultExclusions.isDefault(urlPattern:))
+            .map { DefaultEntry(kind: .site, stored: $0, label: ExcludeList.label(forURLPattern: $0)) }
+            + list.windowPatterns.filter(DefaultExclusions.isDefault(windowPattern:))
+            .map { DefaultEntry(kind: .title, stored: $0, label: "Title: " + ExcludeList.label(forPattern: $0)) }
+            + list.bundleIds.filter(DefaultExclusions.isDefault(bundleID:))
+            .map { DefaultEntry(kind: .app, stored: $0, label: "Apps: " + $0 + "…") }
+    }
+
+    func remove(_ entry: DefaultEntry) {
+        switch entry.kind {
+        case .site: removeURLPattern(entry.stored)
+        case .title: removeWindowPattern(entry.stored)
+        case .app: removeApp(entry.stored)
+        }
+    }
+
+    /// Puts back every default entry you removed; your own entries are kept.
+    func restoreDefaults() { change { $0.addDefaults() } }
 
     func addApp(_ bundleID: String) { change { $0.addApp(bundleID: bundleID) } }
 
@@ -105,6 +139,12 @@ struct ExcludeListView: View {
     @ObservedObject var model: ExcludeListModel
     @State private var windowText = ""
     @State private var siteText = ""
+    @State private var showDefaults: Bool
+
+    init(model: ExcludeListModel, showDefaults: Bool = false) {
+        self.model = model
+        _showDefaults = State(initialValue: showDefaults)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
@@ -136,7 +176,7 @@ struct ExcludeListView: View {
             }
 
             group("macwindow", "Windows whose title contains") {
-                ForEach(model.list.windowPatterns, id: \.self) { pattern in
+                ForEach(model.windowPatterns, id: \.self) { pattern in
                     row(ExcludeList.label(forPattern: pattern)) { model.removeWindowPattern(pattern) }
                 }
                 entry("Payroll, Medical results…", text: $windowText) {
@@ -145,7 +185,7 @@ struct ExcludeListView: View {
             }
 
             group("globe", "Sites") {
-                ForEach(model.list.urlPatterns, id: \.self) { pattern in
+                ForEach(model.urlPatterns, id: \.self) { pattern in
                     row(ExcludeList.label(forURLPattern: pattern)) { model.removeURLPattern(pattern) }
                 }
                 entry("mybank.com", text: $siteText) {
@@ -153,8 +193,30 @@ struct ExcludeListView: View {
                 }
             }
 
+            group("building.columns", "Banks, payments and health") {
+                Text("\(model.defaults.count) sites and apps are never read unless you remove them: banks, brokerages, payment checkouts and patient portals. Remove one you want Didja to read, such as a portal you work in.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                DisclosureGroup(isExpanded: $showDefaults) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        ForEach(model.defaults) { entry in
+                            row(entry.label) { model.remove(entry) }
+                        }
+                    }
+                    .padding(.top, 4)
+                } label: {
+                    Text(showDefaults ? "Hide the List" : "Show the List")
+                }
+                if model.list.removedDefaults > 0 {
+                    Button("Restore Defaults (\(model.list.removedDefaults) removed)", action: model.restoreDefaults)
+                        .buttonStyle(DidjaButtonStyle.secondary)
+                        .disabled(!model.editable)
+                }
+            }
+
             Divider()
-            Text("Always excluded, whatever is listed here: password managers, password prompts and password fields, and private or incognito browser windows.")
+            Text("Always excluded, whatever is listed here: password managers, password prompts and password fields, card and bank-account fields, and private or incognito browser windows.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)

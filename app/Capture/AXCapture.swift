@@ -269,7 +269,8 @@ enum AXCapture {
                                    profile: AppProfile) -> (String, [String: String]) {
             // The same limits as reading the window: never a secure field, nor the draft being typed.
             guard let (role, subrole) = element.roleAndSubrole(),
-                  !PrivacyPolicy.isSecureField(role: role, subrole: subrole) else { return ("", [:]) }
+                  !PrivacyPolicy.isSecureField(role: role, subrole: subrole),
+                  !PrivacyPolicy.isPaymentField(element, role: role) else { return ("", [:]) }
             let isDraft = limits.skipFocusedInput && (role == "AXTextArea" || role == "AXTextField") && element.isFocused()
             var text = ""
             for attribute in step.attr {
@@ -513,6 +514,8 @@ enum AXCapture {
 
             // Never ask for the contents of a password field.
             if PrivacyPolicy.isSecureField(role: role, subrole: subrole) { return nil }
+            // Nor of a card or bank-account field (SCR-94).
+            if PrivacyPolicy.isPaymentField(element, role: role) { return nil }
 
             if labelling, let labelled = profileNode(element, role: role, depth: depth) { return labelled }
 

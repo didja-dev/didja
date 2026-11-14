@@ -137,7 +137,7 @@ export const privacy = {
     { title: 'On-device only', body: 'Reading, matching and the model all run on your Mac. No account, no cloud.' },
     { title: 'Text, never pixels', body: 'It keeps short text snippets. No screenshots or video are stored.' },
     { title: 'Forgets in 24 hours', body: 'Captured text auto-deletes within a day. Your task list stays, with a few lines beside each open task until it is done.' },
-    { title: 'Skips the sensitive stuff', body: 'Password fields, password managers and private windows are never read. Add your bank, or any app or site, to the exclude list.' },
+    { title: 'Skips the sensitive stuff', body: 'Password and card fields, password managers, private windows, and well-known banking, payment and patient-portal sites are never read. Edit the list any time.' },
     { title: 'Pause anytime', body: 'One click or a hotkey stops it until you say go.' },
     { title: 'Open source', body: 'Audit it, fork it, build it yourself.' },
   ],

@@ -215,6 +215,8 @@ final class CaptureCoordinator: ObservableObject {
 
     func start() {
         do {
+            // Banks, payments and patient portals are on the list from the start (SCR-94), once.
+            ExcludeList.addDefaultsOnce(to: supportDirectory.appendingPathComponent(ExcludeList.fileName))
             // No valid privacy policy, no capture.
             let policy = try PrivacyPolicy.load(userFile: supportDirectory.appendingPathComponent(ExcludeList.fileName))
             let store = try ObservationStore(directory: supportDirectory)

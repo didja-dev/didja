@@ -662,12 +662,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let list = (try? ExcludeList.load(from: folder.appendingPathComponent(ExcludeList.fileName))) ?? ExcludeList()
         return PrivacyFacts(
             retention: capture.retention, observationCount: capture.observationCount,
-            taskCount: capture.tasks.tasks.count, excludedApps: list.bundleIds.count,
-            excludedTitles: list.windowPatterns.count, excludedSites: list.urlPatterns.count,
+            taskCount: capture.tasks.tasks.count,
+            excludedApps: list.bundleIds.filter { !DefaultExclusions.isDefault(bundleID: $0) }.count,
+            excludedTitles: list.windowPatterns.filter { !DefaultExclusions.isDefault(windowPattern: $0) }.count,
+            excludedSites: list.urlPatterns.filter { !DefaultExclusions.isDefault(urlPattern: $0) }.count,
             screenRecordingGranted: OCRCapture.isPermitted && OCRCapture.isEnabled, modelStatus: Judge.modelStatus,
             dataFolder: folder.appendingPathComponent("didja.db").path, isPaused: capture.isPaused,
             connections: Self.connectedTools(), profiles: AppProfiles.builtIn.map(\.summary), ownClaude: OwnClaude.status(),
-            localModel: LocalModel.status().model, shellHook: ShellHook.status(), agentHooks: AgentHooks.status())
+            localModel: LocalModel.status().model, shellHook: ShellHook.status(), agentHooks: AgentHooks.status(),
+            defaultExclusions: ExcludeList.defaultLabels(in: list))
     }
 
     /// The names of the connected task tools, from the engine.

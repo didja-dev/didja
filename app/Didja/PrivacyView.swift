@@ -27,6 +27,8 @@ struct PrivacyFacts: Equatable {
     var shellHook = ShellHook.Status(on: false, installed: false, runs: 0)
     /// Agent hooks (SCR-88): your AI tools telling Didja what they ran and planned.
     var agentHooks: [AgentHooks.Tool] = []
+    /// The default list's entries still on your exclude list (SCR-94), as shown: "chase.com".
+    var defaultExclusions: [String] = []
 
     /// "WhatsApp, Teams (community, new) for chats; Gmail, Outlook for email".
     var profileSummary: String {
@@ -103,9 +105,15 @@ struct PrivacyContent: View {
 
                 section("eye.slash", "What it never reads") {
                     line("Password managers and password prompts, and any password field in any app.")
+                    line("Card and bank-account fields: a field labelled card number, CVV, security code, expiry date, IBAN, routing or account number, or one holding a card number.")
                     line("Private and incognito browser windows.")
                     line("The text box you are typing in, except in a terminal.")
                     line("Didja's own windows.")
+                    if facts.defaultExclusions.isEmpty {
+                        line("Banks, payment pages and patient portals: the default list is off (you removed every entry). Restore it in the exclude list.")
+                    } else {
+                        line("Banks, brokerages, payment checkouts and patient portals, by default (\(facts.defaultExclusions.count); remove any in the exclude list): \(facts.defaultExclusions.joined(separator: ", ")).")
+                    }
                     HStack(spacing: 8) {
                         line("Your exclude list: \(facts.excludeSummary).")
                         Button("Edit List…", action: openExcludeList).buttonStyle(DidjaButtonStyle.secondary)

@@ -176,7 +176,7 @@ final class OutlineElement: AXElement {
             guard depth <= maxDepth, budget > 0, let (role, subrole) = e.roleAndSubrole() else { return nil }
             budget -= 1
             let node = OutlineElement(role: role, subrole: subrole)
-            if PrivacyPolicy.isSecureField(role: role, subrole: subrole) { return node }
+            if PrivacyPolicy.isSecureField(role: role, subrole: subrole) || PrivacyPolicy.isPaymentField(e, role: role) { return node }
             node.focused = e.isFocused()
             let isDraft = node.focused && (role == "AXTextArea" || role == "AXTextField")
             for (key, name) in names {

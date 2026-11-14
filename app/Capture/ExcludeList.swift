@@ -1,8 +1,11 @@
 import Foundation
 
-/// The user's own additions to what is never read: the contents of
-/// `exclude.json`. The built-in rules live in `PrivacyPolicy` and are not in
-/// this file, so they cannot be removed by editing it.
+/// What is never read beyond the built-in rules: the contents of `exclude.json`.
+/// The built-in rules (password managers, password prompts, private windows)
+/// live in `PrivacyPolicy` and are not in this file, so they cannot be removed by
+/// editing it. The default list of banks, payments and patient portals
+/// (`DefaultExclusions`, SCR-94) is written into this file once, so you can
+/// remove an entry and get it back with Restore Defaults.
 struct ExcludeList: Codable, Equatable {
     /// Bundle IDs of apps, matched as prefixes.
     var bundleIds: [String] = []
@@ -10,6 +13,9 @@ struct ExcludeList: Codable, Equatable {
     var windowPatterns: [String] = []
     /// Regular expressions matched against page addresses.
     var urlPatterns: [String] = []
+    /// The version of `DefaultExclusions` already merged into this file. Nil: never.
+    /// Kept in the file itself, so a removed default stays removed for as long as the file does.
+    var defaultsAdded: Int?
 
     static let fileName = "exclude.json"
 
@@ -24,6 +30,44 @@ struct ExcludeList: Codable, Equatable {
         bundleIds = try values.decodeIfPresent([String].self, forKey: .bundleIds) ?? []
         windowPatterns = try values.decodeIfPresent([String].self, forKey: .windowPatterns) ?? []
         urlPatterns = try values.decodeIfPresent([String].self, forKey: .urlPatterns) ?? []
+        defaultsAdded = try values.decodeIfPresent(Int.self, forKey: .defaultsAdded)
+    }
+
+    /// Adds every default entry that is missing, keeping everything else as it is.
+    /// True if anything changed.
+    @discardableResult
+    mutating func addDefaults() -> Bool {
+        let before = self
+        for id in DefaultExclusions.bundlePrefixes where !bundleIds.contains(where: { $0.caseInsensitiveCompare(id) == .orderedSame }) {
+            bundleIds.append(id)
+        }
+        for pattern in DefaultExclusions.windowPatterns where !windowPatterns.contains(pattern) { windowPatterns.append(pattern) }
+        for pattern in DefaultExclusions.urlPatterns where !urlPatterns.contains(pattern) { urlPatterns.append(pattern) }
+        defaultsAdded = DefaultExclusions.version
+        return self != before
+    }
+
+    /// The default entries you removed, which Restore Defaults puts back.
+    var removedDefaults: Int {
+        DefaultExclusions.bundlePrefixes.filter { id in !bundleIds.contains { $0.caseInsensitiveCompare(id) == .orderedSame } }.count
+            + DefaultExclusions.windowPatterns.filter { !windowPatterns.contains($0) }.count
+            + DefaultExclusions.urlPatterns.filter { !urlPatterns.contains($0) }.count
+    }
+
+    /// The default entries still on this list, as shown: "chase.com", "MyChart" (a window title), "com.paypal.…".
+    static func defaultLabels(in list: ExcludeList) -> [String] {
+        list.urlPatterns.filter(DefaultExclusions.isDefault(urlPattern:)).map(label(forURLPattern:))
+            + list.windowPatterns.filter(DefaultExclusions.isDefault(windowPattern:)).map { "\(label(forPattern: $0)) (a window title)" }
+            + list.bundleIds.filter(DefaultExclusions.isDefault(bundleID:)).map { $0 + "…" }
+    }
+
+    /// Existing installs and new ones get the defaults once (SCR-94): merged into the file
+    /// without touching what is in it, then never again, so a default you removed stays removed.
+    /// A file that cannot be read is left alone (capture refuses to start on it anyway).
+    static func addDefaultsOnce(to file: URL) {
+        guard var list = try? load(from: file), (list.defaultsAdded ?? 0) < DefaultExclusions.version else { return }
+        list.addDefaults()
+        try? list.save(to: file)
     }
 
     /// A missing file is an empty list. A broken one throws: it is never silently replaced.

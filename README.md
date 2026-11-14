@@ -38,7 +38,7 @@ It reads your screen, so it never sends any of it anywhere.
 - **On your Mac only.** Reading, matching and the language model (Apple's on-device model, or a model you run in Ollama if you turn that on) all run locally. No account, no cloud, no analytics.
 - **Text, never pixels.** It keeps short pieces of text. No screenshots or video are ever stored.
 - **Forgets in 24 hours.** Captured text is deleted after a day at most. Your task list stays, with a few lines kept beside each open task (so you can see where it came from) until it is done.
-- **Skips the sensitive stuff.** Password fields, password managers, system password prompts, private browser windows and anything on your exclude list are never read. Add your bank or any other site to the exclude list; nothing else is excluded by default.
+- **Skips the sensitive stuff.** Password fields, card and bank-account fields, password managers, system password prompts, private browser windows and anything on your exclude list are never read. The exclude list starts with well-known banks, brokerages, payment checkouts and patient portals; remove any you want read, or add your own.
 - **Pause any time** from the menu bar or with ⌃⌥P.
 
 The only network traffic is the daily update check (its version only) and, if you connect them, your task tools. If you turn on Let My Own Claude Read Didja, what your Claude reads (masked) goes to your AI provider. **Settings › Privacy** in the app shows what is read, what is kept and where, with the live state of each. The full detail is in [docs/GUIDE.md](docs/GUIDE.md#privacy).
