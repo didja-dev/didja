@@ -1,0 +1,15 @@
+{
+  "$schema": "../schema/meeting.schema.json",
+  "id": "google-meet-notes",
+  "name": "Google Meet notes",
+  "supported": true,
+  "about": "Gemini's \"Take notes for me\" document in Google Docs: its Suggested next steps only, so other documents' headings are not read. Not checked on a live document yet.",
+  "match": {
+    "hosts": [
+      "docs.google.com"
+    ]
+  },
+  "sections": [
+    "Suggested next steps"
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "$schema": "../schema/meeting.schema.json",
+  "id": "notion",
+  "name": "Notion",
+  "supported": true,
+  "about": "Notion's AI meeting notes: the Action items block only, so a page's own \"Next steps\" is not read. Not checked on a live page yet.",
+  "match": {
+    "bundleIds": [
+      "notion.id"
+    ],
+    "hosts": [
+      "notion.so",
+      "notion.site"
+    ]
+  },
+  "sections": [
+    "Action items"
+  ]
+}

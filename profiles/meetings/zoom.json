@@ -1,0 +1,19 @@
+{
+  "$schema": "../schema/meeting.schema.json",
+  "id": "zoom",
+  "name": "Zoom",
+  "supported": true,
+  "about": "Zoom's AI Companion meeting summary, in the app or on zoom.us: its Next steps. Not checked on a live summary yet.",
+  "match": {
+    "bundleIds": [
+      "us.zoom.xos"
+    ],
+    "hosts": [
+      "zoom.us"
+    ]
+  },
+  "sections": [
+    "Next steps",
+    "Action items"
+  ]
+}

@@ -30,6 +30,8 @@ import { WHY } from './capturewhy.ts';
 import { dueFrom } from './due.ts';
 import { promisesIn, promiseTitle, samePromise } from './promises.ts';
 import { asksIn, firstName, quietUntil, samePerson, waitingTitle } from './waiting.ts';
+import { actionItems, isYou, meetingFor } from './meetings.ts';
+import type { MeetingProfile } from './meetings.ts';
 import { CHECKING_CONFIDENCE, KEPT_KIND, KEPT_LIST, trustKey, TRUST_YES } from './store.ts';
 
 export interface PollStats {
@@ -345,6 +347,15 @@ function pass(store: Store, now: Date, options: PollOptions): PollStats {
       stats.chats += chat.created;
       stats.completed += chat.completed;
       stats.suggested += chat.suggested;
+      continue;
+    }
+    // Meeting notes' action items (SCR-107): no model, so both lanes read them.
+    const meeting = meetingFor(latest);
+    if (meeting) {
+      drop('meeting', 'read');
+      const read = readMeeting(store, text, latest, meeting, now, drop);
+      stats.chats += read.created;
+      stats.suggested += read.suggested;
       continue;
     }
     const assistant = assistantFor(latest, text);
@@ -1335,6 +1346,58 @@ function addChatAsk(store: Store, ask: PendingChatAsk, now: Date): boolean {
   return result.created;
 }
 
+/** A meeting's action item as a task, under the tool and the notes' window: "Granola — Weekly sync". */
+function addMeetingTask(store: Store, item: PendingChatAsk): boolean {
+  const result = store.upsertTask({
+    distinct: item.key, title: item.title, sourceKind: 'meeting', sourceRef: chatSourceRef(item.app, item.chat), confidence: 1,
+    position: null, ts: item.ts, observationId: item.observationId, markers: [], criteria: null, ...(item.why ? { why: item.why } : {}),
+  });
+  store.linkMail(item.key, result.id);
+  return result.created;
+}
+
+/**
+ * The action items a meeting tool shows (SCR-107). Yours become tasks; someone else's are left
+ * out; one that names no one goes to the Suggested tray (not under Strict). A box ticked in the
+ * tool on one of your items asks "looks done?": the tool does not say who ticked it. An item
+ * already ticked when first seen makes nothing.
+ */
+function readMeeting(store: Store, text: string, latest: Observation, profile: MeetingProfile, now: Date, drop: Drop): { created: number; suggested: number } {
+  const me = myNames(store);
+  const level = store.captureLevel();
+  const place = (latest.windowTitle || profile.name).trim();
+  const sourceRef = chatSourceRef(profile.name, place);
+  let created = 0;
+  let suggested = 0;
+  for (const item of actionItems(profile, text)) {
+    drop('meeting', 'seen');
+    const key = `meeting:${profile.id}:${place}:${lineHash(item.title)}`;
+    const shown = store.mailTask(key);
+    if (item.owner && !isYou(item.owner, me)) { drop('meeting', 'someone-else'); continue; }
+    if (item.checked) {
+      if (shown && shown.status === 'open') {
+        store.suggestDone(shown.id, `${sourceRef} (its box is ticked)`, latest.id, now);
+        suggested++;
+      }
+      continue;
+    }
+    if (shown) { store.touch(shown.id, latest.ts); continue; }
+    if (store.isNotAnAction(item.title, 'chats')) { drop('meeting', 'not-an-action'); continue; }
+    const ask: PendingChatAsk = {
+      key, app: profile.name, chat: place, from: '', title: item.title, at: latest.ts, observationId: latest.id, ts: latest.ts, meeting: true,
+      why: item.owner ? `An action item for you in ${profile.name}'s meeting notes` : `An action item in ${profile.name}'s meeting notes that names no one`,
+    };
+    if (item.owner) {
+      if (addMeetingTask(store, ask)) created++;
+    } else if (level === 'strict') {
+      drop('meeting', 'unassigned');
+    } else if (store.addSuggestion(ask, sourceRef, now)) {
+      drop('meeting', 'suggested');
+    }
+  }
+  return { created, suggested };
+}
+
 /** Asks that waited without a reply of yours: they become tasks now, even if the chat is no longer on screen. */
 function promotePendingChatAsks(store: Store, now: Date): number {
   let created = 0;
@@ -1355,7 +1418,8 @@ function promotePendingChatAsks(store: Store, now: Date): number {
 export function acceptSuggestion(store: Store, id: number, now: Date = new Date()): boolean {
   const ask = store.takeSuggestion(id);
   if (!ask) return false;
-  if (ask.promise) addPromiseTask(store, ask, 'chat', chatSourceRef(ask.app, ask.chat), now);
+  if (ask.meeting) addMeetingTask(store, ask);
+  else if (ask.promise) addPromiseTask(store, ask, 'chat', chatSourceRef(ask.app, ask.chat), now);
   else addChatAsk(store, ask, now);
   return true;
 }

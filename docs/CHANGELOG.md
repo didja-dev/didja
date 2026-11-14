@@ -6,6 +6,12 @@ Each entry says what changed, and what was **not verified** where that applies: 
 
 ## 2026-11-14
 
+### Meeting action items read from notes on screen (SCR-107)
+- New: `profiles/meetings/` (one file per tool) and `engine/src/meetings.ts`. The "Action items" / "Next steps" list in Granola, Otter, Zoom's AI summary, Notion's AI meeting notes and Gemini's notes in Google Docs is read as text. Items for you become tasks (source kind `meeting`); others' are left out; unassigned ones go to the Suggested tray (not under Strict), and Accept makes them tasks. A box ticked in the tool asks "looks done?", never ticks. Teams' recap is listed as not supported. No audio, no model.
+- The app bundles `profiles/meetings/` (build phase).
+- Tests: `engine/test/meetings.test.ts` (5) with made-up fixtures in `profiles/fixtures/meetings/`: every supported tool recognised and its items read with their owners; yours → task, someone else's → nothing, unassigned → Suggested (nothing under Strict), another person with your first name is not you, a ticked box asks.
+- Not verified: none of these tools was seen live; their app ids (Granola's especially) and how their notes appear in the accessibility outline were not checked, so a tool may read nothing until its profile is corrected.
+
 ### The same ask seen in two apps, matched by what it names (SCR-106)
 - Merge suggestions now also pair a chat ask and an email (or connected item) from the same person that name the same concrete thing within 48 hours: an id (INV-2041, #5531, "invoice 5531"), a file name, an amount ($1,200 = 1200 USD), a link's host and path. The kind of action no longer has to match then.
 - Stricter where it could hide a task: when both tasks name objects and they differ (two invoices), the same kind of action no longer suggests them. Never across different people; never merged on its own.

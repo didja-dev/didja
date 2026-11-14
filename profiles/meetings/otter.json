@@ -1,0 +1,16 @@
+{
+  "$schema": "../schema/meeting.schema.json",
+  "id": "otter",
+  "name": "Otter",
+  "supported": true,
+  "about": "Otter's meeting page on otter.ai: its Action Items list. Not checked on a live page yet.",
+  "match": {
+    "hosts": [
+      "otter.ai"
+    ]
+  },
+  "sections": [
+    "Action items",
+    "Action Items"
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "$schema": "../schema/meeting.schema.json",
+  "id": "teams-recap",
+  "name": "Teams meeting recap",
+  "supported": false,
+  "about": "Not supported yet: Teams windows are read as chats, message by message, and the recap's action items have not been seen in its accessibility outline.",
+  "match": {
+    "bundleIds": [
+      "com.microsoft.teams2"
+    ]
+  },
+  "sections": [
+    "Action items"
+  ]
+}

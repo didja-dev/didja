@@ -1,0 +1,36 @@
+{
+  "profile": "otter",
+  "app": "Safari",
+  "bundle": "com.apple.Safari",
+  "title": "Design review - Otter.ai",
+  "onSite": true,
+  "lines": [
+    "Overview",
+    "The team reviewed the onboarding flow.",
+    "Action Items",
+    "Update the onboarding copy (Mike Rosen)",
+    "Fix the signup bug - Dana Levi",
+    "Assigned to Noa Katz: prepare the user study",
+    "Outline",
+    "Onboarding"
+  ],
+  "expect": {
+    "items": [
+      {
+        "title": "Update the onboarding copy",
+        "owner": "Mike Rosen",
+        "checked": false
+      },
+      {
+        "title": "Fix the signup bug",
+        "owner": "Dana Levi",
+        "checked": false
+      },
+      {
+        "title": "Prepare the user study",
+        "owner": "Noa Katz",
+        "checked": false
+      }
+    ]
+  }
+}

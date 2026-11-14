@@ -1,0 +1,42 @@
+{
+  "profile": "granola",
+  "app": "Granola",
+  "bundle": "com.granola.app",
+  "title": "Weekly sync with Acme",
+  "lines": [
+    "Weekly sync with Acme",
+    "Summary",
+    "Agreed to move the launch to March.",
+    "Action items",
+    "Mike: send the revised quote to Acme",
+    "Sam to book the venue for the offsite",
+    "Share the slides with the team",
+    "☑ Mike: confirm the budget",
+    "Decisions",
+    "Launch moves to March."
+  ],
+  "expect": {
+    "items": [
+      {
+        "title": "Send the revised quote to Acme",
+        "owner": "Mike",
+        "checked": false
+      },
+      {
+        "title": "Book the venue for the offsite",
+        "owner": "Sam",
+        "checked": false
+      },
+      {
+        "title": "Share the slides with the team",
+        "owner": null,
+        "checked": false
+      },
+      {
+        "title": "Confirm the budget",
+        "owner": "Mike",
+        "checked": true
+      }
+    ]
+  }
+}

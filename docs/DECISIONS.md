@@ -4,6 +4,12 @@ Choices made while building ScrolledAway, with the reason, so they are not re-ar
 
 ## 2026-11-14
 
+- **Meeting tools are matched only by their own app or site, and only under their own headings** (SCR-107). Notion and Google Docs hold every kind of page, so there only the meeting notes' own heading counts ("Action items" in Notion, Gemini's "Suggested next steps" in Docs), never a page's "Next steps".
+- **An item that names no one is a suggestion, never a task** (SCR-107): misattributing an item is the known failure of meeting notes, and a group's "everyone to review" is not clearly yours. Under Strict it makes nothing.
+- **A box ticked in the meeting tool asks, it does not tick** (SCR-107): the tool's text does not say who ticked it, and a wrong tick is the bug Didja exists to prevent.
+- **Teams' meeting recap is not read** (SCR-107): Teams windows are read as chats by their profile, and the recap's action items have not been seen in its outline; listed as not supported rather than guessed.
+- **Owners are read from the item's own words only**, never from the attendee list or the model: "Mike: …", "… (Mike)", "Mike to …", "@Mike", "Owner: Mike". A first name matches your full name; a different surname does not ("Mike Carter" is not "Mike Rosen").
+
 - **Objects are read only from what a task already keeps** (SCR-106): its title and, for an email, the subject in its note. Not the kept lines around it: the reason is said back in `why`, and screen text never goes into what Didja says or stores beyond those.
 - **No product names** (SCR-106): without a model a product name cannot be told from any other capitalised word, and a loose match could hide a task behind another. Ids, file names, amounts and links only.
 - **Two tasks that each name a different object are never suggested, even for the same kind of action** (SCR-106): "Pay INV-2041" and "Pay INV-2042" from the same person are two things. When only one names an object, the earlier action rule still applies.

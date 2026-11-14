@@ -1,0 +1,29 @@
+{
+  "profile": "google-meet-notes",
+  "app": "Google Chrome",
+  "bundle": "com.google.Chrome",
+  "title": "Notes by Gemini - Google Docs",
+  "onSite": true,
+  "lines": [
+    "Summary",
+    "Discussed the rollout.",
+    "Suggested next steps",
+    "Mike Rosen will check the rollout dashboard.",
+    "Tamar Levi will email the customers.",
+    "Details"
+  ],
+  "expect": {
+    "items": [
+      {
+        "title": "Check the rollout dashboard",
+        "owner": "Mike Rosen",
+        "checked": false
+      },
+      {
+        "title": "Email the customers",
+        "owner": "Tamar Levi",
+        "checked": false
+      }
+    ]
+  }
+}

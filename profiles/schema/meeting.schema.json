@@ -1,0 +1,57 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Didja meeting tool profile (SCR-107)",
+  "type": "object",
+  "required": [
+    "id",
+    "name",
+    "supported",
+    "match",
+    "sections"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9-]+$"
+    },
+    "name": {
+      "type": "string"
+    },
+    "about": {
+      "type": "string"
+    },
+    "supported": {
+      "type": "boolean"
+    },
+    "match": {
+      "type": "object",
+      "properties": {
+        "bundleIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "hosts": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "sections": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "maxLength": 60
+      },
+      "minItems": 1
+    }
+  },
+  "additionalProperties": false
+}

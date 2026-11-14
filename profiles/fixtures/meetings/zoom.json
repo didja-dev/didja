@@ -1,0 +1,33 @@
+{
+  "profile": "zoom",
+  "app": "zoom.us",
+  "bundle": "us.zoom.xos",
+  "title": "Meeting summary",
+  "lines": [
+    "Quick recap",
+    "Next steps",
+    "@Mike follow up with Acme on the contract",
+    "Ron Cohen will send the agenda",
+    "Everyone to review the draft by Friday",
+    "Summary"
+  ],
+  "expect": {
+    "items": [
+      {
+        "title": "Follow up with Acme on the contract",
+        "owner": "Mike",
+        "checked": false
+      },
+      {
+        "title": "Send the agenda",
+        "owner": "Ron Cohen",
+        "checked": false
+      },
+      {
+        "title": "Everyone to review the draft by Friday",
+        "owner": null,
+        "checked": false
+      }
+    ]
+  }
+}

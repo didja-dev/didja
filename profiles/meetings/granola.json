@@ -1,0 +1,21 @@
+{
+  "$schema": "../schema/meeting.schema.json",
+  "id": "granola",
+  "name": "Granola",
+  "supported": true,
+  "about": "Granola's enhanced notes: the action items it writes under its own heading. The app's id and its notes' layout were not checked on a live Mac yet.",
+  "match": {
+    "bundleIds": [
+      "com.granola.app"
+    ],
+    "hosts": [
+      "granola.ai"
+    ]
+  },
+  "sections": [
+    "Action items",
+    "Next steps",
+    "Follow-ups",
+    "To-dos"
+  ]
+}

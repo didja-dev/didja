@@ -315,6 +315,8 @@ export interface PendingChatAsk {
   due?: string | null;
   /** A promise of yours, not someone's ask (SCR-98): accepted, it becomes a promise task. */
   promise?: boolean;
+  /** An action item from meeting notes that names no one (SCR-107): accepted, it becomes a meeting task. */
+  meeting?: boolean;
 }
 
 /** How eagerly asks become tasks (SCR-95). Ticking is the same at every level. */
@@ -324,7 +326,8 @@ export const CAPTURE_LEVELS: CaptureLevel[] = ['strict', 'balanced', 'everything
 /** A borderline ask kept in the Suggested tray (SCR-95): not a task until you accept it. */
 export interface Suggestion {
   id: number;
-  kind: 'chat';
+  /** A chat ask, or an action item from meeting notes that names no one (SCR-107). */
+  kind: 'chat' | 'meeting';
   sourceRef: string;
   title: string;
   createdAt: string;
@@ -1924,7 +1927,7 @@ export class Store {
   addSuggestion(ask: PendingChatAsk, sourceRef: string, now: Date): boolean {
     const result = this.db
       .query('INSERT OR IGNORE INTO suggestions (key, kind, source_ref, title, ask, created_at) VALUES (?, ?, ?, ?, ?, ?)')
-      .run(ask.key, 'chat', sourceRef, ask.title, JSON.stringify(ask), now.toISOString());
+      .run(ask.key, ask.meeting ? 'meeting' : 'chat', sourceRef, ask.title, JSON.stringify(ask), now.toISOString());
     return result.changes > 0;
   }
 
@@ -1947,7 +1950,8 @@ export class Store {
   notAnActionSuggestion(id: number, now: Date = new Date()): boolean {
     const ask = this.takeSuggestion(id);
     if (!ask) return false;
-    this.addLesson('chats', 'not-an-action', dedupeKey(ask.title), ask.promise ? `In ${ask.app}, "${ask.title}" was not a promise of mine.` : `In ${ask.app}, "${ask.title}" was not something asked of me.`, now);
+    this.addLesson('chats', 'not-an-action', dedupeKey(ask.title), ask.promise ? `In ${ask.app}, "${ask.title}" was not a promise of mine.`
+      : ask.meeting ? `In ${ask.app}'s meeting notes, "${ask.title}" was not an action item of mine.` : `In ${ask.app}, "${ask.title}" was not something asked of me.`, now);
     return true;
   }
 

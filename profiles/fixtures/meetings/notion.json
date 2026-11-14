@@ -1,0 +1,30 @@
+{
+  "profile": "notion",
+  "app": "Notion",
+  "bundle": "notion.id",
+  "title": "Planning meeting",
+  "lines": [
+    "Planning meeting",
+    "Next steps",
+    "This page's own next steps are not meeting action items",
+    "Action items",
+    "[ ] Draft the Q1 plan @Mike",
+    "[x] Me: send the notes",
+    "Notes",
+    "Discussed Q1."
+  ],
+  "expect": {
+    "items": [
+      {
+        "title": "Draft the Q1 plan",
+        "owner": "Mike",
+        "checked": false
+      },
+      {
+        "title": "Send the notes",
+        "owner": "me",
+        "checked": true
+      }
+    ]
+  }
+}
