@@ -2104,12 +2104,12 @@ export class Store {
    * Tick a chat task because you replied and the reply settles it. It keeps where, for its label
    * and so that reopening it stops replies there ticking it again.
    */
-  tickByReply(id: number, place: string, now: Date): void {
+  tickByReply(id: number, place: string, now: Date, why?: string): void {
     this.withOutcome(id, 'ticked-reply', now, () => this.setStatus(id, 'done', now));
     this.db.query('UPDATE tasks SET accepted_from = ? WHERE id = ?').run(place, id);
     this.db
       .query("INSERT INTO evidence (task_id, observation_id, ts, kind, detail) VALUES (?, NULL, ?, 'judged', ?)")
-      .run(id, now.toISOString(), `Ticked for you: you replied in ${place}, and the reply settles it`);
+      .run(id, now.toISOString(), why ?? `Ticked for you: you replied in ${place}, and the reply settles it`);
   }
 
   /** The task this email became, whatever state it is in now. */

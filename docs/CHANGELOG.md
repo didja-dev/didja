@@ -6,6 +6,12 @@ Each entry says what changed, and what was **not verified** where that applies: 
 
 ## 2026-11-14
 
+### Your ✅ on a chat ask ticks it (SCR-105)
+- Your own ✅, ☑️ or ✔️ reaction on the exact message that asked you, in its own chat, ticks that chat task with no model, labelled "Ticked for you: you marked the ask ✅ in WhatsApp — Dana Levi". 👍 and other emoji keep today's rules (they ask, except 👍 to an ask that only wants an acknowledgement).
+- Not built, because capture does not see them yet: clearing a flag in Outlook, Gmail or Apple Mail, Outlook's Mark complete, and Slack's saved item Mark as completed (DECISIONS). Archiving an email still dismisses its task.
+- Tests (`engine/test/chat.test.ts`, 3): which reactions count as a check mark; ✅ ☑️ ✔️ on the ask tick with the reason; someone else's ✅, yours on another message, on the same words in another chat, from the chat list, and a 👍 do not tick.
+- Not verified: on the live app with a real WhatsApp, Teams or Slack reaction (which emoji capture writes for each was not checked live).
+
 ### Forget, three levels: captured text, the last hour, everything Didja learned (SCR-104)
 - **Forget the Last Hour…** deletes captured text, kept lines and log lines from the last 60 minutes, nothing older. **Forget Everything Didja Learned…** also deletes every store derived from screen text (corrections, written done criteria, outcomes, trust events, taught places, timings, capture and drop counts, remembered model verdicts, the Suggested tray, chat asks waiting, open merge suggestions) and the three logs. Each has an **Also delete tasks** box, off by default, that deletes tasks captured from the screen (and Waiting on); My List, tasks you added and connected items always stay. Forget Captured Text Now is unchanged in what it deletes.
 - All three run the engine (`didja forget captured|hour|everything [--tasks] [--json]`), which records what it cleared, store by store; Privacy shows it as **Last forgotten** (`didja forget last`). In the Quick View's Privacy menu and Settings › General.

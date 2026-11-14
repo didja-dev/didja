@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { asksEveryone, asksForAcknowledgement, chatTaskTitle, isEmojiOnly, chatTime, isMine, mayAskOfMe, namesMe, parseChatMessages, plainlyDefers } from '../src/chat.ts';
+import { asksEveryone, asksForAcknowledgement, chatTaskTitle, isCheckmarkReaction, isEmojiOnly, chatTime, isMine, mayAskOfMe, namesMe, parseChatMessages, plainlyDefers } from '../src/chat.ts';
 import type { ChatQuestion, ChatReader, ReplyJudge, ReplyQuestion } from '../src/chat.ts';
 import { myNames, namesOf, pollOnce } from '../src/engine.ts';
 import { Store } from '../src/store.ts';
@@ -495,5 +495,58 @@ test('once: open tasks already made one per message in a chat are folded into on
   expect(store.openChatTask('WhatsApp', 'Ron')).not.toBeNull();
   // Only once: later duplicates are prevented when they are made, not folded again.
   expect(store.getMeta('chat_conversations_folded')).not.toBeNull();
+  store.close();
+});
+
+// --- SCR-105: your own ✅ on the exact ask -----------------------------------------------------
+
+test('a check-mark reaction is ✅, ☑️ or ✔️ alone; 👍 and others are not', () => {
+  for (const e of ['✅', '☑️', '☑', '✔️', '✔']) expect(isCheckmarkReaction(`[reacted ${e} to “Can you send it?”]`)).toBe(true);
+  for (const e of ['👍', '❤️', '✅👍', '👌', '🙏']) expect(isCheckmarkReaction(`[reacted ${e} to “Can you send it?”]`)).toBe(false);
+  expect(isCheckmarkReaction('✅')).toBe(false); // an emoji reply, not a reaction
+});
+
+test('your ✅ reaction on the exact ask ticks it, with no model, and says why (SCR-105)', () => {
+  for (const e of ['✅', '☑️', '✔️']) {
+    const store = seeded(ASK);
+    pollOnce(store, NOW, { chatReader: reader().read });
+    observe(store, [section('Dana Levi', 'direct', 'me', 'reaction'), `[reacted ${e} to “Can you send me the signed contract?”]`], at(3));
+    const { j, asked } = judge('defers');
+    expect(pollOnce(store, NOW, { replyJudge: j }).completed).toBe(1);
+    expect(asked).toEqual([]);
+    const task = store.listTasks({ all: true })[0]!;
+    expect(task.status).toBe('done');
+    expect(store.listEvidence(task.id).find((x) => x.kind === 'judged')?.detail).toBe(`Ticked for you: you marked the ask ${e} in WhatsApp — Dana Levi`);
+    store.close();
+  }
+});
+
+test('a ✅ that is not yours, on another message, from the chat list, or a 👍 never ticks (SCR-105)', () => {
+  const cases: { why: string; lines: string[]; title?: string }[] = [
+    // Someone else's reaction on the ask.
+    { why: 'theirs', lines: [section('Dana Levi', 'direct', 'Dana Levi', 'reaction'), '[reacted ✅ to “Can you send me the signed contract?”]'] },
+    // Your ✅ on some other message in the same chat.
+    { why: 'other message', lines: [section('Dana Levi', 'direct', 'me', 'reaction'), '[reacted ✅ to “See you tomorrow”]'] },
+    // Your ✅ on the same words in another chat.
+    { why: 'other chat', lines: [section('Sam Carter', 'direct', 'me', 'reaction'), '[reacted ✅ to “Can you send me the signed contract?”]'], title: 'Sam Carter' },
+    // Your 👍 on the ask: "will do", so it only asks.
+    { why: 'thumbs up', lines: [section('Dana Levi', 'direct', 'me', 'reaction'), '[reacted 👍 to “Can you send me the signed contract?”]'] },
+  ];
+  for (const c of cases) {
+    const store = seeded(ASK);
+    pollOnce(store, NOW, { chatReader: reader().read });
+    observe(store, c.lines, at(3), c.title);
+    pollOnce(store, NOW, { replyJudge: judge('unsure').j });
+    expect({ why: c.why, status: store.listTasks({ all: true })[0]!.status }).toEqual({ why: c.why, status: 'open' });
+    store.close();
+  }
+  // From WhatsApp's chat list, which names the message but not the chat: asked, never ticked.
+  const store = seeded(ASK);
+  pollOnce(store, NOW, { chatReader: reader().read });
+  observe(store, ['You reacted ✅ to "Can you send me the signed contract?"'], at(3), 'WhatsApp');
+  expect(pollOnce(store, NOW, { replyJudge: judge('unsure').j }).completed).toBe(0);
+  const task = store.listTasks()[0]!;
+  expect(task.status).toBe('open');
+  expect(task.suggestion).not.toBeNull();
   store.close();
 });

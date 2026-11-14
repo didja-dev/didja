@@ -296,6 +296,20 @@ export function isPositiveEmoji(body: string): boolean {
   return POSITIVE.test(body);
 }
 
+/** The emoji of a reaction as capture writes it, "[reacted ✅ to “…”]" → "✅", or null. */
+export function reactionEmoji(body: string): string | null {
+  return body.match(/^\[reacted (.+?) to “/s)?.[1] ?? null;
+}
+
+/**
+ * Your own check mark on a message (SCR-105): a reaction that is exactly ✅, ☑️ or ✔️ (no other
+ * emoji with it). Unlike 👍, which can mean "will do", a check mark is how people mark a thing done.
+ */
+export function isCheckmarkReaction(body: string): boolean {
+  const emoji = reactionEmoji(body);
+  return emoji !== null && /^(?:✅|☑|✔)️?$/u.test(emoji.trim());
+}
+
 /** Your emoji reaction, as capture writes it: "[reacted ❤️ to “Happy birthday”]". */
 export function isReaction(body: string): boolean {
   return body.startsWith('[reacted ');

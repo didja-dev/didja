@@ -4,6 +4,9 @@ Choices made while building ScrolledAway, with the reason, so they are not re-ar
 
 ## 2026-11-14
 
+- **Only your check-mark reaction on the ask itself ticks** (SCR-105): ✅, ☑️ or ✔️ alone, from you, on the message the task came from, in that chat. 👍 still only asks (it often means "will do"). A reaction read from WhatsApp's chat list names the message but not the chat, so two chats with the same first line could be confused: it only asks.
+- **Flags, Outlook's Mark complete and Slack's saved items are not read yet** (SCR-105): capture does not see a flag's state or a saved item's completion in any mail or chat app today, and building that needs per-app outline work that cannot be checked here without the live apps. When capture writes such a signal for the exact email or message, the engine can tick on it the same way; until then those acts change nothing. Archiving keeps dismissing, not ticking.
+
 - **Forget's tasks box is off by default, and never reaches My List, tasks you added or connected items** (SCR-104): those are yours, not learned from the screen; a connected tool's item would come back on the next sync anyway. Waiting on goes with the tasks box, since it is a list you see, not something learned.
 - **Instructions you wrote in How It Decides stay with Forget Everything**: you wrote them, Didja did not learn them. So do your names, settings and the exclude list.
 - **"The last hour" means screen text, kept lines and log lines only**, as asked; what was learned in that hour (a correction, a verdict) stays, because it cannot be told apart by time from what it changed. A log line with no readable time stays: nothing older than the hour may be touched.

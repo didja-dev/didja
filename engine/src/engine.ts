@@ -2,7 +2,7 @@ import { suggestMerges } from './related.ts';
 import { signedFromEmail } from './esign.ts';
 import { accountOf, baseSubject, responseAction, isAutomatic, isMine, isRecent, followsLink, mailKey, mailTime, mailLinks, mailOrigin, mailSnippet, mailSource, mailTaskTitle, parseEmails, replyTitle, settleNeed, signedName } from './email.ts';
 import type { MailIdentity, MailReader } from './email.ts';
-import { chatApp, chatKey, asksForAcknowledgement, chatTaskTitle, isEmojiOnly, isPositiveEmoji, isReaction, lineHash, plainReactions, reactedTo, namesMe, chatSourceRef, chatTime, isMine as isMyMessage, chatAudience, isRecentChat, parseChatMessages, plainlyDefers, sentBefore } from './chat.ts';
+import { chatApp, chatKey, asksForAcknowledgement, chatTaskTitle, isCheckmarkReaction, isEmojiOnly, reactionEmoji, isPositiveEmoji, isReaction, lineHash, plainReactions, reactedTo, namesMe, chatSourceRef, chatTime, isMine as isMyMessage, chatAudience, isRecentChat, parseChatMessages, plainlyDefers, sentBefore } from './chat.ts';
 import type { ChatMessage, ChatReader, ReplyJudge } from './chat.ts';
 import { agentWork, assistantFor, hasTurns } from './assistants.ts';
 import { followUpOn, listedOn, targetsOf } from './done.ts';
@@ -972,6 +972,8 @@ function readChat(
 
   // Your replies to asks already on the list.
   const plain = plainReactions(text);
+  // Reactions read from the chat list name the message, not the chat: never taken as a check mark on the ask.
+  const fromList = new Set<ChatMessage>();
   for (const task of store.chatTasksAwaited()) {
     const want = task.criteria!.chat!;
     if (want.app !== app) continue;
@@ -979,7 +981,9 @@ function readChat(
     // ask's chat only when its first line is the ask's own.
     for (const r of plain) {
       if (lineHash(r.quote) === want.key.split(':').pop()) {
-        messages.push({ chat: want.chat, kind: 'unknown', from: 'me', mentionsMe: false, time: 'reaction', body: `[reacted ${r.emoji} to “${r.quote.slice(0, 200)}”]` });
+        const listed: ChatMessage = { chat: want.chat, kind: 'unknown', from: 'me', mentionsMe: false, time: 'reaction', body: `[reacted ${r.emoji} to “${r.quote.slice(0, 200)}”]` };
+        fromList.add(listed);
+        messages.push(listed);
       }
     }
     const place = `${app} — ${want.chat}`;
@@ -1007,15 +1011,17 @@ function readChat(
       const ask = messages[askIndex]?.body ?? '';
       // 👍 (or ✅, 🙏…) to an ask that only wants you to acknowledge it is the whole answer.
       const acknowledged = emoji && isPositiveEmoji(m.body) && asksForAcknowledgement(task.capturedTitle, ask);
-      let verdict = acknowledged ? 'settles' : plainlyDefers(m.body) ? 'defers' : opts.replyJudge?.({ app, task: task.capturedTitle, ask, reply: m.body.slice(0, 600) }) ?? null;
+      // Your own ✅ / ☑️ / ✔️ reaction on the ask itself, in its own chat (SCR-105): you marked it done.
+      const checked = onTheAsk && !fromList.has(m) && isCheckmarkReaction(m.body);
+      let verdict = acknowledged || checked ? 'settles' : plainlyDefers(m.body) ? 'defers' : opts.replyJudge?.({ app, task: task.capturedTitle, ask, reply: m.body.slice(0, 600) }) ?? null;
       if (verdict === null) verdict = 'unsure';
       // Otherwise only emoji, or a reaction: never ticked on the model's word alone (👍 to "send
       // it" means "will do"); you are asked.
-      if (verdict === 'settles' && emoji && !acknowledged) verdict = 'unsure';
+      if (verdict === 'settles' && emoji && !acknowledged && !checked) verdict = 'unsure';
       store.recordEmailCheck(key, verdict, now);
       if (verdict === 'defers') continue; // still to do
       if (verdict === 'settles') {
-        store.tickByReply(task.id, place, now);
+        store.tickByReply(task.id, place, now, checked ? `Ticked for you: you marked the ask ${reactionEmoji(m.body)} in ${place}` : undefined);
         completed++;
       } else {
         // The model could not tell, or there is none: ask you rather than tick.
