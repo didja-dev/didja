@@ -6,6 +6,9 @@ Each entry says what changed, and what was **not verified** where that applies: 
 
 ## 2026-11-14
 
+### Didja 0.13.0 (build 15)
+- Released from GitHub on a version tag: Settings, the pinned Quick View and Didja's other windows open in front of the app you were using, and a checklist headed by when to do it ("Once it's live") gets a title that says what it is for. The windows coming to the front was checked on the Debug build.
+
 ### Settings and the pinned Quick View open in front; a "when" lead-in gets a real title
 - Every window Didja opens (Settings, the task window, the pinned Quick View, Privacy, Welcome and the rest) is now put on top of other apps' windows even when macOS turns down Didja's request to become the front app. Before, on recent macOS, choosing Settings… could seem to close the menu and open nothing: the window was behind the app you were using. Didja asks to come to the front with `NSApplication.activate()` (the call macOS 14 replaced `activate(ignoringOtherApps:)` with), puts the window on top with `orderFrontRegardless`, and switches to showing in the Dock before the window opens, not after. **Not verified:** the window coming to the front seen live on the release build; the Swift tests pass.
 - A checklist whose lead-in says when to go through it, not what it is for ("Once it's live", "Then, every Monday", "Before this works in prod"), is offered to the on-device model for a title, like "Checklist" is. Open lists kept under such a lead-in are offered once more. Tested in the engine; **not verified** live.
