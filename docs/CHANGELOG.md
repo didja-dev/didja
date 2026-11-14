@@ -6,6 +6,11 @@ Each entry says what changed, and what was **not verified** where that applies: 
 
 ## 2026-11-14
 
+### A comparison page on didja.dev (SCR-113)
+- New: didja.dev/compare puts Didja next to Microsoft Recall, Screenpipe, ChatGPT Computer History and Littlebird on eight questions: screenshots stored, where processing happens, retention, what is sent, licence, encryption on disk, what it never reads, and whether it notices a task got done. Every cell cites that product's own documentation, read on 2026-11-14, listed under Sources; where the docs are silent the cell says so. Linked from the footer. The data is `site/src/compare.ts`.
+- Tests: `engine/test/compare.test.ts` (6): every cell cites a source of its own product, on that product's own sites (Didja's are files in this repository); the date is shown; no verdict words about other products; Didja's cells match the code (AES-256-GCM in `sealed.ts`, MIT, 24 hours, no screenshots, no analytics); the page loads nothing from another host and has no inline script or style.
+- Not verified: the page in a browser, including on a phone (the built HTML was checked); the site is not redeployed by this change. Competitors' pages change; the cells are as of the date shown.
+
 ### Every network connection documented, and how to watch them (SCR-112)
 - New: `docs/NETWORK.md`: the update check (didja.dev, daily) and update download (GitHub), Connections (each tool's MCP server, every 5 minutes, only once connected) and its sign-in callback on `localhost:33418`, Ollama on `127.0.0.1:11434` (only with the local model on); for each, the host, when, what is sent and the switch. What is not a connection (stdio for the engine and `didja mcp`, pages opened in your browser). Step-by-step for LuLu and Little Snitch. Linked from the README, the GUIDE and a new FAQ entry on didja.dev.
 - Tests: `engine/test/network.test.ts` (2): network code (URLSession, sockets, fetch, MCP HTTP transports, servers) appears only in `LocalModel.swift` and `connections.ts`, both ways; the update feed is didja.dev daily; the page names every Connections host, the callback port and Ollama's address.

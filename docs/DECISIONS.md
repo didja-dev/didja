@@ -4,6 +4,10 @@ Choices made while building ScrolledAway, with the reason, so they are not re-ar
 
 ## 2026-11-14
 
+- **The comparison page says only what each product's own pages say, and says when it is silent** (SCR-113). No third-party reviews or press, even where they say more (on telemetry, say): a cell cites the maker's docs, read on a stated date, or reads "Not stated in the pages cited." Conflicting statements in one maker's docs are both given (Littlebird: reads text; captures an image of the window when it cannot, then deletes it).
+- **Didja's encryption cell claims exactly what is sealed** (SCR-113): captured screen text, with AES-256-GCM and the key in the Keychain, not "the whole database is encrypted", which it is not.
+- **No ratings, ticks or crosses on the comparison** (SCR-113): the products do different jobs (finding what you did, recording for your own tools, assistant context, open steps), so a score would be unfair; the page states each one's job and the facts. No logos, and only links out, so the page keeps the strict CSP.
+- **The table scrolls sideways inside its own box on a phone** (SCR-113) rather than turning into cards: five products per question read best side by side, and the question column stays put while it scrolls.
 - **The list of connections is guarded by a test, not only written down** (SCR-112): any new network code outside `LocalModel.swift` and `connections.ts` fails `bun test`, so a connection cannot be added without the page (and CLAUDE.md's rule) being looked at. Sparkle is a framework, so its feed is checked in the Info.plist instead.
 - **Pages Didja opens in your browser are not listed as Didja's connections** (SCR-112): the browser makes them when you click, and they carry only what the page shows you first (an issue form, an email draft).
 

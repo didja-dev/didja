@@ -186,6 +186,7 @@ export const footer = {
   license: 'MIT licensed',
   github: 'GitHub',
   privacy: 'Privacy',
+  compare: 'Compare',
   changelog: 'Changelog',
   email: 'hello@didja.dev',
 };

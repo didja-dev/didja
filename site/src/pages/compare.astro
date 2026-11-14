@@ -1,0 +1,153 @@
+---
+import '../styles/global.css';
+import Mark from '../components/Mark.astro';
+import { footer } from '../content';
+import { page, products, rows } from '../compare';
+import { GITHUB } from '../site';
+
+// Every source gets one number, in the order of the products, so a cell's citations link to the list.
+const numbered = products.flatMap((p) =>
+  Object.entries(p.sources).map(([key, s]) => ({
+    product: p.id,
+    key,
+    title: s.title,
+    url: s.url.startsWith('https://') ? s.url : `${GITHUB}/blob/main/${s.url}`,
+  })),
+);
+const numberOf = (product: string, key: string) => numbered.findIndex((s) => s.product === product && s.key === key) + 1;
+---
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{page.title}</title>
+  <meta name="description" content={page.description} />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <link rel="canonical" href="https://didja.dev/compare" />
+  <meta name="theme-color" content="#FAFAF7" />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://didja.dev/compare" />
+  <meta property="og:title" content={page.title} />
+  <meta property="og:description" content={page.description} />
+  <meta property="og:image" content="https://didja.dev/og.png" />
+</head>
+<body>
+  <header class="top">
+    <nav aria-label="Main" class="wrap nav">
+      <a href="/" class="brand">
+        <Mark size={32} />
+        <span class="word">didja</span>
+      </a>
+      <a href="/" class="back">{page.back}</a>
+    </nav>
+  </header>
+
+  <main class="wrap compare">
+    <p class="eyebrow">{page.eyebrow}</p>
+    <h1 class="h2">{page.heading}</h1>
+    <p class="lead">{page.lead}</p>
+    <p class="method">{page.method}</p>
+
+    <div class="scroller" tabindex="0" role="region" aria-label="Comparison table">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col"><span class="sr">Question</span></th>
+            {products.map((p) => (
+              <th scope="col" class:list={[{ ours: p.id === 'didja' }]}>
+                <span class="name">{p.name}</span>
+                <span class="kind">{p.kind}</span>
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr>
+              <th scope="row">{r.question}</th>
+              {products.map((p) => {
+                const cell = r.cells[p.id];
+                return (
+                  <td class:list={[{ ours: p.id === 'didja' }]}>
+                    {cell.text}
+                    {cell.cite.map((key) => {
+                      const n = numberOf(p.id, key);
+                      return <a class="cite" href={`#source-${n}`} aria-label={`Source ${n}`}>[{n}]</a>;
+                    })}
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+
+    <section aria-labelledby="sources-h" class="sources">
+      <h2 id="sources-h">{page.sourcesTitle}</h2>
+      <p class="checked">{page.checked}</p>
+      <ol>
+        {numbered.map((s, i) => (
+          <li id={`source-${i + 1}`}><a href={s.url} rel="noopener noreferrer">{s.title}</a></li>
+        ))}
+      </ol>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <div class="wrap foot-row">
+      <span><strong class="foot-name">{footer.name}</strong> · {footer.domain} · {footer.license}</span>
+      <span class="foot-links">
+        <a href="/">{page.back}</a>
+        <a href={GITHUB}>{footer.github}</a>
+        <a href={`mailto:${footer.email}`}>{footer.email}</a>
+      </span>
+    </div>
+  </footer>
+</body>
+</html>
+
+<style>
+  .top { border-bottom: 1px solid var(--line); }
+  .nav { padding-top: 18px; padding-bottom: 18px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+  .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; min-height: 44px; }
+  .word { font-family: var(--display); font-weight: 800; font-size: 24px; letter-spacing: -0.02em; }
+  .back { min-height: 44px; display: flex; align-items: center; text-decoration: none; font-weight: 500; }
+
+  .compare { padding-top: 72px; padding-bottom: 96px; display: flex; flex-direction: column; gap: 20px; }
+  .compare .lead { max-width: 68ch; }
+  .method { margin: 0; max-width: 68ch; font-size: 15px; color: var(--pencil); }
+
+  /* The table scrolls inside its own box on narrow screens; the page never scrolls sideways. */
+  .scroller { margin-top: 20px; overflow-x: auto; border: 1px solid var(--line); border-radius: 16px; background: var(--white); }
+  table { border-collapse: collapse; width: 100%; min-width: 980px; font-size: 15px; line-height: 1.45; }
+  th, td { text-align: left; vertical-align: top; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+  tbody tr:last-child th, tbody tr:last-child td { border-bottom: 0; }
+  thead th { font-weight: 600; background: var(--paper); }
+  thead .name { display: block; font-size: 16px; }
+  thead .kind { display: block; font-size: 13px; font-weight: 400; color: var(--pencil); }
+  tbody th { width: 150px; font-weight: 600; position: sticky; left: 0; background: var(--white); }
+  td { color: var(--graphite); }
+  .ours { background: color-mix(in srgb, var(--highlighter) 14%, var(--white)); }
+  thead .ours { background: color-mix(in srgb, var(--highlighter) 30%, var(--paper)); }
+  .cite { margin-left: 4px; font-size: 12px; color: var(--pencil); white-space: nowrap; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+  .sources { margin-top: 32px; }
+  .sources h2 { margin: 0; font-family: var(--display); font-size: 28px; letter-spacing: -0.02em; }
+  .checked { margin: 6px 0 0; font-size: 14px; color: var(--pencil); }
+  .sources ol { margin: 16px 0 0; padding-left: 28px; font-size: 15px; display: flex; flex-direction: column; gap: 6px; }
+  .sources li { overflow-wrap: anywhere; }
+
+  .foot { border-top: 1px solid var(--line); }
+  .foot-row { padding-top: 32px; padding-bottom: 32px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 16px; font-size: 14px; color: var(--muted-2); }
+  .foot-name { font-family: var(--display); font-size: 18px; color: var(--ink); }
+  .foot-links { display: flex; flex-wrap: wrap; gap: 4px 20px; }
+  .foot-links a { color: var(--muted); min-height: 44px; display: inline-flex; align-items: center; }
+  @media (max-width: 640px) {
+    .compare { padding-top: 48px; padding-bottom: 64px; }
+    tbody th { width: 120px; }
+  }
+</style>
