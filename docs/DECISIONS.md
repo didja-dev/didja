@@ -4,6 +4,11 @@ Choices made while building ScrolledAway, with the reason, so they are not re-ar
 
 ## 2026-11-14
 
+- **Answered in another app needs the same object, not just the same kind of action** (SCR-109). A merge suggestion may pair two asks by action (sign, pay); here a reply would make a "looks done?" for any later message to that person with a common verb, so only a shared id, file, amount or link counts.
+- **Only another app** (SCR-109): within the same app the existing reply rules decide (a reply in the same chat or email conversation), and they are stricter about position and time.
+- **A waiting item is marked, not closed** (SCR-109): a message about the same invoice from that person in another app may still be "not yet" ("INV-2041 is coming Monday"). It stays in the tray with "Answered?" until you say Got it; the hint keeps no message text, only the first name, the app, the time and the object the title already names.
+- **These "looks done?" are never accepted automatically** (SCR-109), even with "accept looks done" on: the setting was chosen for screens that show the outcome, and a message to the same person is not the outcome.
+
 - **The local model is asked first whether a chat message asks something of you** (SCR-108), when it is on. On 41 made-up chat messages (`engine/eval/chats.ts`: English and Hebrew, one-to-one and groups, "can someone…", thanks and acknowledgements, deferrals by either side), qwen3.8 in Ollama got 40/41 with 1 wrong ask; Apple's model 29/41 with 12 wrong asks (acknowledgements, the sender's own plans, news, asks meant for someone else), no misses for either. The local model's one wrong ask ("does anyone know where…" said to a whole group) is a message Apple's model got right; the job still moved because the rule set for lists (SCR-70) counts wrong asks, not which messages they are on, and 1 is far fewer than 12. That message reaches the model only under Capture: Everything. Whether your reply settles an ask (`--chat-reply`) stays with Apple's model: it has no samples yet.
 - **Only a real true or false from the local model is taken for a chat ask** (SCR-108); anything else (a string, a number, a missing field) falls back to Apple's model, and a "no" is never a task whatever task words came with it.
 

@@ -6,6 +6,13 @@ Each entry says what changed, and what was **not verified** where that applies: 
 
 ## 2026-11-14
 
+### Asks and Waiting On answered in another app: asked, never ticked (SCR-109)
+- Your email (or one-to-one chat message) to the same person, in a different app from their ask, naming the same thing (an id, a file, an amount, a link) makes that task show "Looks done? you wrote to Dana in Microsoft Outlook about INV-2041". A message from someone you wait on, in another app, naming the thing you asked for marks the Waiting On row "Answered? Dana wrote in Microsoft Outlook at 09:45 about INV-2041"; Got it closes it. `didja waiting` and `waiting why` show it.
+- Never a tick or a close on its own: skipped by "accept looks done" and not reached by trusted places; "Not yet" stops that place asking again.
+- Schema 033 adds `waiting.hint` and `waiting.hint_at`.
+- Tests: `engine/test/elsewhere.test.ts` (6): the matching rule (person, other app, after the ask, shared object); same person + same invoice in another app asks; another invoice or another person asks nothing; under accept mode and a trusted place it stays open; "not yet" is not asked again; the waiting hint and its non-matches. Swift: the tray reads the hint; the waiting render has a hinted row.
+- Not verified: on the live app with real WhatsApp and Outlook windows. Two emails with the same subject in one capture are read as one (existing behaviour, seen while writing the tests).
+
 ### The Ollama model answers chat asks too, when it is on (SCR-108)
 - New: `engine/eval/chats.ts` and 41 made-up chat messages (`engine/eval/chat-samples.json`: English and Hebrew, one-to-one and groups, "can someone…", thanks, acknowledgements, deferrals). Measured: Apple's model 29/41 with 12 wrong asks; qwen3.8 in Ollama 40/41 with 1 wrong ask; neither missed an ask.
 - With **Use a model in Ollama** on, "does this chat message ask me something?" (`--chat`) is asked of it first, and of Apple's model when Ollama does not answer or answers with anything but a true or false. Whether your reply settles an ask stays with Apple's model. Settings' description of the switch names the jobs it covers.

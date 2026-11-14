@@ -749,9 +749,12 @@ struct WaitingTray: View {
                             Text(w.title).font(.callout).lineLimit(2)
                             HStack(spacing: 4) {
                                 Text("\(w.source) · \(w.asked(now: now))").lineLimit(1).truncationMode(.middle)
-                                if w.overdue(now: now) { Text("· no reply yet").foregroundStyle(Palette.accent) }
+                                if w.overdue(now: now) && w.hint == nil { Text("· no reply yet").foregroundStyle(Palette.accent) }
                             }
                             .font(.caption).foregroundStyle(.secondary)
+                            if let hint = w.hint {
+                                Text("Answered? \(hint)").font(.caption).foregroundStyle(Palette.attention).lineLimit(2)
+                            }
                         }
                         Spacer(minLength: 6)
                         Button("Got it") { actions.gotIt(w) }

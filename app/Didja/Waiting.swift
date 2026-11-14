@@ -12,6 +12,9 @@ struct WaitingItem: Identifiable, Equatable {
     var askedAt: Date?
     /// Until then it is quiet; after, it says "no reply yet" and gives one reminder.
     var quietUntil: Date?
+    /// That person wrote in another app about the same thing (SCR-109): "Dana wrote in Microsoft
+    /// Outlook at 09:45 about INV-2041". It only asks; Got it closes it.
+    var hint: String? = nil
 
     func overdue(now: Date = Date()) -> Bool { quietUntil.map { $0 <= now } ?? false }
 

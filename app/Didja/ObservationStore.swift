@@ -292,7 +292,7 @@ final class ObservationStore {
     /// The engine's titles and where they were asked; never tasks.
     func waiting() throws -> [WaitingItem] {
         var statement: OpaquePointer?
-        guard sqlite3_prepare_v2(db, "SELECT id, title, via, app, place, asked_at, quiet_until FROM waiting WHERE status = 'waiting' ORDER BY asked_at, id", -1, &statement, nil) == SQLITE_OK
+        guard sqlite3_prepare_v2(db, "SELECT id, title, via, app, place, asked_at, quiet_until, hint FROM waiting WHERE status = 'waiting' ORDER BY asked_at, id", -1, &statement, nil) == SQLITE_OK
         else { throw lastError("prepare") }
         defer { sqlite3_finalize(statement) }
         let text = { (i: Int32) in sqlite3_column_text(statement, i).map { String(cString: $0) } }
@@ -301,7 +301,7 @@ final class ObservationStore {
             let app = text(3) ?? "", place = text(4) ?? ""
             out.append(WaitingItem(id: Int(sqlite3_column_int64(statement, 0)), title: text(1) ?? "",
                                    source: text(2) == "email" ? "\(app) — “\(place)”" : "\(app) — \(place)",
-                                   askedAt: WaitingItem.date(text(5)), quietUntil: WaitingItem.date(text(6))))
+                                   askedAt: WaitingItem.date(text(5)), quietUntil: WaitingItem.date(text(6)), hint: text(7)))
         }
         return out
     }

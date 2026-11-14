@@ -23,6 +23,13 @@ final class WaitingTests: XCTestCase {
         XCTAssertEqual(items.map(\.title), ["Waiting on Dana: the signed contract", "Waiting on Sam: review the PR"], "answered ones are gone")
         XCTAssertEqual(items.map(\.source), ["WhatsApp — Dana Levi", "Microsoft Outlook — “contract”"])
         XCTAssertEqual(items[0].askedAt, WaitingItem.date("2026-11-14T08:00:00.000Z"))
+        XCTAssertEqual(items.map(\.hint), [nil, nil])
+
+        // SCR-109: seen answered in another app is a hint on an item still waiting, never a close.
+        XCTAssertEqual(sqlite3_exec(db, "UPDATE waiting SET hint = 'Dana wrote in Microsoft Outlook at 09:45 about INV-2041', hint_at = '2026-11-14T09:45:00.000Z' WHERE key = 'a'", nil, nil, nil), SQLITE_OK)
+        let hinted = try store.waiting()
+        XCTAssertEqual(hinted.count, 2)
+        XCTAssertEqual(hinted[0].hint, "Dana wrote in Microsoft Outlook at 09:45 about INV-2041")
     }
 
     func testNoReplyYetOnlyAfterTheQuietTime() {
@@ -60,6 +67,9 @@ final class WaitingTests: XCTestCase {
                         askedAt: now.addingTimeInterval(-28 * 3600), quietUntil: now.addingTimeInterval(-4 * 3600)),
             WaitingItem(id: 2, title: "Waiting on Sam: review the PR", source: "Microsoft Outlook — “Contract”",
                         askedAt: now.addingTimeInterval(-2 * 3600), quietUntil: now.addingTimeInterval(46 * 3600)),
+            WaitingItem(id: 3, title: "Waiting on Noa: invoice INV-2041", source: "WhatsApp — Noa Katz",
+                        askedAt: now.addingTimeInterval(-30 * 3600), quietUntil: now.addingTimeInterval(-6 * 3600),
+                        hint: "Noa wrote in Microsoft Outlook at 11:20 about INV-2041"),
         ], expanded: .constant(true), actions: TaskActions(), now: now)
         let view = VStack(alignment: .leading, spacing: 12) {
             PopoverTaskList(board: TaskBoardTests.sample, actions: TaskActions(), navigator: TaskNavigator(scope: .popover))
