@@ -732,7 +732,7 @@ struct WaitingTray: View {
                         .rotationEffect(.degrees(expanded ? 90 : 0))
                     Text("Waiting On").font(.caption.weight(.medium))
                     Text("\(items.count)").font(.caption).monospacedDigit()
-                    let late = items.filter { $0.overdue(now: now) }.count
+                    let late = items.filter { $0.overdue(now: now) && $0.hint == nil }.count
                     if late > 0 {
                         Text("· \(late) no reply yet").font(.caption).foregroundStyle(Palette.accent)
                     }
