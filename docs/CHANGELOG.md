@@ -6,6 +6,9 @@ Each entry says what changed, and what was **not verified** where that applies: 
 
 ## 2026-11-14
 
+### Didja 0.11.0 (build 13)
+- Released from GitHub on a version tag, with SCR-93 (claims the app does not back up removed), SCR-94 (default exclusions for banking, health and payment pages), SCR-95 (capture sensitivity and the Suggested tray), SCR-96 (why a task was made), SCR-97 (due dates), SCR-98 (what you said you'd do), SCR-99 (Waiting On), SCR-100 (Day Review and the morning list), SCR-101 (screen text encrypted on disk), SCR-102 (every model answer checked), SCR-103 (benchmark: tick precision, owner errors, held-out apps), SCR-104 (Forget: the last hour, or everything learned), SCR-105 (your ✅ on a chat ask ticks it), SCR-106 (the same ask in two apps, matched by what it names) and SCR-107 (meeting action items from notes on screen).
+
 ### Meeting action items read from notes on screen (SCR-107)
 - New: `profiles/meetings/` (one file per tool) and `engine/src/meetings.ts`. The "Action items" / "Next steps" list in Granola, Otter, Zoom's AI summary, Notion's AI meeting notes and Gemini's notes in Google Docs is read as text. Items for you become tasks (source kind `meeting`); others' are left out; unassigned ones go to the Suggested tray (not under Strict), and Accept makes them tasks. A box ticked in the tool asks "looks done?", never ticks. Teams' recap is listed as not supported. No audio, no model.
 - The app bundles `profiles/meetings/` (build phase).
