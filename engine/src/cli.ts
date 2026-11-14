@@ -608,7 +608,8 @@ async function main(argv: string[]): Promise<number> {
         const data = exportTasks(store, { context: args.includes('--context') });
         const text = format === 'json' ? exportJson(data) : exportMarkdown(data);
         if (out) writeFile(out, text, { mode: 0o600 });
-        else process.stdout.write(text);
+        // Awaited: the CLI exits right after, and a large export to a pipe must not be cut short.
+        else await Bun.write(Bun.stdout, text);
         return 0;
       }
       case 'tasks': {
