@@ -30,6 +30,7 @@ import { WHY } from './capturewhy.ts';
 import { dueFrom } from './due.ts';
 import { promisesIn, promiseTitle, samePromise } from './promises.ts';
 import { asksIn, firstName, quietUntil, samePerson, waitingTitle } from './waiting.ts';
+import { answeredElsewhere, noticeTheirAnswer, noticeYourAnswer } from './related.ts';
 import { actionItems, isYou, meetingFor } from './meetings.ts';
 import type { MeetingProfile } from './meetings.ts';
 import { CHECKING_CONFIDENCE, KEPT_KIND, KEPT_LIST, trustKey, TRUST_YES } from './store.ts';
@@ -639,6 +640,8 @@ function pass(store: Store, now: Date, options: PollOptions): PollStats {
       // A step with something exact to look for (a command) that was only suggested after its
       // exact match was missed waits for your yes (SCR-69).
       if (task.auto) continue;
+      // Written to that person in another app (SCR-109): only ever asked, never taken as a yes.
+      if (answeredElsewhere(task.suggestion)) continue;
       store.acceptLooksDone(task.id, task.suggestion!, now);
       stats.completed++;
     }
@@ -927,6 +930,28 @@ function readMailWaiting(store: Store, emails: ReturnType<typeof parseEmails>, m
       }, now);
     }
   }
+  noticeAnswersElsewhere(store, emails, me, mailbox, now);
+}
+
+/**
+ * Answered in another app (SCR-109): an email you sent one person may answer their ask from a chat
+ * (it asks "looks done?"), and an email from someone may answer what you wait on from them in a chat
+ * (it marks it "answered?"). Only when both name the same thing. Never a tick, never a close.
+ */
+function noticeAnswersElsewhere(store: Store, emails: ReturnType<typeof parseEmails>, me: MailIdentity, mailbox: string, now: Date): void {
+  for (const email of emails) {
+    if (!isRecent(email.date, now)) continue;
+    const at = mailTime(email.date, now);
+    if (at === null) continue;
+    const text = [email.subject, ...ownLines(email.body)].join('\n');
+    if (isMine(email, me)) {
+      const to = soleRecipient(email.to);
+      if (to) noticeYourAnswer(store, { person: to.name, text, app: mailbox, at }, now);
+    } else if (email.fromName.trim() && !isAutomatic(email)) {
+      // A receipt or notification is not that person writing to you.
+      noticeTheirAnswer(store, { person: email.fromName, text, app: mailbox, at }, now);
+    }
+  }
 }
 
 const CHATS_PER_POLL = 3;
@@ -1196,6 +1221,18 @@ function readChatWaiting(store: Store, messages: ChatMessage[], app: string, now
         key: `waiting:${chatKey(app, m)}:${lineHash(ask.what)}`, via: 'chat', app, place: m.chat, who, direct,
         title: waitingTitle(who, ask), askedAt: sent, quietUntil: quietUntil('chat', sent, quiet.chatHours, quiet.emailDays),
       }, now);
+    }
+  }
+
+  // Answered in another app (SCR-109): yours to one person in a one-to-one chat; theirs anywhere.
+  for (const m of messages) {
+    if (m.time === 'reaction' || isReaction(m.body) || !isRecentChat(m, now) || m.body.trim() === '') continue;
+    const at = chatTime(m.time, now);
+    if (at === null) continue;
+    if (isMyMessage(m, me)) {
+      if (m.kind === 'direct') noticeYourAnswer(store, { person: m.chat, text: m.body, app, at }, now);
+    } else if (m.from.trim()) {
+      noticeTheirAnswer(store, { person: m.from, text: m.body, app, at }, now);
     }
   }
 }

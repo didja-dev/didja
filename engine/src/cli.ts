@@ -740,7 +740,7 @@ async function main(argv: string[]): Promise<number> {
         const [action, which] = args;
         if (action === undefined || action === '--json') {
           const list = store.waitingItems();
-          console.log(action === '--json' ? JSON.stringify(list) : list.map((w) => `#${w.id}  ${w.title}  (${w.app} — ${w.place}, asked ${w.askedAt.slice(0, 16).replace('T', ' ')})`).join('\n') || 'Not waiting on anyone.');
+          console.log(action === '--json' ? JSON.stringify(list) : list.map((w) => `#${w.id}  ${w.title}  (${w.app} — ${w.place}, asked ${w.askedAt.slice(0, 16).replace('T', ' ')})${w.hint ? `  answered? ${w.hint}` : ''}`).join('\n') || 'Not waiting on anyone.');
           return 0;
         }
         if (action === 'quiet') {
@@ -763,6 +763,7 @@ async function main(argv: string[]): Promise<number> {
           console.log(item.title);
           console.log(`Asked ${item.askedAt} in ${item.app} — ${item.place}; quiet until ${item.quietUntil}${item.nudgedAt ? `, reminded ${item.nudgedAt}` : ''}`);
           console.log(item.status === 'waiting' ? `Waiting for a message from ${item.who} there, sent after the ask.` : `${item.status === 'answered' ? 'Answered' : 'Stopped'}: ${item.closedWhy}`);
+          if (item.status === 'waiting' && item.hint) console.log(`Answered? ${item.hint}. Say Got it if so.`);
           return 0;
         }
         if (item && action === 'gotit' && store.closeWaiting(id, 'answered', 'You said you got it', new Date())) {

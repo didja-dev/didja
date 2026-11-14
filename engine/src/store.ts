@@ -34,6 +34,7 @@ import schema29 from '../../schema/029_suggestions.sql' with { type: 'text' };
 import schema30 from '../../schema/030_capture_reason.sql' with { type: 'text' };
 import schema31 from '../../schema/031_due.sql' with { type: 'text' };
 import schema32 from '../../schema/032_waiting.sql' with { type: 'text' };
+import schema33 from '../../schema/033_waiting_hint.sql' with { type: 'text' };
 import { dayOf } from './due.ts';
 import { isSealed, keyFromEnv, seal, tightenModes, unseal } from './sealed.ts';
 import { defaultWhy, WHY } from './capturewhy.ts';
@@ -354,6 +355,8 @@ export interface Waiting {
   status: 'waiting' | 'answered' | 'stopped';
   closedAt: string | null;
   closedWhy: string | null;
+  /** Perhaps answered in another app (SCR-109): "Dana wrote in Microsoft Outlook at 10:42 about INV-2041". Never closes it. */
+  hint: string | null;
 }
 
 export interface NewWaiting {
@@ -370,7 +373,7 @@ export interface NewWaiting {
 }
 
 const WAITING_SELECT = `SELECT id, via, app, place, who, who_address AS whoAddress, direct, title, asked_at AS askedAt,
-  quiet_until AS quietUntil, nudged_at AS nudgedAt, status, closed_at AS closedAt, closed_why AS closedWhy FROM waiting`;
+  quiet_until AS quietUntil, nudged_at AS nudgedAt, status, closed_at AS closedAt, closed_why AS closedWhy, hint FROM waiting`;
 /** How long a closed waiting item is kept (for `why`), and an open one at most. */
 export const WAITING_CLOSED_TTL_MS = 24 * 3600_000;
 export const WAITING_OPEN_TTL_MS = 30 * 24 * 3600_000;
@@ -579,7 +582,7 @@ export class Store {
     // The app migrates the same file. Take the write lock first so only one side runs each step.
     this.db.transaction(() => {
       const { user_version } = this.db.query('PRAGMA user_version').get() as { user_version: number };
-      [schema1, schema2, schema3, schema4, schema5, schema6, schema7, schema8, schema9, schema10, schema11, schema12, schema13, schema14, schema15, schema16, schema17, schema18, schema19, schema20, schema21, schema22, schema23, schema24, schema25, schema26, schema27, schema28, schema29, schema30, schema31, schema32].forEach((sql, i) => {
+      [schema1, schema2, schema3, schema4, schema5, schema6, schema7, schema8, schema9, schema10, schema11, schema12, schema13, schema14, schema15, schema16, schema17, schema18, schema19, schema20, schema21, schema22, schema23, schema24, schema25, schema26, schema27, schema28, schema29, schema30, schema31, schema32, schema33].forEach((sql, i) => {
         if (user_version < i + 1) this.db.exec(sql);
       });
     }).immediate();
@@ -2005,6 +2008,16 @@ export class Store {
     return this.db
       .query("UPDATE waiting SET status = ?, closed_at = ?, closed_why = ? WHERE id = ? AND status = 'waiting'")
       .run(status, now.toISOString(), why, id).changes > 0;
+  }
+
+  /**
+   * Marks a waiting item "answered?" (SCR-109): that person wrote in another app about the same thing.
+   * It stays open until you say Got it or Stop waiting. Once per item; false if already marked or closed.
+   */
+  hintWaiting(id: number, why: string, now: Date): boolean {
+    return this.db
+      .query("UPDATE waiting SET hint = ?, hint_at = ? WHERE id = ? AND status = 'waiting' AND hint IS NULL")
+      .run(why, now.toISOString(), id).changes > 0;
   }
 
   /** Open waiting items past their quiet time and not yet reminded about: each is returned once. */

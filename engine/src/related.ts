@@ -5,7 +5,7 @@
  * amount, a link: SCR-106) or are about the same kind of action; you merge them or say they are
  * not the same. Never merged on its own. Merged, they finish together (store.setStatus).
  */
-import type { Store, Task } from './store.ts';
+import type { Store, Task, Waiting } from './store.ts';
 
 const FAMILIES: Record<string, RegExp> = {
   sign: /\bsign|signature|docusign|e-?sign|חת(?:ום|ימ|מי|ו)/i,
@@ -121,4 +121,93 @@ export function suggestMerges(store: Store, now: Date): number {
     }
   }
   return suggested;
+}
+
+// --- SCR-109: answered in another app ------------------------------------------------------------
+
+/**
+ * A message seen in some app, between you and one person: one you sent them (`person` is who it went
+ * to), or one they sent you. `text` is read for objects only and never kept.
+ */
+export interface Seen { person: string; text: string; app: string; at: Date }
+
+/** The app a task came from: "WhatsApp — Dana Levi" → "WhatsApp"; an email task's ref is its mailbox. */
+export const appOf = (sourceRef: string): string => sourceRef.split(' — ')[0]!.trim();
+
+/** The objects two texts both name, said back ("INV-2041"), or none. */
+export function sharedObjects(a: string, b: string): string[] {
+  const theirs = objects(b);
+  return objects(a).filter((o) => theirs.includes(o)).map(said);
+}
+
+const firstOf = (name: string) => {
+  const w = plainName(name).split(' ')[0] ?? '';
+  return w.charAt(0).toUpperCase() + w.slice(1);
+};
+
+/** How a "looks done?" from another app reads: "you wrote to Dana in Microsoft Outlook about INV-2041". */
+const ELSEWHERE = /^you wrote to .+ in .+ about /;
+
+/** A "looks done?" made because you wrote to that person in another app (SCR-109): it only ever asks. */
+export function answeredElsewhere(place: string | null | undefined): boolean {
+  return !!place && ELSEWHERE.test(place);
+}
+
+/**
+ * Whether a message you sent may answer an ask of theirs in another app (SCR-109), and how to say so,
+ * or null. The same person, another app, after the ask, and the same concrete thing named (an id, a
+ * file, an amount, a link): a kind of action alone is never enough here.
+ */
+export function answerPlace(task: Known, yours: Seen): string | null {
+  if (!task.person || !samePerson(task.person, yours.person)) return null;
+  if (appOf(task.task.sourceRef) === yours.app) return null; // the same app is read as a reply there
+  if (yours.at.getTime() < Date.parse(task.task.createdAt)) return null;
+  const shared = sharedObjects(task.words, yours.text);
+  if (shared.length === 0) return null;
+  return `you wrote to ${firstOf(yours.person)} in ${yours.app} about ${shared.join(', ')}`;
+}
+
+/**
+ * A message you sent to one person (SCR-109): their open asks from another app that name the same
+ * thing show "looks done?". Never ticks: the auto-accept setting and trusted places skip these
+ * (`answeredElsewhere`). A place you said "not yet" to is not asked again. Returns how many it asked.
+ */
+export function noticeYourAnswer(store: Store, yours: Seen, now: Date): number {
+  let asked = 0;
+  for (const task of store.listTasks()) {
+    if (task.suggestion || task.criteria?.promise) continue;
+    if (!(task.criteria?.chat || task.sourceKind === 'email' || task.criteria?.external)) continue;
+    const place = answerPlace({ task, ...askerOf(store, task) }, yours);
+    if (!place || store.rejectedPlaces(task.id).has(place)) continue;
+    store.suggestDone(task.id, place, null, now);
+    asked++;
+  }
+  return asked;
+}
+
+const clock = (d: Date) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+
+/**
+ * Whether a message from someone may answer what you are waiting on from them in another app
+ * (SCR-109), and how to say so, or null: the same person, another app, after the ask, the same thing
+ * named. The waiting title is what was asked ("Waiting on Dana: invoice INV-2041").
+ */
+export function waitingHint(w: Waiting, theirs: Seen): string | null {
+  if (w.status !== 'waiting' || w.app === theirs.app) return null;
+  if (!samePerson(w.who, theirs.person)) return null;
+  if (theirs.at.getTime() <= Date.parse(w.askedAt)) return null;
+  const shared = sharedObjects(w.title, theirs.text);
+  if (shared.length === 0) return null;
+  return `${firstOf(theirs.person)} wrote in ${theirs.app} at ${clock(theirs.at)} about ${shared.join(', ')}`;
+}
+
+/** A message from one person (SCR-109): what you wait on from them elsewhere is marked "answered?", never closed. */
+export function noticeTheirAnswer(store: Store, theirs: Seen, now: Date): number {
+  let marked = 0;
+  for (const w of store.waitingItems()) {
+    if (w.hint) continue;
+    const why = waitingHint(w, theirs);
+    if (why && store.hintWaiting(w.id, why, now)) marked++;
+  }
+  return marked;
 }
