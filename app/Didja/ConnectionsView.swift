@@ -165,7 +165,7 @@ struct ConnectionsContent: View {
                     Image(systemName: "link").font(.system(size: 20)).foregroundStyle(Palette.accent)
                     Text("Connections").font(.title2.weight(.semibold))
                 }
-                Text("Bring in what is due in your task tools, and update them when Didja sees it done. This is the only thing Didja sends over the network, and only to the tools you connect here: it reads your items there and sends the change you set up below. What it reads from your screen never leaves your Mac.")
+                Text("Bring in what is due in your task tools, and update them when Didja sees it done. Apart from the daily update check (it carries only the app's version), this is the only thing Didja sends over the network, and only to the tools you connect here: it reads your items there and sends the change you set up below. What it reads from your screen never leaves your Mac.")
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                 if let working = model.working {

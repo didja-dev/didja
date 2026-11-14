@@ -2,6 +2,12 @@
 
 Choices made while building ScrolledAway, with the reason, so they are not re-argued or quietly undone. Newest first. Add one whenever a choice is made in conversation, in Linear, or in code review that the code alone would not explain.
 
+## 2026-11-14
+
+- **Apple Mail is described as not supported** (SCR-93): there is no Apple Mail profile and no code that reads its emails, so the docs say so, whatever an older issue's state says. The code is what the public text has to match.
+- **The site says banking is not excluded until it is** (SCR-93): the privacy card names only what is skipped today and points to the exclude list. When default exclusions for banking, health and payment pages ship (SCR-94), that card and the README line change with them.
+- **Private windows are described as "whose title says so"**: capture recognises them only by their window title (Private Browsing, Incognito, InPrivate), so the GUIDE does not promise more than that.
+
 ## 2026-11-13
 
 - **The first-run nudge waits for ten minutes and five readings, and ends for good** (SCR-89): one glance at a chat is not a try, and a note that keeps coming back after the first steps, or after you closed it, is noise. It counts readings of AI tool windows only (other apps never make it show), and it ends with the first task from any AI tool, even one you dismissed.

@@ -24,7 +24,9 @@ Already in place: Apple's on-device model (Foundation Models) decides whether a 
 
 Email is in place for Outlook for Mac, and for Gmail and Outlook on the web in a browser: an open email that asks something of you becomes a task named after the thing to do, and where an answer is wanted, your reply in that conversation asks you to confirm.
 
-Still to do: Apple Mail. That settles the open question below in favour of Apple's framework for now.
+Still to do: Apple Mail. There is no Apple Mail profile yet, so its emails do not become tasks.
+
+Also in place: a model in Ollama on this Mac, off by default, asked first for emails, "looks done?" and who a list is for, with Apple's model as the fallback.
 
 ## Milestone 5 — Privacy hardening
 
@@ -38,8 +40,7 @@ UI Automation + Windows.Media.Ocr capture writing the same observations schema; 
 
 ## Open questions
 
-- On-device model for fuzzy matching: Apple Foundation Models framework vs Ollama.
 - Optional integrations (Gmail, Linear) later, as confirmation signals only.
-- Shipping: `scripts/release.sh` makes a Developer ID signed, notarised disk image (SCR-19). Still to do: automatic updates, and a versioning routine for each release.
+- Shipping: `scripts/release.sh` makes a Developer ID signed, notarised disk image (SCR-19). Automatic updates are in place (Sparkle, SCR-33), and a tagged release builds, notarises and publishes itself.
 - Freemium: which features are paid, and how a licence is checked without the app phoning home.
 - Windows (Milestone 6) is deferred.

@@ -6,6 +6,14 @@ Each entry says what changed, and what was **not verified** where that applies: 
 
 ## 2026-11-14
 
+### Public claims checked against the code (SCR-93)
+- didja.dev no longer says banking is ignored: nothing banking-specific is excluded by default. The privacy card now says what is (password fields, password managers, private windows) and that you can add your bank or any app or site to the exclude list. "Only your task list stays" now also mentions the few lines kept beside each open task.
+- README: the same fixes, plus that Apple Mail is not supported yet and that, with Let My Own Claude Read Didja on, what your Claude reads (masked) goes to your AI provider.
+- GUIDE: "Status" says milestones 1 to 5 are built except Apple Mail (it said "Milestone 2 of 6"). Privacy: capture reads only the window in front, and Go to Source searches that app's windows only when you use it; private windows are recognised by their title; nothing else is excluded by default; what outlives the 24 hours is listed; the old line about a future "escalation call" is replaced by the actual network list (update check, Connections, Ollama at 127.0.0.1, your own Claude, and reports you send yourself).
+- ROADMAP: Apple Mail stays "still to do" (there is no Apple Mail profile, so its emails make no tasks); automatic updates and the Ollama model are marked in place; the settled Apple-vs-Ollama question is removed.
+- Connections window: its note no longer says connections are the only network traffic; it names the daily update check too.
+- **Not verified:** the site is not deployed by this change; it goes out with the next release. The new Connections line was not looked at in the live app.
+
 ### Docs keep reasons, not conversations
 - CHANGELOG, DECISIONS and a few code comments no longer quote the maintainer's words or retell how a case came up; each choice now states its reason in plain words. Real task numbers and real message wording quoted from the maintainer's own use were removed. CLAUDE.md now says conversations, and issue text written from them, are private input like screenshots. No behaviour changed.
 

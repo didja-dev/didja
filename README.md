@@ -17,7 +17,7 @@ Didja is a Mac menu bar app that notices those steps for you:
 - **Watch.** As you work, it looks for proof each step is done: the right variable on the right settings page, the command run in a terminal, the reply actually sent.
 - **Tick, or ask.** When it is sure, it ticks the step. When it isn't, it asks. A step left hanging gets one gentle reminder.
 
-It works in the apps you already use: Claude, Claude Code in a terminal, ChatGPT, Gemini, Copilot, Codex and other AI tools, Gmail, Outlook, WhatsApp, Teams, Slack and any browser tab. You can also connect Linear, Jira, Asana, Todoist or Notion.
+It works in the apps you already use: Claude, Claude Code in a terminal, ChatGPT, Gemini, Copilot, Codex and other AI tools, Gmail, Outlook, WhatsApp, Teams, Slack and any browser tab (Apple Mail is not supported yet). You can also connect Linear, Jira, Asana, Todoist or Notion.
 
 ![The Quick View, with sample data](docs/images/popover-sample.png)
 
@@ -37,11 +37,11 @@ It reads your screen, so it never sends any of it anywhere.
 
 - **On your Mac only.** Reading, matching and the language model (Apple's on-device model, or a model you run in Ollama if you turn that on) all run locally. No account, no cloud, no analytics.
 - **Text, never pixels.** It keeps short pieces of text. No screenshots or video are ever stored.
-- **Forgets in 24 hours.** Captured text is deleted after a day at most. Your task list stays.
-- **Skips the sensitive stuff.** Password fields, password managers, private windows and anything on your exclude list are never read.
+- **Forgets in 24 hours.** Captured text is deleted after a day at most. Your task list stays, with a few lines kept beside each open task (so you can see where it came from) until it is done.
+- **Skips the sensitive stuff.** Password fields, password managers, system password prompts, private browser windows and anything on your exclude list are never read. Add your bank or any other site to the exclude list; nothing else is excluded by default.
 - **Pause any time** from the menu bar or with ⌃⌥P.
 
-The only network traffic is the daily update check and, if you connect them, your task tools. **Settings › Privacy** in the app shows what is read, what is kept and where, with the live state of each. The full detail is in [docs/GUIDE.md](docs/GUIDE.md#privacy).
+The only network traffic is the daily update check (its version only) and, if you connect them, your task tools. If you turn on Let My Own Claude Read Didja, what your Claude reads (masked) goes to your AI provider. **Settings › Privacy** in the app shows what is read, what is kept and where, with the live state of each. The full detail is in [docs/GUIDE.md](docs/GUIDE.md#privacy).
 
 ## Build from source
 
