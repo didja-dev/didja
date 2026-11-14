@@ -13,6 +13,8 @@
 			</array>
 		</dict>
 	</array>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>Only if you choose it in a task's Snooze menu: Didja reads when your meetings start and end and who is in them, on this Mac, to offer snooze times like "after this meeting". It never stores or sends them, never reads event titles, and never changes your calendar.</string>
 	<key>NSRemindersFullAccessUsageDescription</key>
 	<string>Only if you turn on Apple Reminders in Connections: Didja writes new tasks to a list you choose, and ticks a task when you complete its reminder.</string>
 	<key>NSRemindersUsageDescription</key>

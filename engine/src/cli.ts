@@ -7,7 +7,8 @@ import { assistants, assistantsDir } from './assistants.ts';
 import { profiles, profilesDir } from './profiles.ts';
 import { canvasMarkdown, canvasText, parseCanvasLine } from './canvas.ts';
 import { doneAt, missedReport, rewordPlacesOnce, wordForPlace } from './missed.ts';
-import { enabled, places, readLog, serve } from './mcp.ts';
+import { enabled, places, readLog, serve, tasksEnabled } from './mcp.ts';
+import { calendarSnoozePlan, parseEvents } from './calsnooze.ts';
 import { hookFiles, hookInstalled, installHook, readShellLog, removeHook } from './shellhook.ts';
 import { agentHookInstalled, appendAgentEvent, HOOK_TOOLS, installAgentHook, parseHookEvent, readAgentEvents, removeAgentHook, TOOLS } from './agenthooks.ts';
 import type { HookTool } from './agenthooks.ts';
@@ -61,6 +62,7 @@ const USAGE = `didja <command>
   profiles [--json]   the app profiles (how each chat and email app is read) and the AI tools (profiles/assistants)
   mcp                 serve your own Claude over MCP (stdio), when turned on; see docs/AGENTS.md
   mcp on|off|status|log [--json]
+  mcp tasks [on|off]  let your own Claude read your open tasks (titles, read-only), off by default (SCR-120)
   shell-hook on|off|status [--json]
                       the opt-in shell hook: exact exit codes of the commands you run (SCR-87)
   agent-hooks on|off <claude-code|cursor|windsurf> | status [--json]
@@ -107,7 +109,8 @@ const USAGE = `didja <command>
   done-all <id>       mark done everything still open from the same conversation as task <id>
   quality [--days N] [--json]
                       how Didja is doing: tasks made, ticked for you, asked, answered, cleared (counts only, last 7 days by default)
-  snooze <id> [for]   hide a task for a while: 30m, 2h, 3d or tomorrow (default 1h)
+  snooze <id> [for]   hide a task for a while: 30m, 2h, 3d, tomorrow or at:<ISO time> (default 1h)
+  calendar-snooze     calendar events (JSON, stdin; times and attendee names only) → snooze options per open task (SCR-117)
   notyet <id>         a task marked "looks done?" is not done: keep it open
   dismiss <id>        dismiss a task (not a real to-do)
   connections [--json]  connected task tools (Linear) and how they are doing
@@ -185,8 +188,16 @@ export function formatObservation(o: Observation, full = false): string {
   return `${time}  ${where}  [${o.source}]${o.url ? `  ${o.url}` : ''}\n${body.join('\n')}`;
 }
 
-/** "30m", "2h", "3d" or "tomorrow" (9:00 the next morning). */
+/**
+ * "30m", "2h", "3d", "tomorrow" (9:00 the next morning), or "at:<ISO time>" for a time the engine
+ * worked out from the calendar (SCR-117): only a time ahead, within 30 days.
+ */
 export function parseSnooze(spec: string, now: Date = new Date()): Date | null {
+  if (spec.startsWith('at:')) {
+    const at = new Date(spec.slice(3));
+    if (Number.isNaN(at.getTime()) || at <= now || at.getTime() - now.getTime() > 30 * 86_400_000) return null;
+    return at;
+  }
   if (spec === 'tomorrow') {
     const next = new Date(now);
     next.setDate(next.getDate() + 1);
@@ -561,9 +572,20 @@ async function main(argv: string[]): Promise<number> {
           console.log(sub === 'on' ? 'Your Claude can read Didja over MCP (masked).' : 'Your Claude cannot read Didja.');
           return 0;
         }
+        if (sub === 'tasks') {
+          // Your open tasks for your own Claude (SCR-120): a switch of its own, off by default.
+          const to = args[1];
+          if (to !== 'on' && to !== 'off') {
+            console.log(tasksEnabled(store) ? 'on' : 'off');
+            return to === undefined ? 0 : 1;
+          }
+          store.setMeta('mcp_tasks', to);
+          console.log(to === 'on' ? 'Your Claude can read your open tasks over MCP (titles as they are).' : 'Your Claude cannot read your tasks.');
+          return 0;
+        }
         if (sub === 'status') {
           const log = readLog(p, 1000);
-          const status = { on: enabled(store), calls: log.length, last: log.at(-1)?.ts ?? null, shared: p.shared, drafts: p.drafts };
+          const status = { on: enabled(store), tasks: tasksEnabled(store), calls: log.length, last: log.at(-1)?.ts ?? null, shared: p.shared, drafts: p.drafts };
           console.log(args.includes('--json') ? JSON.stringify(status) : `${status.on ? 'On' : 'Off'}; ${status.calls} calls${status.last ? `, last ${status.last}` : ''}`);
           return 0;
         }
@@ -573,7 +595,7 @@ async function main(argv: string[]): Promise<number> {
           return 0;
         }
         if (sub !== undefined) {
-          console.error('usage: didja mcp [on|off|status|log]');
+          console.error('usage: didja mcp [on|off|tasks [on|off]|status|log]');
           return 1;
         }
         await serve(store, p);
@@ -1098,11 +1120,17 @@ async function main(argv: string[]): Promise<number> {
         }
         return 0;
       }
+      case 'calendar-snooze': {
+        // Read in memory, never stored: the events only decide which snooze times to offer.
+        const events = parseEvents(await new Response(Bun.stdin.stream()).text());
+        console.log(JSON.stringify(calendarSnoozePlan(store, events)));
+        return 0;
+      }
       case 'snooze': {
         const id = Number(args[0]);
         const until = parseSnooze(args[1] ?? '1h');
         if (!Number.isInteger(id) || !until) {
-          console.error('usage: didja snooze <id> [30m|2h|3d|tomorrow]');
+          console.error('usage: didja snooze <id> [30m|2h|3d|tomorrow|at:<ISO time>]');
           return 1;
         }
         if (!store.snooze(id, until)) {

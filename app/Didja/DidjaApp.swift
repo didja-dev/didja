@@ -168,6 +168,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         OwnClaude.addWhenDesktopQuitsIfAsked()
         // Unit tests are hosted in the app; they must not start capturing the screen.
         guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else { return }
+        // Calendar-aware snooze (SCR-117): reads the calendar only if access was granted before; asks nothing.
+        CalendarSnooze.shared.start()
         AppearanceSetting.saved.apply()
         engine.start()
         capture.onObservation = { [engine] in engine.wake() }

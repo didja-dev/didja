@@ -177,6 +177,8 @@ struct TaskRow: View {
     var board = TaskBoard()
     let actions: TaskActions
     @ObservedObject var navigator: TaskNavigator
+    /// Calendar-aware snooze (SCR-117): options only once Calendar access was granted from this menu.
+    @ObservedObject private var calendar = CalendarSnooze.shared
 
     @State private var hovering = false
     @FocusState private var nameFocused: Bool
@@ -463,6 +465,22 @@ struct TaskRow: View {
                     Button("For 1 Hour") { actions.snooze(item, "1h") }
                     Button("For 3 Hours") { actions.snooze(item, "3h") }
                     Button("Until Tomorrow") { actions.snooze(item, "tomorrow") }
+                    switch calendar.access {
+                    case .granted:
+                        let options = calendar.options(for: item.id)
+                        if !options.isEmpty { Divider() }
+                        ForEach(options, id: \.kind) { option in
+                            if let label = CalendarSnooze.label(option) {
+                                Button(label) { actions.snooze(item, CalendarSnooze.snoozeSpec(option)) }
+                            }
+                        }
+                    case .unasked:
+                        Divider()
+                        Button("Around My Meetings…") { calendar.askForAccess() }
+                            .help("Snooze until after a meeting, or before your next one with this person. Didja asks for Calendar access first.")
+                    case .refused:
+                        EmptyView()
+                    }
                 }
                 Button("Dismiss") { actions.dismiss(item) }
             } else {

@@ -4,6 +4,13 @@ Choices made while building ScrolledAway, with the reason, so they are not re-ar
 
 ## 2026-11-14
 
+- **Calendar snooze never sees event titles** (SCR-117): the times need only starts, ends and attendee names, so titles are not read into what the engine gets, which keeps the smallest amount of calendar text in play.
+- **"Before" a meeting is 15 minutes before it starts; "after" is when it ends** (SCR-117): a task meant for a meeting should be in front of you before it, and one put off by a meeting should come back as soon as you are out. Overlapping meetings: after the last of the ones you are in.
+- **"With them" matches only a whole name, or a first name alone** (SCR-117): a wrong match only snoozes to the wrong time, but a loose rule ("Sam" in "Samantha") would make that common. The person is taken only from a chat's name; email notes and AI steps have no person here, the conservative reading until a sender can be read without guessing.
+- **Options with no meeting to go by are hidden, not shown greyed out; refused access shows nothing** (SCR-117): the menu stays as short as it was for people who do not use this. Look-ahead: a day for "my next meeting", two weeks for "with them".
+- **Release builds carry one entitlement, the calendar one, for both calendar snooze and Reminders** (SCR-117, SCR-121): EventKit needs it under the hardened runtime; the maintainer chose to add it. Nothing else is entitled.
+- **Your tasks for your own Claude sit behind a second switch, apart from the masked diagnostics** (SCR-120): turning on help with app profiles should not also send task titles to an AI provider. Read-only, open and snoozed tasks only, and the only "why" is the engine's capture reason, because an email task's note keeps its sender and subject. The maintainer chose to widen the `didja mcp` exception for this.
+
 - **Apple Reminders is a new exception, off by default, with the iCloud sentence at the switch** (SCR-121): Didja makes no connection for it (EventKit, on this Mac), but Reminders syncs through iCloud for most people, so titles can leave the Mac. What goes there is the engine-written title and a link; who asked only when ticked; never kept lines or evidence.
 - **Only tasks captured after it is turned on go to Reminders** (SCR-121), at most 25 a minute: turning it on does not copy the whole list out at once, and the conservative reading of "new tasks" sends the least off the Mac.
 - **Ticking and dismissing here both complete the reminder; nothing deletes one** (SCR-121): deleting your reminder would be a surprise, and a dismissed task has no business staying open in Reminders.

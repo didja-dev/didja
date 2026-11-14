@@ -62,7 +62,8 @@ NAME="Didja-$VERSION-$BUILDNO"
 
 log "Signing with \"$SIGN_AS\" and the hardened runtime"
 # Inside out: the engine first, with the entitlements a JavaScript engine needs, then the app.
-# The app gets no entitlements: in particular not get-task-allow, which notarisation refuses.
+# The app gets only scripts/app.entitlements (EventKit, for Reminders and calendar snooze);
+# never get-task-allow, which notarisation refuses.
 codesign --force --timestamp --options runtime --sign "$IDENTITY" \
   --entitlements "$ROOT/scripts/engine.entitlements" "$APP/Contents/Helpers/didja"
 # Sparkle's helpers, inside out, as Sparkle documents for Developer ID (the downloader keeps its entitlements).
@@ -74,7 +75,8 @@ if [[ -d "$SPARKLE" ]]; then
   codesign --force --timestamp --options runtime --sign "$IDENTITY" "$SPARKLE/Versions/B/Updater.app"
   codesign --force --timestamp --options runtime --sign "$IDENTITY" "$SPARKLE"
 fi
-codesign --force --timestamp --options runtime --sign "$IDENTITY" "$APP"
+codesign --force --timestamp --options runtime --sign "$IDENTITY" \
+  --entitlements "$ROOT/scripts/app.entitlements" "$APP"
 codesign --verify --deep --strict --verbose=2 "$APP"
 
 log "Checking the signed engine still runs"
