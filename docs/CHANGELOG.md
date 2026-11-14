@@ -6,6 +6,14 @@ Each entry says what changed, and what was **not verified** where that applies: 
 
 ## 2026-11-14
 
+### Benchmark: tick precision first, owner errors, held-out apps (SCR-103)
+- `bun bench/run.ts` now leads with **tick precision** (right ticks over all ticks Didja made), apart from recall; also in each tool family's row.
+- New measure, **owner errors**: a task given to the wrong person (someone else's on your list, an ask you sent on your list as your task, one of yours filed under Waiting on). Scenarios can label `theirs`, `waiting` and a task's `due` day. The run, `bun test` and CI fail on any owner error, as on a wrong tick.
+- `--held-out` runs each tool, chat and mail family again without its own profile (and `done-target` without the done catalogue) and prints the drop; any wrong tick or owner error there fails too. CI runs it.
+- Three new scenarios (105 in all): an ask you sent in a direct chat, a group ask that names someone else next to one for anyone, a promise with a day. Two existing ones now label the other person's part as theirs.
+- Numbers, no model: tick precision 100% (33 right, 0 wrong); owner errors 0; asks you sent in Waiting on 2 of 2; due days 2 of 2. Held out, recall falls to 0% for every AI tool family except Cursor (67%) and for messaging; no wrong tick or owner error.
+- Not verified: with Apple's model or Ollama (run by hand; not run here). The owner threshold is 0 because there are none today.
+
 ### Every model answer checked field by field; answer types kept flat (SCR-102)
 - One module, `engine/src/validate.ts`, checks each field a model answers before the engine uses it: the list owner, "looks done?", your chat reply, an email's need, a chat ask, a title, done criteria, and who asked in an email. A field that does not pass becomes the answer that does the least ("unsure", which asks; no verdict; or the field left out), never one that ticks. New: a name the model gives as the email's asker is kept only when the email shows it, so a made-up name never reaches a title or a note.
 - Audit: the app's `@Generable` answer types were already flat (text, booleans, lists of text, string enums); a test now reads the Swift source and fails if one gains a nested type.

@@ -22,9 +22,9 @@ jobs:
           bun install --frozen-lockfile
           bun test
           bunx tsc --noEmit
-      - name: End-to-end benchmark, no model (any wrong tick fails)
+      - name: End-to-end benchmark, no model, with each family held out (any wrong tick or owner error fails)
         working-directory: engine
-        run: bun bench/run.ts --model none
+        run: bun bench/run.ts --model none --held-out
 
   changes:
     runs-on: ubuntu-latest

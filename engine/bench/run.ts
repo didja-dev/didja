@@ -2,7 +2,7 @@
  * The end-to-end benchmark (SCR-64): replays made-up sessions through the engine with a fake
  * clock and measures what became a task and what got ticked, against labels written by hand.
  *
- *   bun bench/run.ts [--model none|apple|ollama:<name>] [--only <scenario id>] [--verbose]
+ *   bun bench/run.ts [--model none|apple|ollama:<name>] [--only <scenario id>] [--verbose] [--held-out]
  *
  * `none` (the default) asks no model: deterministic, and what CI runs. `apple` asks Apple's
  * on-device model through the app's binary (DIDJA_JUDGE, or the Debug build); `ollama:<name>`
@@ -20,7 +20,9 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { findChatReader, findCriteriaWriter, findJudge, findLooker, findMailReader, findReplyJudge, findTitler } from '../src/cli.ts';
-import { assistantFor } from '../src/assistants.ts';
+import { assistantFor, assistants, useAssistants } from '../src/assistants.ts';
+import { catalogue, useCatalogue } from '../src/done.ts';
+import { profileFor, profiles, useProfiles } from '../src/profiles.ts';
 import { pollOnce } from '../src/engine.ts';
 import type { PollOptions } from '../src/engine.ts';
 import { SPEED_KINDS, SPEED_TARGET_MS, percentiles, seconds, speedKind } from '../src/quality.ts';
@@ -65,9 +67,16 @@ export interface Scenario {
   expect: {
     /** Tasks that should exist: every word appears in the title (any case). `done` is when and where
      * it was really done, or null when it never was. */
-    tasks: { words: string[]; done: { at: number; where: string } | null }[];
+    tasks: { words: string[]; done: { at: number; where: string } | null; due?: string }[];
     /** Tasks that must not exist, by the same words rule. */
     none: string[][];
+    /**
+     * Someone else's to do (SCR-103): an ask to a group that does not name you, what another person
+     * promised. One on your list is an owner error, not only an unwanted task.
+     */
+    theirs?: string[][];
+    /** Asks you sent (SCR-99): they belong in Waiting on. One on your list as your task is an owner error. */
+    waiting?: string[][];
   };
 }
 
@@ -79,8 +88,20 @@ export interface ScenarioResult {
   expected: number;
   captured: number;
   matched: number;
-  /** Captured tasks still on the list at the end that match a "must not exist" label. */
+  /** Captured tasks still on the list at the end that match a "must not exist" label (or are someone else's). */
   unwanted: string[];
+  /**
+   * Tasks given to the wrong person (SCR-103): someone else's on your list ("theirs: …"), an ask you
+   * sent on your list as your task ("sent: …"), or one of yours filed under Waiting on ("yours: …").
+   */
+  ownerErrors: string[];
+  /** Asks you sent that should be waited on, and how many of them are in Waiting on at the end. */
+  waitingExpected: number;
+  waitingFound: number;
+  /** Labelled due days (SCR-97): how many tasks carry one, how many got that day, and the ones that got another. */
+  dueExpected: number;
+  dueRight: number;
+  dueWrong: string[];
   /** Tasks the engine made and then took back (dismissed, with why), which left the list (SCR-85). */
   takenBack: string[];
   /** Steps Didja added itself after one was done (SCR-86: "Redeploy on Vercel…"); not captured, so not counted as made. */
@@ -198,9 +219,12 @@ export function runScenario(s: Scenario, opts: PollOptions = {}, model: ModelCho
     .map((t) => ({ what: speedKind(t), ms: Math.max(0, Date.parse(t.shownAt) - Date.parse(t.seenAt!)) }));
   const suggestedAsks = store.suggestions().map((x) => x.title);
   const whys = store.listTasks({ all: true }).map((t) => t.capturedWhy ?? null);
+  const waiting = store.waitingItems({ all: true }).map((w) => w.title);
   store.close();
   const result: ScenarioResult = {
     id: s.id, family: s.family, recognised: recognisedIn(s), expected: s.expect.tasks.length, captured: tasks.length, matched: 0, unwanted: [],
+    ownerErrors: [], waitingExpected: (s.expect.waiting ?? []).length, waitingFound: 0,
+    dueExpected: s.expect.tasks.filter((t) => t.due).length, dueRight: 0, dueWrong: [],
     takenBack: everything.filter((t) => t.status === 'dismissed').map((t) => t.title),
     followUps,
     ticked: 0, suggested: 0, missed: 0, wrongTicks: [], wrongSuggestions: [], suggestedAsks, whys, latencies: [], titles: tasks.map((t) => t.title), speeds,
@@ -210,10 +234,17 @@ export function runScenario(s: Scenario, opts: PollOptions = {}, model: ModelCho
     const task = tasks.find((t) => !taken.has(t.id) && matches(t.title, want.words));
     if (!task) {
       if (want.done) result.missed++;
+      // Yours, but filed as an ask you are waiting on someone else for.
+      const filed = waiting.find((w) => matches(w, want.words));
+      if (filed) result.ownerErrors.push(`yours: ${filed}`);
       continue;
     }
     taken.add(task.id);
     result.matched++;
+    if (want.due) {
+      if (task.dueAt === want.due) result.dueRight++;
+      else result.dueWrong.push(`${task.title} (${task.dueAt ?? 'no date'}, want ${want.due})`);
+    }
     const ticked = tickedAt.get(task.id);
     const suggested = suggestedAt.get(task.id);
     const doneAt = want.done?.at ?? null;
@@ -232,7 +263,10 @@ export function runScenario(s: Scenario, opts: PollOptions = {}, model: ModelCho
   }
   for (const task of tasks) {
     if (s.expect.none.some((words) => matches(task.title, words))) result.unwanted.push(task.title);
+    if ((s.expect.theirs ?? []).some((words) => matches(task.title, words))) result.ownerErrors.push(`theirs: ${task.title}`);
+    if ((s.expect.waiting ?? []).some((words) => matches(task.title, words))) result.ownerErrors.push(`sent: ${task.title}`);
   }
+  for (const words of s.expect.waiting ?? []) if (waiting.some((w) => matches(w, words))) result.waitingFound++;
   // A task that should not exist and got ticked anyway is a wrong tick too, even if later taken back.
   for (const task of everything) {
     if (!taken.has(task.id) && tickedAt.has(task.id) && s.expect.none.some((words) => matches(task.title, words))) {
@@ -286,6 +320,16 @@ export interface Totals {
   missed: number;
   wrongTicks: number;
   wrongSuggestions: number;
+  /**
+   * The headline (SCR-103): of the ticks Didja made, the share that were right (ticked when or after
+   * it was done). Null when nothing was ticked. Agreement with the labels is recall; this is apart.
+   */
+  tickPrecision: number | null;
+  ownerErrors: number;
+  waitingExpected: number;
+  waitingFound: number;
+  dueExpected: number;
+  dueRight: number;
   medianMinutes: number | null;
   /** Simulated speed per kind of event (SCR-75), and the paths that need no model but took over 3 s. */
   speed: { what: SpeedKind; ms: Percentiles }[];
@@ -304,6 +348,10 @@ export function totals(results: ScenarioResult[], scenarios: Scenario[]): Totals
     done: scenarios.reduce((n, s) => n + s.expect.tasks.filter((t) => t.done).length, 0),
     ticked: sum((r) => r.ticked), suggested: sum((r) => r.suggested), missed: sum((r) => r.missed),
     wrongTicks: sum((r) => r.wrongTicks.length), wrongSuggestions: sum((r) => r.wrongSuggestions.length),
+    tickPrecision: tickPrecision(sum((r) => r.ticked), sum((r) => r.wrongTicks.length)),
+    ownerErrors: sum((r) => r.ownerErrors.length),
+    waitingExpected: sum((r) => r.waitingExpected), waitingFound: sum((r) => r.waitingFound),
+    dueExpected: sum((r) => r.dueExpected), dueRight: sum((r) => r.dueRight),
     medianMinutes: latencies.length ? latencies[Math.floor(latencies.length / 2)]! : null,
     speed: SPEED_KINDS.map((what) => ({ what, ms: percentiles(results.flatMap((r) => r.speeds.filter((x) => x.what === what).map((x) => x.ms))) }))
       .filter((x) => x.ms.n > 0),
@@ -313,6 +361,22 @@ export function totals(results: ScenarioResult[], scenarios: Scenario[]): Totals
 }
 
 const pct = (x: number | null) => (x === null ? '—' : `${Math.round(x * 100)}%`);
+
+/** Right ticks over all ticks; null when there were none. A wrong tick of a task never done counts too. */
+export function tickPrecision(right: number, wrong: number): number | null {
+  return right + wrong ? right / (right + wrong) : null;
+}
+
+/**
+ * How many owner errors the benchmark allows before it fails (SCR-103): none. A task given to the
+ * wrong person is a wrong task on your list, so it is held to the wrong-tick standard.
+ */
+export const OWNER_ERROR_LIMIT = 0;
+
+/** The headline line (SCR-103), first in the report and in CI's output. */
+export function headline(t: Totals): string {
+  return `Tick precision: ${pct(t.tickPrecision)} (${t.ticked} right ticks, ${t.wrongTicks} wrong). Owner errors: ${t.ownerErrors}.`;
+}
 
 /** The totals per tool family (SCR-82), in `FAMILIES` order, only the families that have scenarios. */
 export function byFamily(results: ScenarioResult[], scenarios: Scenario[]): { family: Family; t: Totals; seen: { seen: number; of: number } | null }[] {
@@ -325,18 +389,18 @@ export function byFamily(results: ScenarioResult[], scenarios: Scenario[]): { fa
 
 /** One row per tool family: how many tasks it should make, how many it found, and what got ticked. */
 export function familyTable(rows: { family: Family; t: Totals; seen: { seen: number; of: number } | null }[]): string {
-  const head = ['family', 'scen', 'recognised', 'want', 'right', 'recall', 'got', 'precision', 'unwanted', 'done', 'ticked', 'asked', 'missed', 'WRONG tick', 'wrong ask'];
+  const head = ['family', 'scen', 'recognised', 'want', 'right', 'recall', 'got', 'precision', 'unwanted', 'done', 'ticked', 'asked', 'missed', 'WRONG tick', 'wrong ask', 'tick prec', 'owner'];
   const cells = rows.map(({ family, t, seen }) => [family, t.scenarios, seen ? `${seen.seen}/${seen.of}` : '—', t.expected, t.matched, pct(t.recall), t.captured, pct(t.precision),
-    t.unwanted, t.done, t.ticked, t.suggested, t.missed, t.wrongTicks, t.wrongSuggestions].map(String));
+    t.unwanted, t.done, t.ticked, t.suggested, t.missed, t.wrongTicks, t.wrongSuggestions, pct(t.tickPrecision), t.ownerErrors].map(String));
   const widths = head.map((h, i) => Math.max(h.length, ...cells.map((r) => r[i]!.length)));
   const line = (c: string[]) => c.map((x, i) => (i === 0 ? x.padEnd(widths[i]!) : x.padStart(widths[i]!))).join('  ');
   return [line(head), widths.map((w) => '-'.repeat(w)).join('  '), ...cells.map(line)].join('\n');
 }
 
 export function table(results: ScenarioResult[], t: Totals, verbose = false): string {
-  const head = ['scenario', 'want', 'got', 'right', 'unwanted', 'ticked', 'asked', 'missed', 'WRONG tick', 'wrong ask'];
+  const head = ['scenario', 'want', 'got', 'right', 'unwanted', 'ticked', 'asked', 'missed', 'WRONG tick', 'wrong ask', 'owner'];
   const rows = results.map((r) => [r.id, r.expected, r.captured, r.matched, r.unwanted.length, r.ticked, r.suggested, r.missed,
-    r.wrongTicks.length, r.wrongSuggestions.length].map(String));
+    r.wrongTicks.length, r.wrongSuggestions.length, r.ownerErrors.length].map(String));
   const widths = head.map((h, i) => Math.max(h.length, ...rows.map((r) => r[i]!.length)));
   const line = (cells: string[]) => cells.map((c, i) => (i === 0 ? c.padEnd(widths[i]!) : c.padStart(widths[i]!))).join('  ');
   const out = [line(head), widths.map((w) => '-'.repeat(w)).join('  '), ...rows.map(line)];
@@ -348,17 +412,103 @@ export function table(results: ScenarioResult[], t: Totals, verbose = false): st
       if (r.followUps.length) out.push(`  follow-ups added: ${r.followUps.join(' | ')}`);
       if (r.wrongTicks.length) out.push(`  WRONG TICK: ${r.wrongTicks.join(' | ')}`);
       if (r.wrongSuggestions.length) out.push(`  wrong ask: ${r.wrongSuggestions.join(' | ')}`);
+      if (r.ownerErrors.length) out.push(`  OWNER: ${r.ownerErrors.join(' | ')}`);
+      if (r.dueWrong.length) out.push(`  due: ${r.dueWrong.join(' | ')}`);
     }
   }
   out.push(
     '',
     `Capture: ${t.matched} of ${t.expected} tasks found (recall ${pct(t.recall)}); ${t.captured} made, ${t.matched} right (precision ${pct(t.precision)}); ${t.unwanted} that must not exist.`,
     `Done: ${t.done} really done: ${t.ticked} ticked, ${t.suggested} asked, ${t.missed} missed. Wrong ticks: ${t.wrongTicks}. Wrong asks: ${t.wrongSuggestions}.`,
+    `Owner: ${t.ownerErrors} given to the wrong person; asks you sent in Waiting on: ${t.waitingFound} of ${t.waitingExpected}. Due dates: ${t.dueRight} of ${t.dueExpected} right.`,
     `Time from done to ticked or asked: median ${t.medianMinutes === null ? '—' : `${t.medianMinutes} min`}.`,
     `Speed (simulated, engine's share): ${t.speed.length ? t.speed.map((x) => `${x.what} ${x.ms.n}× ${seconds(x.ms.p50)} / ${seconds(x.ms.p90)}`).join('; ') : 'nothing timed'}.`,
     `Over 3 s without a model: ${t.slow.length}${t.slow.length ? ` (${t.slow.map((x) => `${x.id} ${x.what} ${seconds(x.ms)}`).join(', ')})` : ''}.`,
   );
   return out.join('\n');
+}
+
+/**
+ * What was written for a family (SCR-103): an AI tool's assistant profiles, the app profiles of the
+ * mail and chat windows, or the done catalogue for `done-target`. A family across tools (`first-day`)
+ * or with nothing of its own (a document, notes) has none and is left out of the held-out run.
+ */
+export interface HeldOut {
+  apps: string[];
+  tools: string[];
+  catalogue: boolean;
+}
+
+export function heldOutFor(family: Family, own: Scenario[]): HeldOut {
+  // An AI tool's family holds out that tool; where a step is done holds out the catalogue only; a
+  // mail or chat family holds out the app profiles its windows are read with.
+  const tools = FAMILY_TOOLS[family];
+  if (tools) return { apps: [], tools: [...tools].sort(), catalogue: false };
+  if (family === 'done-target') return { apps: [], tools: [], catalogue: true };
+  if (family !== 'email' && family !== 'messaging') return { apps: [], tools: [], catalogue: false };
+  const apps = new Set<string>();
+  for (const step of own.flatMap((s) => s.steps)) {
+    const app = profileFor({ bundleId: step.bundle, url: step.url ?? null });
+    if (app) apps.add(app.id);
+  }
+  return { apps: [...apps].sort(), tools: [], catalogue: false };
+}
+
+export interface HeldOutRow {
+  family: Family;
+  held: HeldOut;
+  with: Totals;
+  without: Totals;
+}
+
+/**
+ * The held-out-app run (SCR-103): each family's scenarios again, with what was written for that
+ * family (its app and assistant profiles, and for `done-target` the done catalogue) left out, as
+ * if the app were new to Didja. The drop shows how much the family leans on its own profile; a
+ * wrong tick or owner error without it is still a failure. A family read with nothing of its own
+ * (a plain document, notes) is left out of the run.
+ */
+export function heldOutRun(scenarios: Scenario[], opts: PollOptions = {}, model: ModelChoice = 'none'): HeldOutRow[] {
+  const allApps = profiles();
+  const allTools = assistants();
+  const allPlaces = catalogue();
+  const rows: HeldOutRow[] = [];
+  try {
+    for (const family of FAMILIES) {
+      const own = scenarios.filter((s) => s.family === family);
+      if (!own.length) continue;
+      const held = heldOutFor(family, own);
+      if (!held.apps.length && !held.tools.length && !held.catalogue) continue;
+      const withResults = own.map((s) => runScenario(s, opts, model));
+      useProfiles(allApps.filter((p) => !held.apps.includes(p.id)));
+      useAssistants(allTools.filter((a) => !held.tools.includes(a.id)));
+      useCatalogue(held.catalogue ? [] : allPlaces);
+      const withoutResults = own.map((s) => runScenario(s, opts, model));
+      useProfiles(allApps);
+      useAssistants(allTools);
+      useCatalogue(allPlaces);
+      rows.push({ family, held, with: totals(withResults, own), without: totals(withoutResults, own) });
+    }
+  } finally {
+    useProfiles(allApps);
+    useAssistants(allTools);
+    useCatalogue(allPlaces);
+  }
+  return rows;
+}
+
+const change = (a: number | null, b: number | null) => (a === null || b === null ? '—' : `${pct(a)} → ${pct(b)}`);
+
+export function heldOutTable(rows: HeldOutRow[]): string {
+  const head = ['family', 'held out', 'recall', 'precision', 'ticked', 'tick prec', 'WRONG tick', 'owner'];
+  const cells = rows.map(({ family, held, with: w, without: o }) => [
+    family, [...held.apps, ...held.tools, ...(held.catalogue ? ['done catalogue'] : [])].join(', '),
+    change(w.recall, o.recall), change(w.precision, o.precision), `${w.ticked} → ${o.ticked}`,
+    change(w.tickPrecision, o.tickPrecision), String(o.wrongTicks), String(o.ownerErrors),
+  ]);
+  const widths = head.map((h, i) => Math.max(h.length, ...cells.map((r) => r[i]!.length)));
+  const line = (c: string[]) => c.map((x, i) => (i <= 1 ? x.padEnd(widths[i]!) : x.padStart(widths[i]!))).join('  ');
+  return [line(head), widths.map((w) => '-'.repeat(w)).join('  '), ...cells.map(line)].join('\n');
 }
 
 if (import.meta.main) {
@@ -381,11 +531,23 @@ if (import.meta.main) {
   }
   const results = scenarios.map((s) => runScenario(s, opts, model));
   const t = totals(results, scenarios);
-  console.log(`Didja benchmark — model: ${model}, ${t.scenarios} scenarios\n`);
+  console.log(`Didja benchmark — model: ${model}, ${t.scenarios} scenarios`);
+  console.log(`${headline(t)}\n`);
   console.log(table(results, t, args.includes('--verbose')));
   console.log(`\nBy tool:\n${familyTable(byFamily(results, scenarios))}`);
+  const held = args.includes('--held-out') ? heldOutRun(scenarios, opts, model) : [];
+  if (held.length) console.log(`\nHeld out (each family without its own profiles):\n${heldOutTable(held)}`);
   if (t.wrongTicks > 0) {
     console.error(`\n${t.wrongTicks} wrong tick(s): see --verbose.`);
+    process.exit(1);
+  }
+  if (t.ownerErrors > OWNER_ERROR_LIMIT) {
+    console.error(`\n${t.ownerErrors} task(s) given to the wrong person (limit ${OWNER_ERROR_LIMIT}): see --verbose.`);
+    process.exit(1);
+  }
+  const heldWrong = held.filter((r) => r.without.wrongTicks > 0 || r.without.ownerErrors > OWNER_ERROR_LIMIT);
+  if (heldWrong.length) {
+    console.error(`\nWithout their own profiles, ${heldWrong.map((r) => r.family).join(', ')} tick wrongly or give tasks to the wrong person.`);
     process.exit(1);
   }
   if (t.slow.length > 0) {

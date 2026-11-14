@@ -4,6 +4,11 @@ Choices made while building ScrolledAway, with the reason, so they are not re-ar
 
 ## 2026-11-14
 
+- **Owner errors are held to the wrong-tick standard: the benchmark allows none** (SCR-103). A task given to the wrong person is a wrong task on your list; with none in the corpus today, any new one should stop the change, not be averaged away. The limit is one constant (`OWNER_ERROR_LIMIT`) if a model run ever needs another.
+- **Held out means what was written for that family, nothing more**: an AI tool family loses its own assistant profile, messaging and email lose the app profiles of their windows, `done-target` loses the done catalogue. Holding out every profile a scenario touches (a chat open beside Claude, say) would measure something else. A family across tools (`first-day`) or with nothing of its own is left out.
+- **The held-out run fails only on wrong ticks and owner errors, not on the drop.** Without its profile a tool makes no tasks at all, which is the safe side; the drop is reported for reading, not gated.
+- **Tick precision counts a tick as right when it came at or after the labelled done time**; a tick of a task never done, or one that must not exist, is wrong. It is null (shown "—") when nothing was ticked.
+
 - **Model answers are checked in the engine, not the app** (SCR-102): the engine owns every rule about tasks, and checking at one place covers Apple's model, the local model and the judge server alike. A failed field becomes the answer that does the least, never one that ticks.
 - **A name counts as on screen when its first word is in what the model was shown, as a whole word.** The rest of a signature ("Tamar - Finance") is still completed by `signedName` from the email; a name not shown at all is left out rather than guessed.
 - **No flattening was needed**: the audit found every `@Generable` type already flat; the test keeps it so.

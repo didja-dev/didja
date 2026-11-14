@@ -1,7 +1,10 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'bun:test';
-import { byFamily, FAMILIES, FAMILY_TOOLS, familyTable, loadScenarios, recognition, runScenario, SCENARIOS, table, totals } from '../bench/run.ts';
+import { byFamily, FAMILIES, FAMILY_TOOLS, familyTable, headline, heldOutFor, heldOutRun, heldOutTable, loadScenarios, OWNER_ERROR_LIMIT, recognition, runScenario, SCENARIOS, table, tickPrecision, totals } from '../bench/run.ts';
+import { assistants } from '../src/assistants.ts';
+import { catalogue } from '../src/done.ts';
+import { profiles } from '../src/profiles.ts';
 import type { Scenario } from '../bench/run.ts';
 
 const scenarios = loadScenarios();
@@ -118,3 +121,85 @@ test('the runner counts a missing task, and one that must not exist', () => {
   // Ticked, and it should never have existed: a wrong tick too.
   expect(r.wrongTicks).toEqual(['Check it — run `curl ipinfo.io`']);
 });
+
+// --- SCR-103: owner errors, tick precision, held-out apps -------------------------------------------
+
+const byId = (id: string) => structuredClone(scenarios.find((s) => s.id === id)!);
+
+test('tick precision is right ticks over all ticks, and none when nothing was ticked (SCR-103)', () => {
+  expect(tickPrecision(0, 0)).toBeNull();
+  expect(tickPrecision(9, 1)).toBe(0.9);
+  expect(tickPrecision(3, 0)).toBe(1);
+  expect(tickPrecision(0, 2)).toBe(0);
+});
+
+test('the headline leads with tick precision and owner errors (SCR-103)', () => {
+  const results = scenarios.slice(0, 3).map((s) => runScenario(s));
+  const t = totals(results, scenarios.slice(0, 3));
+  expect(headline(t)).toMatch(/^Tick precision: (\d+%|—) \(\d+ right ticks, \d+ wrong\)\. Owner errors: \d+\.$/);
+});
+
+test('someone else\'s task on your list is an owner error (SCR-103)', () => {
+  // Your own promise relabelled as someone else's: the task Didja makes is now the wrong person's.
+  const s = byId('whatsapp-group-promise-to-someone');
+  s.expect.tasks = [];
+  s.expect.theirs = [['slides']];
+  const r = runScenario(s);
+  expect(r.ownerErrors).toEqual([expect.stringMatching(/^theirs: .*slides/)]);
+  expect(totals([r], [s]).ownerErrors).toBe(1);
+});
+
+test('an ask you sent on your list, or your task filed as Waiting on, is an owner error (SCR-103)', () => {
+  // The invoice ask relabelled as yours: Didja files it under Waiting on, the wrong person.
+  const yours = byId('whatsapp-direct-ask-you-sent');
+  yours.expect.waiting = [];
+  yours.expect.tasks = [{ words: ['invoice'], done: null }];
+  expect(runScenario(yours).ownerErrors).toEqual([expect.stringMatching(/^yours: Waiting on Sam: .*invoice/)]);
+  // Your promise relabelled as an ask you sent: on your list as your task, the wrong person.
+  const sent = byId('whatsapp-promise-with-a-day');
+  sent.expect.tasks = [];
+  sent.expect.waiting = [['budget']];
+  const r = runScenario(sent);
+  expect(r.ownerErrors).toEqual([expect.stringMatching(/^sent: .*budget/)]);
+  expect(r.waitingFound).toBe(0);
+});
+
+test('asks you sent land in Waiting on, and labelled due days are checked (SCR-103)', () => {
+  const r = runScenario(byId('whatsapp-group-ask-naming-someone'));
+  expect(r).toMatchObject({ captured: 0, ownerErrors: [], waitingExpected: 1, waitingFound: 1 });
+  const due = byId('whatsapp-promise-with-a-day');
+  expect(runScenario(due)).toMatchObject({ dueExpected: 1, dueRight: 1, dueWrong: [] });
+  due.expect.tasks[0]!.due = '2026-11-17';
+  expect(runScenario(due).dueWrong).toEqual([expect.stringContaining('2026-11-16, want 2026-11-17')]);
+});
+
+test('the corpus labels owners: someone else\'s asks, asks you sent and due days, with no owner error (SCR-103)', () => {
+  expect(scenarios.filter((s) => s.expect.theirs?.length).length).toBeGreaterThanOrEqual(3);
+  expect(scenarios.filter((s) => s.expect.waiting?.length).length).toBeGreaterThanOrEqual(2);
+  expect(scenarios.filter((s) => s.expect.tasks.some((t) => t.due)).length).toBeGreaterThanOrEqual(2);
+  const results = scenarios.map((s) => runScenario(s));
+  const t = totals(results, scenarios);
+  expect(results.flatMap((r) => r.ownerErrors)).toEqual([]);
+  expect(t.ownerErrors).toBeLessThanOrEqual(OWNER_ERROR_LIMIT);
+  expect(t.tickPrecision).toBe(1);
+  expect(t.waitingFound).toBe(t.waitingExpected);
+  expect(t.dueRight).toBe(t.dueExpected);
+}, BENCH_MS);
+
+test('each family holds out only what was written for it (SCR-103)', () => {
+  const of = (f: (typeof FAMILIES)[number]) => heldOutFor(f, scenarios.filter((s) => s.family === f));
+  expect(of('chatgpt')).toEqual({ apps: [], tools: ['chatgpt'], catalogue: false });
+  expect(of('done-target')).toEqual({ apps: [], tools: [], catalogue: true });
+  expect(of('messaging').apps).toContain('whatsapp');
+  expect(of('first-day')).toEqual({ apps: [], tools: [], catalogue: false });
+});
+
+test('without its own profiles a family ticks nothing wrongly, and the profiles come back after (SCR-103)', () => {
+  const before = [profiles(), assistants(), catalogue()];
+  const some = scenarios.filter((s) => ['cursor', 'messaging', 'done-target', 'notes'].includes(s.family));
+  const rows = heldOutRun(some);
+  expect(rows.map((r) => r.family)).toEqual(['cursor', 'messaging', 'done-target']);
+  for (const r of rows) expect({ family: r.family, wrong: r.without.wrongTicks, owner: r.without.ownerErrors }).toEqual({ family: r.family, wrong: 0, owner: 0 });
+  [profiles(), assistants(), catalogue()].forEach((list, i) => expect(list).toBe(before[i]!));
+  expect(heldOutTable(rows)).toContain('done catalogue');
+}, BENCH_MS);

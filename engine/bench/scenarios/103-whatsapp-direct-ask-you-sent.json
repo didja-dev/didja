@@ -1,0 +1,37 @@
+{
+  "id": "whatsapp-direct-ask-you-sent",
+  "about": "You ask Sam for the invoice in a direct chat; Sam answers later. Yours to wait on, never your task.",
+  "family": "messaging",
+  "start": "2026-11-11T09:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "WhatsApp",
+      "bundle": "net.whatsapp.WhatsApp",
+      "title": "Sam Carter",
+      "text": [
+        "⟦Chat message: Sam Carter (direct) — from me — Today at 9:00⟧",
+        "Could you send me the invoice for October?"
+      ]
+    },
+    {
+      "at": 30,
+      "app": "WhatsApp",
+      "bundle": "net.whatsapp.WhatsApp",
+      "title": "Sam Carter",
+      "text": [
+        "⟦Chat message: Sam Carter (direct) — from Sam Carter — Today at 9:30⟧",
+        "Sure, sending it now"
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [],
+    "none": [],
+    "waiting": [
+      [
+        "invoice"
+      ]
+    ]
+  }
+}

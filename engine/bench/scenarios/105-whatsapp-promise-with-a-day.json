@@ -1,0 +1,33 @@
+{
+  "id": "whatsapp-promise-with-a-day",
+  "about": "You promise Dana the budget by Monday: your task, due that Monday, never ticked by itself.",
+  "family": "messaging",
+  "start": "2026-11-11T09:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "WhatsApp",
+      "bundle": "net.whatsapp.WhatsApp",
+      "title": "Dana Levi",
+      "text": [
+        "⟦Chat message: Dana Levi (direct) — from Dana Levi — Today at 9:00⟧",
+        "Any news on the budget?",
+        "⟦Chat message: Dana Levi (direct) — from me — Today at 9:02⟧",
+        "I'll send you the budget by Monday"
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [
+      {
+        "words": [
+          "said you'd",
+          "budget"
+        ],
+        "done": null,
+        "due": "2026-11-16"
+      }
+    ],
+    "none": []
+  }
+}
