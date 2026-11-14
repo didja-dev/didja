@@ -26,6 +26,12 @@ export interface Week {
   /** The first and last local days covered, "YYYY-MM-DD": the last seven days, today included. */
   from: string;
   to: string;
+  /**
+   * Set when outcomes have been recorded only since a time after `from` (the first version that
+   * recorded them, or Forget Everything Didja Learned): nothing finished before it is shown,
+   * since how it ended is not known.
+   */
+  countedSince: string | null;
   totals: Record<WeekKind, number>;
   /** Newest day first; days with nothing in them are left out. Items in each day by source, then time. */
   days: { day: string; items: WeekItem[] }[];
@@ -56,7 +62,10 @@ export function kindOf(task: Pick<Task, 'status' | 'isGroup'>, last: Outcome | n
 export function buildWeek(store: Store, now: Date = new Date()): Week {
   const first = startOfDay(now);
   first.setDate(first.getDate() - 6);
-  const since = first.toISOString();
+  // How a task ended is known only from the outcomes recorded since `outcomes_since`.
+  const recorded = store.getMeta('outcomes_since');
+  const countedSince = recorded && recorded > first.toISOString() ? recorded : null;
+  const since = countedSince ?? first.toISOString();
   const items: WeekItem[] = [];
   for (const t of store.listTasks({ all: true })) {
     if (t.status !== 'done' && t.status !== 'dismissed') continue;
@@ -69,7 +78,8 @@ export function buildWeek(store: Store, now: Date = new Date()): Week {
     items.push({ id: t.id, kind, title: t.title, source: t.sourceRef, at });
   }
   for (const w of store.waitingItems({ all: true })) {
-    if (w.status !== 'answered' || !w.closedAt || w.closedAt < since) continue;
+    // A Waiting On row says itself when it was answered, so it needs no recorded outcome.
+    if (w.status !== 'answered' || !w.closedAt || w.closedAt < first.toISOString()) continue;
     items.push({ id: w.id, kind: 'answered', title: w.title, source: `${w.app} — ${w.place}`, at: w.closedAt });
   }
   const totals: Record<WeekKind, number> = { byYou: 0, ticked: 0, answered: 0, dismissed: 0 };
@@ -82,13 +92,19 @@ export function buildWeek(store: Store, now: Date = new Date()): Week {
   const days = [...byDay.entries()]
     .sort(([a], [b]) => b.localeCompare(a))
     .map(([day, list]) => ({ day, items: list.sort((a, b) => a.source.localeCompare(b.source) || a.at.localeCompare(b.at) || a.id - b.id) }));
-  return { from: dayOf(first), to: dayOf(now), totals, days };
+  return { from: dayOf(first), to: dayOf(now), countedSince, totals, days };
 }
 
 /** "Fri 13 Nov" for "2026-11-13". */
 export function dayLabel(day: string): string {
   const [y, m, d] = day.split('-').map(Number);
   return new Date(y!, m! - 1, d!).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+}
+
+/** "13 Nov at 03:56", local time. */
+export function countedLabel(iso: string): string {
+  const d = new Date(iso);
+  return `${d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} at ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
 /** "12 done by you · 5 ticked by Didja · 2 answered · 1 dismissed": every kind, zeros too. */
@@ -99,6 +115,7 @@ export function totalsLine(week: Week): string {
 /** The week as Markdown, for notes or a weekly update: headings and bullets, nothing else. */
 export function weekMarkdown(week: Week): string {
   const parts = [`## Your week · ${week.from} – ${week.to}`, totalsLine(week)];
+  if (week.countedSince) parts.push(`Counted since ${countedLabel(week.countedSince)}: how tasks ended was not recorded before then.`);
   if (week.days.length === 0) parts.push('Nothing finished this week yet.');
   for (const { day, items } of week.days) {
     parts.push(`### ${dayLabel(day)}`);

@@ -25,6 +25,8 @@ struct WeekSummary: Decodable, Equatable {
 
     var from: String
     var to: String
+    /// Set when how tasks ended was recorded only from a later time than `from`; nothing before it is shown.
+    var countedSince: String?
     var totals: [String: Int]
     var days: [Day]
 
@@ -34,6 +36,18 @@ struct WeekSummary: Decodable, Equatable {
     /// "3 done by you · 2 ticked by Didja · 1 answered · 0 dismissed", as the engine's Markdown says it.
     var totalsLine: String {
         Self.kinds.map { "\(totals[$0] ?? 0) \(Self.words[$0] ?? $0)" }.joined(separator: " · ")
+    }
+
+    /// "Counted since 13 Nov at 03:56: …", or nil when the whole week is counted.
+    var countedNote: String? {
+        guard let countedSince else { return nil }
+        let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        guard let date = iso.date(from: countedSince) else { return nil }
+        let show = DateFormatter()
+        show.locale = Locale(identifier: "en_GB")
+        show.dateFormat = "d MMM 'at' HH:mm"
+        return "Counted since \(show.string(from: date)): how tasks ended was not recorded before then."
     }
 
     /// "Fri 13 Nov" for "2026-11-13".
@@ -138,6 +152,9 @@ struct WeekContent: View {
         VStack(alignment: .leading, spacing: 16) {
             if let week {
                 Text(week.totalsLine).font(.callout).foregroundStyle(.secondary)
+                if let note = week.countedNote {
+                    Text(note).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                }
                 if week.days.isEmpty {
                     Text("Nothing finished in the last seven days yet.").foregroundStyle(.secondary)
                 }

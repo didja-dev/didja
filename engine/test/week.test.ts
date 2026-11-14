@@ -8,8 +8,15 @@ import { buildWeek, dayLabel, kindOf, setWeekNudge, weekDue, weekMarkdown, weekN
 const FRIDAY = new Date(2026, 10, 13, 17, 0);
 const at = (daysBack: number, hour = 10) => new Date(2026, 10, 13 - daysBack, hour, 0);
 
-function seeded(): { store: Store; ids: Record<string, number> } {
+/** A store whose outcomes were recorded from well before the week (a new one records from now). */
+function fresh(): Store {
   const store = new Store(':memory:');
+  store.setMeta('outcomes_since', new Date(2026, 0, 1).toISOString());
+  return store;
+}
+
+function seeded(): { store: Store; ids: Record<string, number> } {
+  const store = fresh();
   const make = (title: string, daysBack: number) => addManualTask(store, title, at(daysBack, 9))!;
   const ids = {
     byYou: make('Send Noa the Acme deck', 0),
@@ -78,7 +85,7 @@ test('Markdown: totals, then days, by source; titles and outcomes only', () => {
 });
 
 test('an empty week says so', () => {
-  const store = new Store(':memory:');
+  const store = fresh();
   const md = weekMarkdown(buildWeek(store, FRIDAY));
   expect(md).toContain('0 done by you · 0 ticked by Didja · 0 answered · 0 dismissed');
   expect(md).toContain('Nothing finished this week yet.');
@@ -109,5 +116,22 @@ test('the Friday reminder is off by default, and once on comes once, on Friday f
   expect(weekDue(store, new Date(2026, 10, 20, 16, 30))).toBe(true); // next Friday
   setWeekNudge(store, false);
   expect(weekDue(store, new Date(2026, 10, 20, 16, 30))).toBe(false);
+  store.close();
+});
+
+test('nothing finished before outcomes were recorded is shown, since how it ended is not known', () => {
+  const { store } = seeded();
+  // Outcomes recorded only since Thursday 12:00 (say, after Forget Everything Didja Learned).
+  const since = new Date(2026, 10, 12, 12, 0);
+  store.setMeta('outcomes_since', since.toISOString());
+  const week = buildWeek(store, FRIDAY);
+  expect(week.countedSince).toBe(since.toISOString());
+  const titles = week.days.flatMap((d) => d.items.map((i) => i.title)).sort();
+  // Thursday morning's tick and Wednesday's dismissal are before it; the Waiting On answer carries its own time.
+  expect(titles).toEqual(['Send Noa the Acme deck', 'Waiting on Sam: the floor plan']);
+  expect(weekMarkdown(week)).toContain('Counted since 12 Nov at 12:00: how tasks ended was not recorded before then.');
+  // With outcomes from before the week, nothing is said.
+  store.setMeta('outcomes_since', new Date(2026, 0, 1).toISOString());
+  expect(buildWeek(store, FRIDAY).countedSince).toBeNull();
   store.close();
 });

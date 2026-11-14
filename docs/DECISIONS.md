@@ -5,6 +5,7 @@ Choices made while building ScrolledAway, with the reason, so they are not re-ar
 ## 2026-11-14
 
 - **This Week is the last seven days, not the calendar week** (SCR-116): on any day it shows a full week, and on Friday afternoon (the reminder) it covers Saturday to Friday. One rule, no locale's first day of the week to pick.
+- **A task finished before outcomes were recorded is left out, not guessed** (SCR-116): before `outcomes_since` (the first version recording them, or Forget Everything Didja Learned) Didja cannot tell your tick from its own or a Fresh Start, and calling them all "done by you" would be a wrong label. The week says from when it counts, as How Didja Is Doing does.
 - **Fresh Start is not "finished"** (SCR-116): it clears a list without saying anything was done, so those tasks are left out of the week rather than counted as done by you.
 - **"Answered" only shows Waiting On rows still kept** (SCR-116): closed rows are deleted after a day (SCR-99), and keeping them longer for this would keep more of who you wrote to. So answered asks show for a day or so; a chat or email task ticked by a reply counts under ticked by Didja anyway.
 - **The Friday reminder has its own switch and does not depend on checklist reminders** (SCR-116), off by default; a missed Friday is not made up on Saturday. Its notification opens the Quick View like the others and says where This Week is, rather than adding a new way to open the Full View from a notification.

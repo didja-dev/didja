@@ -26,6 +26,14 @@ final class WeekTests: XCTestCase {
         // A task and a Waiting On row with the same number are still two rows.
         XCTAssertNotEqual(week.days[0].items[1].key, WeekSummary.Item(id: 1, kind: "byYou", title: "", source: "", at: "").key)
         XCTAssertNil(WeekSummary.decode("not json"))
+        XCTAssertNil(week.countedNote)
+        var counted = week
+        var parts = DateComponents()
+        parts.year = 2026; parts.month = 11; parts.day = 12; parts.hour = 12
+        let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        counted.countedSince = iso.string(from: Calendar.current.date(from: parts)!)
+        XCTAssertEqual(counted.countedNote, "Counted since 12 Nov at 12:00: how tasks ended was not recorded before then.")
     }
 
     func testDaysAndFileName() throws {
