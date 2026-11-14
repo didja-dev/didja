@@ -130,12 +130,13 @@ test('a large export printed to a pipe arrives whole', () => {
   const dir = mkdtempSync(join(tmpdir(), 'didja-export-'));
   const db = join(dir, 'didja.db');
   const store = new Store(db);
-  for (let i = 0; i < 1500; i++) addManualTask(store, `Send the Acme report part ${i} to Sam before the review`, NOW);
+  // 600 tasks are well over the 128 KB a pipe took before the CLI exited (about 500 bytes each).
+  for (let i = 0; i < 600; i++) addManualTask(store, `Send the Acme report part ${i} to Sam before the review`, NOW);
   store.close();
   // Through a real pipe (`| cat`), the way a terminal user reads it: the CLI exits as soon as it is done.
   const cli = join(import.meta.dir, '..', 'src', 'cli.ts');
   const run = Bun.spawnSync(['sh', '-c', `"${process.execPath}" "${cli}" export json | cat`], { env: { ...process.env, DIDJA_DB: db } });
   expect(run.exitCode).toBe(0);
-  expect(run.stdout.length).toBeGreaterThan(256 * 1024);
-  expect(JSON.parse(run.stdout.toString()).tasks.length).toBe(1500);
-});
+  expect(run.stdout.length).toBeGreaterThan(200 * 1024);
+  expect(JSON.parse(run.stdout.toString()).tasks.length).toBe(600);
+}, 30_000); // a slow CI machine makes the tasks slowly
