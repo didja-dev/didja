@@ -1010,6 +1010,9 @@ struct TasksWindowView: View {
     var showPanel: () -> Void = {}
     /// Close this window (SCR-36).
     var close: () -> Void = {}
+    /// This Week (SCR-116) is open in place of the list, and what it shows (nil while it loads).
+    @State private var showsWeek = false
+    @State private var week: WeekSummary?
 
     var body: some View {
         let board = capture.tasks
@@ -1018,6 +1021,9 @@ struct TasksWindowView: View {
             Divider()
             if let page = settings.page {
                 SettingsPageView(page: page, hub: settings, capture: capture)
+                    .frame(minWidth: 380, maxWidth: .infinity, maxHeight: .infinity)
+            } else if showsWeek {
+                WeekView(week: week, copy: WeekEngine.copy, save: { if let week { WeekEngine.save(week) } })
                     .frame(minWidth: 380, maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 tasks(board)
@@ -1084,9 +1090,19 @@ struct TasksWindowView: View {
                 .accessibilityLabel("Didja")
             heading("Tasks", top: 0)
             ForEach(TaskBoard.Filter.allCases) { filter in
-                sidebarRow(filter.rawValue, count: board.count(filter), selected: settings.page == nil && navigator.filter == filter) {
+                sidebarRow(filter.rawValue, count: board.count(filter), selected: settings.page == nil && !showsWeek && navigator.filter == filter) {
                     settings.page = nil
+                    showsWeek = false
                     navigator.filter = filter
+                }
+            }
+            sidebarRow("This Week", symbol: "calendar", count: nil, selected: settings.page == nil && showsWeek) {
+                settings.page = nil
+                showsWeek = true
+                week = nil
+                DispatchQueue.global(qos: .userInitiated).async {
+                    let loaded = WeekEngine.load()
+                    DispatchQueue.main.async { week = loaded }
                 }
             }
             Text("Sources")
@@ -1097,14 +1113,16 @@ struct TasksWindowView: View {
                 .padding(.bottom, 2)
             ScrollView {
                 VStack(alignment: .leading, spacing: 2) {
-                    sidebarRow("Everything", count: nil, selected: settings.page == nil && navigator.sourceFilter == nil) {
+                    sidebarRow("Everything", count: nil, selected: settings.page == nil && !showsWeek && navigator.sourceFilter == nil) {
                         settings.page = nil
+                        showsWeek = false
                         navigator.sourceFilter = nil
                     }
                     ForEach(board.sections(navigator.filter)) { section in
                         sidebarRow(section.source, count: section.entries.count,
-                                   selected: settings.page == nil && navigator.sourceFilter == section.source) {
+                                   selected: settings.page == nil && !showsWeek && navigator.sourceFilter == section.source) {
                             settings.page = nil
+                            showsWeek = false
                             navigator.sourceFilter = section.source
                         }
                     }

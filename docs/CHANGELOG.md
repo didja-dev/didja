@@ -6,6 +6,11 @@ Each entry says what changed, and what was **not verified** where that applies: 
 
 ## 2026-11-14
 
+### This Week: what you finished in the last seven days (SCR-116)
+- New: **This Week** in the Full View's sidebar: done by you, ticked by Didja, asks of yours answered, and dismissed, by day (newest first) and source, with totals. Titles and outcomes only. **Copy as Markdown** and **Save…** (`.md`). **Remind me of my week on Fridays** in Settings › General › Tasks: one notification on Friday from 16:00, off by default. `didja week [--json|--markdown] | due [--take] | nudge [on|off]`.
+- Tests: `engine/test/week.test.ts` (7): the four kinds in range and not open tasks, Fresh Start or older ones; by day and source; reading changes nothing; Markdown; an empty week; a checklist counts as steps and a dismissal only when you dismissed it; the reminder is off by default and comes once on Friday from 16:00, never made up on Saturday. `WeekTests` (3): reading the engine's JSON, day labels and file name, and a render (`$TMPDIR/didja-ui/week.png`, `week-dark.png`).
+- Not verified: choosing This Week in the running app, Copy and Save there, and the Friday notification arriving (it is Saturday here).
+
 ### Copy leads with ticking, then text only (SCR-115)
 - The README's opening, didja.dev's hero line, its meta description and the Welcome window's first line now say first that Didja ticks a step off when it sees you do it, then that it reads text on your Mac and stores no screenshots. The README's three points are now "Ticks it off when you do it", "Text only, on your Mac, no screenshots" (naming the optional OCR fallback, frames in memory only) and "Catches what you'd lose". The hero's small print adds "text only, no screenshots".
 - Tests: `engine/test/positioning.test.ts` (4): the order in the hero, description, README and Welcome; the claims match GUIDE and ARCHITECTURE.

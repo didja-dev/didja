@@ -38,6 +38,7 @@ import type { CriteriaWriter, DoneCriteria } from './donecriteria.ts';
 import { JOBS, Store } from './store.ts';
 import { formatQuality, qualityReport } from './quality.ts';
 import { exportJson, exportMarkdown, exportTasks } from './export.ts';
+import { buildWeek, setWeekNudge, weekDue, weekMarkdown, weekNudgeOn } from './week.ts';
 import { requiredMarkers } from './markers.ts';
 import type { Evidence, Job, Observation, Task, TaskNode, TaskStatus } from './store.ts';
 
@@ -79,6 +80,7 @@ const USAGE = `didja <command>
                       delete captured text; or everything Didja learned (and its logs); or the last hour's
                       text and log lines; --tasks also deletes tasks captured from the screen (SCR-104)
   review              Day Review (SCR-100): [evening|morning] [--json|--markdown] | due | time <evening|morning> <HH:MM|off> | undo <id>
+  week                what you finished in the last 7 days (SCR-116): [--json|--markdown] | due [--take] | nudge [on|off]
   waiting             asks you sent that wait for an answer (SCR-99): [--json] | gotit <id> | stop <id> | why <id> | quiet [--chat <hours>] [--email <days>]
   why <id>            what would tick a task, and what has been seen so far
   place <id>          where a task was captured (JSON), for "Go to Source"
@@ -752,6 +754,30 @@ async function main(argv: string[]): Promise<number> {
         }
         const review = buildReview(store, kind);
         console.log(args.includes('--json') ? JSON.stringify(review) : reviewMarkdown(review));
+        return 0;
+      }
+      case 'week': {
+        // week [--json|--markdown] | due [--take] | nudge [on|off]   (SCR-116)
+        const [action, ...rest] = args;
+        if (action === 'due') {
+          console.log(JSON.stringify({ due: weekDue(store, new Date(), rest.includes('--take')) }));
+          return 0;
+        }
+        if (action === 'nudge') {
+          if (rest[0] === 'on' || rest[0] === 'off') setWeekNudge(store, rest[0] === 'on');
+          else if (rest[0] !== undefined) {
+            console.error('usage: didja week nudge [on|off]');
+            return 1;
+          }
+          console.log(JSON.stringify({ on: weekNudgeOn(store) }));
+          return 0;
+        }
+        if (action !== undefined && !action.startsWith('--')) {
+          console.error('usage: didja week [--json|--markdown] | due [--take] | nudge [on|off]');
+          return 1;
+        }
+        const week = buildWeek(store);
+        console.log(args.includes('--json') ? JSON.stringify(week) : weekMarkdown(week));
         return 0;
       }
       case 'waiting': {

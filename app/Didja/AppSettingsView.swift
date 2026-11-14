@@ -117,6 +117,8 @@ struct GeneralSettingsView: View {
     @State private var quality: QualityReport?
     /// Export All Tasks (SCR-114): add the lines kept with open tasks. Off each time the page opens.
     @State private var exportWithContext = false
+    /// The Friday reminder of the week (SCR-116), read when the page opens; off by default.
+    @State private var weekNudge = false
 
     /// What the local model does, and how it stands on this Mac.
     private var localWords: String {
@@ -239,6 +241,19 @@ struct GeneralSettingsView: View {
                     reviewPicker("Morning", choices: DayReviewEngine.morningChoices, current: reviewTimes.morning) { time in
                         reviewTimes.morning = time
                         DispatchQueue.global(qos: .userInitiated).async { DayReviewEngine.setTime("morning", time) }
+                    }
+                }
+                row("Remind me of my week on Fridays", "One notification on Friday from 16:00: what you finished this week, in the Full View under This Week. Off by default.") {
+                    Toggle("", isOn: Binding(get: { weekNudge }, set: { on in
+                        weekNudge = on
+                        DispatchQueue.global(qos: .userInitiated).async { WeekEngine.setNudge(on) }
+                    }))
+                    .toggleStyle(.switch).labelsHidden()
+                    .onAppear {
+                        DispatchQueue.global(qos: .userInitiated).async {
+                            let on = WeekEngine.nudgeOn()
+                            DispatchQueue.main.async { weekNudge = on }
+                        }
                     }
                 }
                 row("Export all tasks", "Every task to a file you keep, in Markdown or JSON: its title, status, where it came from, dates and why. Tick the box to add the few lines kept with open tasks (screen text). Nothing is sent.") {

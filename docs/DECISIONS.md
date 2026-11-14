@@ -4,6 +4,11 @@ Choices made while building ScrolledAway, with the reason, so they are not re-ar
 
 ## 2026-11-14
 
+- **This Week is the last seven days, not the calendar week** (SCR-116): on any day it shows a full week, and on Friday afternoon (the reminder) it covers Saturday to Friday. One rule, no locale's first day of the week to pick.
+- **Fresh Start is not "finished"** (SCR-116): it clears a list without saying anything was done, so those tasks are left out of the week rather than counted as done by you.
+- **"Answered" only shows Waiting On rows still kept** (SCR-116): closed rows are deleted after a day (SCR-99), and keeping them longer for this would keep more of who you wrote to. So answered asks show for a day or so; a chat or email task ticked by a reply counts under ticked by Didja anyway.
+- **The Friday reminder has its own switch and does not depend on checklist reminders** (SCR-116), off by default; a missed Friday is not made up on Saturday. Its notification opens the Quick View like the others and says where This Week is, rather than adding a new way to open the Full View from a notification.
+- **This Week sits in the Full View's sidebar, not the Quick View** (SCR-116): it is something you look back at, not a list to work through; the Quick View keeps the Day Review.
 - **Ticking leads, "text only" comes second, catching third** (SCR-115), in the README, the hero, the description and the Welcome window: catching to-dos is what many tools do; ticking them from what is on screen, and doing it from text on the Mac, are what Didja is for. The headline ("Ten tabs, four Claude sessions, one forgotten step.") stays: it names the problem, not the feature.
 - **"Text only, no screenshots", not "Accessibility only"** (SCR-115): the optional OCR fallback reads a frame of a window that hides its text, in memory, so "Accessibility only" would not be true. The README names the fallback in the same point.
 - **No "the only app that…" claims** (SCR-115): they cannot be checked and age badly; the comparison page (SCR-113) shows the differences with sources instead.

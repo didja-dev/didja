@@ -47,6 +47,8 @@ final class Nudger: NSObject, UNUserNotificationCenterDelegate {
     }
 
     private func check() {
+        // The Friday reminder of the week (SCR-116) has its own switch, so it comes even with checklist reminders off.
+        DispatchQueue.global(qos: .utility).async { Self.remindOfWeek() }
         guard Self.isEnabled else { return }
         DispatchQueue.global(qos: .utility).async {
             Self.remindOfReview()
@@ -71,6 +73,18 @@ final class Nudger: NSObject, UNUserNotificationCenterDelegate {
         kind == "morning"
             ? ("Morning list", "Due today, overdue, and who you are waiting on.")
             : ("Day Review", "What Didja ticked for you today, and what is left.")
+    }
+
+    /// The week, once on Friday from 16:00 when turned on (SCR-116). The engine marks it given.
+    private static func remindOfWeek() {
+        guard WeekEngine.due(take: true) else { return }
+        let content = UNMutableNotificationContent()
+        content.title = WeekEngine.reminder.title
+        content.body = WeekEngine.reminder.body
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert]) { granted, _ in
+            guard granted else { return }
+            UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: "week", content: content, trigger: nil))
+        }
     }
 
     private static func remindOfReview() {

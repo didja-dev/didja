@@ -1283,6 +1283,11 @@ export class Store {
   }
 
   /** The step's newest outcome, if any. */
+  /** The last outcome recorded for a task, with when it was recorded (SCR-116). */
+  lastOutcomeAt(taskId: number): { outcome: Outcome; ts: string } | null {
+    return this.db.query('SELECT outcome, ts FROM outcomes WHERE task_id = ? ORDER BY id DESC LIMIT 1').get(taskId) as { outcome: Outcome; ts: string } | null;
+  }
+
   lastOutcome(taskId: number): Outcome | null {
     const row = this.db.query('SELECT outcome FROM outcomes WHERE task_id = ? ORDER BY id DESC LIMIT 1').get(taskId) as { outcome: Outcome } | null;
     return row?.outcome ?? null;
