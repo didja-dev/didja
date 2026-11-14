@@ -13,9 +13,13 @@ final class Nudger: NSObject, UNUserNotificationCenterDelegate {
         var total: Int
         /// Set when the reminder is for the day a task falls due (SCR-97).
         var due: String? = nil
+        /// Set (to when you asked) when the reminder is for an ask you sent that has no answer yet (SCR-99).
+        var waiting: String? = nil
 
-        var heading: String { "Didja finish that? \(title)" }
+        var heading: String { waiting != nil ? "No reply yet · \(title)" : "Didja finish that? \(title)" }
+        var identifier: String { waiting != nil ? "waiting-\(id)" : "nudge-\(id)" }
         var detail: String {
+            if waiting != nil { return "You asked in \(source)" }
             if due != nil { return "Due today · \(source)" }
             return total > 1 ? "\(left) of \(total) steps left · \(source)" : source
         }
@@ -54,7 +58,7 @@ final class Nudger: NSObject, UNUserNotificationCenterDelegate {
                     let content = UNMutableNotificationContent()
                     content.title = nudge.heading
                     content.body = nudge.detail
-                    center.add(UNNotificationRequest(identifier: "nudge-\(nudge.id)", content: content, trigger: nil))
+                    center.add(UNNotificationRequest(identifier: nudge.identifier, content: content, trigger: nil))
                 }
             }
         }

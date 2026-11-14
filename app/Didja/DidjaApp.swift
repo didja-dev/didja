@@ -523,6 +523,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             add: { title in change(["add", title]) },
             acceptSuggestion: { s in change(["suggested", "accept", String(s.id)]) },
             dismissSuggestion: { s in change(["suggested", "notanaction", String(s.id)]) },
+            gotIt: { w in change(["waiting", "gotit", String(w.id)]) },
+            stopWaiting: { w in change(["waiting", "stop", String(w.id)]) },
             context: { item in
                 EngineRunner.output(["context", String(item.id)])
                     .flatMap { try? JSONDecoder().decode(TaskContext.self, from: Data($0.utf8)) }

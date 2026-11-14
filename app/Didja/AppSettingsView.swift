@@ -98,6 +98,7 @@ struct GeneralSettingsView: View {
     @State private var launchAtLogin = LoginItem.isEnabled
     @State private var appearance = AppearanceSetting.saved
     @State private var nudges = Nudger.isEnabled
+    @State private var waitingQuiet = WaitingQuiet.Status(chatHours: 24, emailDays: 2)
     @ObservedObject private var updates = Updates.shared
     @StateObject private var hotKey = HotKeyRecording()
     @State private var ocrOn = OCRCapture.isEnabled
@@ -195,6 +196,26 @@ struct GeneralSettingsView: View {
                 row("Remind me about unfinished checklists", "A notification when a checklist has sat untouched for hours, and once on the day a task falls due.") {
                     Toggle("", isOn: Binding(get: { nudges }, set: { nudges = $0; Nudger.isEnabled = $0 }))
                         .toggleStyle(.switch).labelsHidden()
+                }
+                row("Waiting On: remind me when there is no reply", "An ask you sent (\"Can you send me…?\") waits for that person's answer under Waiting On, quietly, then reminds you once if they have not answered in that chat or email conversation. Their reply closes it; nothing is ticked.") {
+                    Picker("Chat", selection: Binding(get: { waitingQuiet.chatHours }, set: { hours in
+                        waitingQuiet.chatHours = hours
+                        DispatchQueue.global(qos: .userInitiated).async { WaitingQuiet.set(chatHours: hours) }
+                    })) {
+                        ForEach(Array(Set(WaitingQuiet.chatChoices + [waitingQuiet.chatHours])).sorted(), id: \.self) { Text("Chats: \(WaitingQuiet.chatLabel($0))").tag($0) }
+                    }.labelsHidden().fixedSize()
+                    Picker("Email", selection: Binding(get: { waitingQuiet.emailDays }, set: { days in
+                        waitingQuiet.emailDays = days
+                        DispatchQueue.global(qos: .userInitiated).async { WaitingQuiet.set(emailDays: days) }
+                    })) {
+                        ForEach(Array(Set(WaitingQuiet.emailChoices + [waitingQuiet.emailDays])).sorted(), id: \.self) { Text("Email: \(WaitingQuiet.emailLabel($0))").tag($0) }
+                    }.labelsHidden().fixedSize()
+                }
+                .onAppear {
+                    DispatchQueue.global(qos: .userInitiated).async {
+                        let status = WaitingQuiet.status()
+                        DispatchQueue.main.async { waitingQuiet = status }
+                    }
                 }
             }
 

@@ -36,6 +36,9 @@ struct TaskActions {
     /// The Suggested tray (SCR-95): make a suggestion a task, or teach that it was not an action.
     var acceptSuggestion: (SuggestedAsk) -> Void = { _ in }
     var dismissSuggestion: (SuggestedAsk) -> Void = { _ in }
+    /// Waiting On (SCR-99): they answered (Got it), or stop waiting. Neither ticks anything.
+    var gotIt: (WaitingItem) -> Void = { _ in }
+    var stopWaiting: (WaitingItem) -> Void = { _ in }
     /// How it looked where it was captured, while it is open (SCR-31). Nil when not kept.
     var context: (TaskItem) -> TaskContext? = { _ in nil }
     /// The canvases there are, and sending tasks to one (nil: a new one) (SCR-49).
@@ -612,6 +615,9 @@ struct PopoverTaskList: View {
     /// The Suggested tray (SCR-95), folded under the list. Empty unless Capture is Everything.
     var suggestions: [SuggestedAsk] = []
     @State private var showsSuggestions = false
+    /// Waiting On (SCR-99), folded under the list: asks you sent. Not tasks.
+    var waiting: [WaitingItem] = []
+    @State private var showsWaiting = false
 
     var body: some View {
         let narrowed = !TaskBoard.needle(query).isEmpty
@@ -622,6 +628,9 @@ struct PopoverTaskList: View {
                          allowsTickAll: !narrowed)
             if !suggestions.isEmpty && !narrowed {
                 SuggestedTray(suggestions: suggestions, expanded: $showsSuggestions, actions: actions)
+            }
+            if !waiting.isEmpty && !narrowed {
+                WaitingTray(items: waiting, expanded: $showsWaiting, actions: actions)
             }
             let done = board.recentlyDone(matching: query)
             if !done.isEmpty {
@@ -698,6 +707,61 @@ struct SuggestedTray: View {
                             .foregroundStyle(.secondary)
                             .help("Not an Action: take it away, and never suggest it again")
                             .accessibilityLabel("Not an Action")
+                    }
+                    .padding(.leading, 13)
+                }
+            }
+        }
+    }
+}
+
+/// Waiting On (SCR-99): folded, with a count. Asks you sent, until that person answers. Never
+/// ticked and never counted as yours; past its quiet time a row says "no reply yet".
+struct WaitingTray: View {
+    let items: [WaitingItem]
+    @Binding var expanded: Bool
+    let actions: TaskActions
+    var now = Date()
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Button { expanded.toggle() } label: {
+                HStack(spacing: 5) {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 8, weight: .bold))
+                        .rotationEffect(.degrees(expanded ? 90 : 0))
+                    Text("Waiting On").font(.caption.weight(.medium))
+                    Text("\(items.count)").font(.caption).monospacedDigit()
+                    let late = items.filter { $0.overdue(now: now) }.count
+                    if late > 0 {
+                        Text("· \(late) no reply yet").font(.caption).foregroundStyle(Palette.accent)
+                    }
+                }
+                .foregroundStyle(.secondary)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help(expanded ? "Fold away" : "Asks you sent. Each closes when that person answers there.")
+            if expanded {
+                ForEach(items) { w in
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(w.title).font(.callout).lineLimit(2)
+                            HStack(spacing: 4) {
+                                Text("\(w.source) · \(w.asked(now: now))").lineLimit(1).truncationMode(.middle)
+                                if w.overdue(now: now) { Text("· no reply yet").foregroundStyle(Palette.accent) }
+                            }
+                            .font(.caption).foregroundStyle(.secondary)
+                        }
+                        Spacer(minLength: 6)
+                        Button("Got it") { actions.gotIt(w) }
+                            .buttonStyle(DidjaButtonStyle(kind: .secondary, size: .small))
+                            .help("They answered: stop waiting")
+                        Button { actions.stopWaiting(w) } label: { Image(systemName: "xmark") }
+                            .buttonStyle(.plain)
+                            .foregroundStyle(.secondary)
+                            .help("Stop waiting on this")
+                            .accessibilityLabel("Stop waiting")
                     }
                     .padding(.leading, 13)
                 }
@@ -836,7 +900,7 @@ struct PopoverView: View {
             KeyboardScrollView(navigator: navigator) {
                 PopoverTaskList(board: capture.tasks, actions: actions, navigator: navigator,
                                 toggleRecentlyDone: { capture.showsRecentlyDone.toggle() }, query: navigator.query,
-                                suggestions: capture.suggestions)
+                                suggestions: capture.suggestions, waiting: capture.waiting)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 8)
                     .background(GeometryReader { proxy in
