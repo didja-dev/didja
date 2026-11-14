@@ -47,6 +47,18 @@ final class CaptureLevelTests: XCTestCase {
         XCTAssertFalse(Judge.chatPrompt(for: named).contains("It names no one"), "Balanced asks are worded as before")
     }
 
+    /// SCR-96: a row's hover text is the engine's reason with how sure Didja is; none on older tasks.
+    func testARowSaysWhyItWasMade() {
+        var item = TaskBoardTests.item(1, "Run the smoke test")
+        XCTAssertNil(item.madeHelp)
+        item.capturedWhy = "A list from Claude handed to you by its own wording"
+        XCTAssertEqual(item.madeHelp, "A list from Claude handed to you by its own wording · sure")
+        item.unjudged = true
+        XCTAssertEqual(item.madeHelp, "A list from Claude handed to you by its own wording · possibly yours")
+        item.checking = true
+        XCTAssertEqual(item.madeHelp, "A list from Claude handed to you by its own wording · checking whose it is")
+    }
+
     /// Draws the list with the tray open to $TMPDIR/didja-ui/suggested.png.
     @MainActor
     func testRenderTheTray() throws {
