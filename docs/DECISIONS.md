@@ -4,6 +4,11 @@ Choices made while building ScrolledAway, with the reason, so they are not re-ar
 
 ## 2026-11-14
 
+- **Promises are read by wording only, no model** (SCR-98): first person, future, not hedged, not a question, with a concrete delivery verb and object. Sure ones are tasks at every capture level: they are your own words and cost nothing to dismiss. Vague ones ("I'll send it", "I'll look into the invoice") are only suggested in a chat, not under Strict, and dropped in mail, which has no Suggested tray. A bare "I'll check" or "I'll get back to you" is not taken at all: it is how people put an ask off, and would fill the tray.
+- **A promise is never ticked**: a later message of yours that hands something over (delivery words, a file name or a link) only asks "looks done?". Chat capture shows no attachments, so a file sent with no words cannot be seen; asking is the safe side. A promise is left out of every path that watches other screens.
+- **A promise that answers someone's ask makes nothing**: the ask's task already stands for it and stays open because the reply put it off. A chat promise waits while a message before it is still to be read by the model, so the two never race into two tasks.
+- **Only your part of an email is read**: lines above a quoted message ("From: …", "On … wrote:", "> …"), so a promise someone made to you is not yours.
+
 - **Due dates: the parser only, no model yet** (SCR-97): an ambiguous date is left empty rather than guessed; a missing date costs nothing, a wrong one moves a task or wakes it early. The model as a tie-breaker can come once it has made-up samples and measures better.
 - **A calendar date needs a deadline word before it** ("by", "due", "on", "until", "עד"): "meeting Nov 20th" is not a deadline. **"Next Friday" is left empty**: people mean this coming one or the one after. **"Next week" is its Monday**: the earliest reading, so the task comes back early rather than late.
 - **Numeric dates only when unambiguous** (one part above 12, or both equal): 3/4 could be either.

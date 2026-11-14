@@ -2,7 +2,7 @@ import { suggestMerges } from './related.ts';
 import { signedFromEmail } from './esign.ts';
 import { accountOf, baseSubject, responseAction, isAutomatic, isMine, isRecent, followsLink, mailKey, mailTime, mailLinks, mailOrigin, mailSnippet, mailSource, mailTaskTitle, parseEmails, replyTitle, settleNeed, signedName } from './email.ts';
 import type { MailIdentity, MailReader } from './email.ts';
-import { chatApp, chatKey, asksForAcknowledgement, chatTaskTitle, isEmojiOnly, isPositiveEmoji, isReaction, lineHash, plainReactions, reactedTo, namesMe, chatSourceRef, chatTime, isMine as isMyMessage, chatAudience, parseChatMessages, plainlyDefers, sentBefore } from './chat.ts';
+import { chatApp, chatKey, asksForAcknowledgement, chatTaskTitle, isEmojiOnly, isPositiveEmoji, isReaction, lineHash, plainReactions, reactedTo, namesMe, chatSourceRef, chatTime, isMine as isMyMessage, chatAudience, isRecentChat, parseChatMessages, plainlyDefers, sentBefore } from './chat.ts';
 import type { ChatMessage, ChatReader, ReplyJudge } from './chat.ts';
 import { agentWork, assistantFor, hasTurns } from './assistants.ts';
 import { followUpOn, listedOn, targetsOf } from './done.ts';
@@ -28,6 +28,7 @@ import type { Checklist, ChecklistItem } from './extract.ts';
 import type { Job, NewChecklist, NewNode, Observation, Outcome, PendingChatAsk, Store, Task, Teaching, TimingPath } from './store.ts';
 import { WHY } from './capturewhy.ts';
 import { dueFrom } from './due.ts';
+import { promisesIn, promiseTitle, samePromise } from './promises.ts';
 import { CHECKING_CONFIDENCE, KEPT_KIND, KEPT_LIST, trustKey, TRUST_YES } from './store.ts';
 
 export interface PollStats {
@@ -713,6 +714,10 @@ function readMail(
     }
   }
 
+  const promised = readMailPromises(store, emails, me, mailbox, latest, now);
+  created += promised.created;
+  suggested += promised.suggested;
+
   if (!reader) {
     drop('email', 'no-model');
     return { created, completed, suggested };
@@ -803,6 +808,63 @@ function readMail(
     }
   }
   return { created, completed, suggested };
+}
+
+/** The part of an email you wrote: lines up to where the message it answers is quoted. */
+function ownLines(body: string[]): string[] {
+  const end = body.findIndex((l) => /^\s*>|^On .+ wrote:\s*$|^-{2,}\s*Original Message|^From: |^בתאריך .+ כתב|^מאת: /i.test(l));
+  return end < 0 ? body : body.slice(0, end);
+}
+
+/**
+ * Promises in emails you sent (SCR-98): a concrete one becomes a task, "You said you'd: send the
+ * deck", filed under the mailbox; a vaguer one makes nothing (mail has no Suggested tray). A later
+ * email of yours in the same conversation that hands something over only asks "looks done?".
+ */
+function readMailPromises(
+  store: Store, emails: ReturnType<typeof parseEmails>, me: MailIdentity, mailbox: string, latest: Observation, now: Date,
+): { created: number; suggested: number } {
+  let created = 0;
+  let suggested = 0;
+  const mine = emails.filter((e) => isMine(e, me));
+  for (const task of store.openPromises(mailbox)) {
+    const want = task.criteria!.promise!;
+    if (want.via !== 'email' || task.status !== 'open' || task.suggestion) continue;
+    const place = `${mailbox} — your later email in “${want.chat.slice(0, 80)}”`;
+    if (store.rejectedPlaces(task.id).has(place)) continue;
+    const later = mine.find((e) => {
+      if (baseSubject(e.subject) !== want.chat || `promise:${mailKey(e)}` === want.key.replace(/:[^:]+$/, '')) return false;
+      const when = mailTime(e.date, now);
+      const own = ownLines(e.body).join('\n');
+      return when !== null && when.getTime() > new Date(want.at).getTime() && promisesIn(own).length === 0 && looksDelivered(own);
+    });
+    if (!later) continue;
+    store.suggestDone(task.id, place, latest.id, now);
+    suggested++;
+  }
+  const start = store.onlyNewMessages() ? store.captureStartedAt() : null;
+  for (const email of mine) {
+    if (!isRecent(email.date, now) || isAutomatic(email)) continue;
+    const key = `promise:${mailKey(email)}`;
+    if (store.emailVerdict(key) !== null) continue;
+    const sent = mailTime(email.date, now);
+    if (start && sent && sent.getTime() < start.getTime()) continue;
+    const promises = promisesIn(ownLines(email.body).join('\n')).filter((p) => p.sure);
+    store.recordEmailCheck(key, promises.length ? 'promise' : 'none', now);
+    for (const p of promises) {
+      const title = promiseTitle(p);
+      if (store.isNotAnAction(title, 'chats')) continue;
+      const subject = baseSubject(email.subject);
+      if (store.openPromises(mailbox, subject).some((t) => samePromise(t.capturedTitle, title))) continue;
+      const at = sent ?? new Date(latest.ts);
+      const ask: PendingChatAsk = {
+        key: `${key}:${lineHash(p.what)}`, app: mailbox, chat: subject, from: 'me', title, at: at.toISOString(),
+        observationId: latest.id, ts: latest.ts, due: dueFrom(p.sentence, at), why: WHY.emailPromise, promise: true,
+      };
+      if (addPromiseTask(store, ask, 'email', mailbox, now)) created++;
+    }
+  }
+  return { created, suggested };
 }
 
 const CHATS_PER_POLL = 3;
@@ -926,7 +988,8 @@ function readChat(
   const reader = opts.chatReader;
   if (!reader) {
     drop('chat', 'no-model');
-    return { created, completed, suggested };
+    const promised = readChatPromises(store, messages, app, latest, false, now, drop);
+    return { created: created + promised.created, completed, suggested: suggested + promised.suggested };
   }
   let asked = 0;
   // Only new messages: leave out what was plainly sent before capture started.
@@ -1006,7 +1069,119 @@ function readChat(
     }
     if (addChatAsk(store, ask, now)) created++;
   }
-  return { created, completed, suggested };
+  const promised = readChatPromises(store, messages, app, latest, true, now, drop);
+  return { created: created + promised.created, completed, suggested: suggested + promised.suggested };
+}
+
+/**
+ * A later message of yours that looks like you did what you promised (SCR-98): it hands something
+ * over ("here you go", "attached", "sent", "הנה", "שלחתי"), or carries a link or a file name. It
+ * only asks "looks done?"; nothing ticks a promise but you.
+ */
+const DELIVERED = /\b(here (?:it is|you go|you are|is|are)|attached|attaching|sent|done|shared|forwarded|called|paid|signed|booked|submitted|uploaded|updated|fixed)\b|הנה|מצורף|מצורפת|שלחתי|העברתי|בוצע|סיימתי|עשיתי|התקשרתי|שילמתי|חתמתי|https?:\/\/|\b[\w-]+\.(?:pdf|docx?|xlsx?|pptx?|key|csv|zip|png|jpe?g)\b/iu;
+
+export function looksDelivered(body: string): boolean {
+  return DELIVERED.test(body);
+}
+
+/**
+ * Promises you make in your own chat messages (SCR-98). A concrete one becomes a task, "You said
+ * you'd: send the deck", filed under the chat; a vaguer one goes to Suggested (not under Strict).
+ * A promise that answers someone's ask is that ask's task already, and makes nothing. A later
+ * message of yours there that hands something over only asks "looks done?".
+ */
+function readChatPromises(
+  store: Store, messages: ChatMessage[], app: string, latest: Observation, modelReads: boolean, now: Date, drop: Drop,
+): { created: number; suggested: number } {
+  const me = myNames(store);
+  let created = 0;
+  let suggested = 0;
+
+  for (const task of store.openPromises(app)) {
+    const want = task.criteria!.promise!;
+    if (want.via !== 'chat' || task.status !== 'open' || task.suggestion) continue;
+    const place = `${app} — ${want.chat} (your message after the promise)`;
+    if (store.rejectedPlaces(task.id).has(place)) continue;
+    const said = new Date(want.at).getTime();
+    const promiseIndex = messages.findIndex((m) => `promise:${chatKey(app, m)}` === want.key.replace(/:[^:]+$/, ''));
+    for (const [index, m] of messages.entries()) {
+      if (m.chat !== want.chat || !isMyMessage(m, me) || isReaction(m.body) || m.body.trim() === '') continue;
+      if (index === promiseIndex) continue;
+      const when = chatTime(m.time, now)?.getTime() ?? null;
+      if (when === null || when < said) continue;
+      if (when === said && !(promiseIndex >= 0 && index > promiseIndex)) continue;
+      // Saying it again, or putting it off, is not doing it; neither is a message that hands nothing over.
+      if (plainlyDefers(m.body) || promisesIn(m.body).length > 0 || !looksDelivered(m.body)) continue;
+      store.suggestDone(task.id, place, latest.id, now);
+      suggested++;
+      break;
+    }
+  }
+
+  const start = store.onlyNewMessages() ? store.captureStartedAt() : null;
+  const level = store.captureLevel();
+  for (const [index, m] of messages.entries()) {
+    if (!isMyMessage(m, me) || isReaction(m.body) || m.time === 'reaction' || !isRecentChat(m, now)) continue;
+    const promises = promisesIn(m.body);
+    if (promises.length === 0) continue;
+    const key = `promise:${chatKey(app, m)}`;
+    if (store.emailVerdict(key) !== null) continue;
+    if (start && sentBefore(m, start, now)) {
+      drop('chat', 'older');
+      continue;
+    }
+    const before = messages.slice(Math.max(0, index - 6), index).filter((b) => b.chat === m.chat && !isMyMessage(b, me));
+    // Someone's message just before it is still to be read by the model: wait, it may be the ask this answers.
+    if (modelReads && before.some((b) => chatAudience(b, me, level, now) !== null && store.emailVerdict(chatKey(app, b)) === null && !store.mailTask(chatKey(app, b)))) continue;
+    // It answers someone's ask: that ask's task stands for it ("I'll send it" keeps it open).
+    if (store.chatHasAsk(app, m.chat) || before.some((b) => store.emailVerdict(chatKey(app, b)) === 'ask')) {
+      store.recordEmailCheck(key, 'answers-an-ask', now);
+      continue;
+    }
+    store.recordEmailCheck(key, 'promise', now);
+    const sent = chatTime(m.time, now) ?? now;
+    for (const p of promises) {
+      const title = promiseTitle(p);
+      if (store.isNotAnAction(title, 'chats')) {
+        drop('chat', 'not-an-action');
+        continue;
+      }
+      // The same promise said again is the one already kept.
+      if (store.openPromises(app, m.chat).some((t) => samePromise(t.capturedTitle, title))) continue;
+      if (store.suggestions().some((x) => x.sourceRef === chatSourceRef(app, m.chat) && samePromise(x.title, title))) continue;
+      const ask: PendingChatAsk = {
+        key: `${key}:${lineHash(p.what)}`, app, chat: m.chat, from: 'me', title, at: sent.toISOString(),
+        observationId: latest.id, ts: latest.ts, due: dueFrom(p.sentence, sent), why: WHY.chatPromise, promise: true,
+      };
+      if (p.sure) {
+        if (addPromiseTask(store, ask, 'chat', chatSourceRef(app, m.chat), now)) created++;
+      } else if (level !== 'strict') {
+        store.addSuggestion({ ...ask, why: WHY.promiseAccepted }, chatSourceRef(app, m.chat), now);
+        drop('chat', 'suggested');
+      }
+    }
+  }
+  return { created, suggested };
+}
+
+/** A promise of yours becomes a task (SCR-98): never merged into an ask's task, never ticked by a screen. */
+function addPromiseTask(store: Store, ask: PendingChatAsk, via: 'chat' | 'email', sourceRef: string, now: Date): boolean {
+  const result = store.upsertTask({
+    distinct: ask.key,
+    title: ask.title,
+    sourceKind: via,
+    sourceRef,
+    confidence: 1,
+    why: ask.why ?? (via === 'chat' ? WHY.chatPromise : WHY.emailPromise),
+    position: null,
+    ts: ask.ts,
+    observationId: ask.observationId,
+    markers: [],
+    criteria: { service: null, hosts: [], promise: { via, app: ask.app, chat: ask.chat, at: ask.at, key: ask.key } },
+  });
+  store.linkMail(ask.key, result.id);
+  if (result.created) store.setDue(result.id, ask.due ?? null);
+  return result.created;
 }
 
 /** How long a chat ask waits for a reply of yours before it becomes a task (SCR-45). */
@@ -1063,7 +1238,8 @@ function promotePendingChatAsks(store: Store, now: Date): number {
 export function acceptSuggestion(store: Store, id: number, now: Date = new Date()): boolean {
   const ask = store.takeSuggestion(id);
   if (!ask) return false;
-  addChatAsk(store, ask, now);
+  if (ask.promise) addPromiseTask(store, ask, 'chat', chatSourceRef(ask.app, ask.chat), now);
+  else addChatAsk(store, ask, now);
   return true;
 }
 

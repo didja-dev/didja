@@ -12,7 +12,7 @@ const roster = new Set(readFileSync(join(import.meta.dir, '../../profiles/fixtur
 
 test('the benchmark has at least 99 scenarios, each well formed, named after its file and in a known tool family', () => {
   expect(scenarios.length).toBeGreaterThanOrEqual(99);
-  const files = readdirSync(SCENARIOS).filter((f) => f.endsWith('.json')).sort();
+  const files = readdirSync(SCENARIOS).filter((f) => f.endsWith('.json')).sort((a, b) => parseInt(a, 10) - parseInt(b, 10) || a.localeCompare(b));
   expect(new Set(scenarios.map((s) => s.id)).size).toBe(scenarios.length);
   scenarios.forEach((s, i) => {
     expect(files[i]).toBe(`${String(i + 1).padStart(2, '0')}-${s.id}.json`);

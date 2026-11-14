@@ -305,6 +305,8 @@ export interface PendingChatAsk {
   why?: string;
   /** The day the message asks for (SCR-97). */
   due?: string | null;
+  /** A promise of yours, not someone's ask (SCR-98): accepted, it becomes a promise task. */
+  promise?: boolean;
 }
 
 /** How eagerly asks become tasks (SCR-95). Ticking is the same at every level. */
@@ -716,7 +718,7 @@ export class Store {
     const rows = this.db
       .query(`${SELECT_TASK} WHERE t.is_group = 0 AND t.status = 'open' AND t.auto = 0 AND t.criteria_model IS NULL ORDER BY t.id DESC LIMIT ?`)
       .all(limit * 4) as TaskRow[];
-    return rows.map(toTask).filter((t) => !t.criteria?.reply && !t.criteria?.chat && t.sourceKind !== KEPT_KIND).slice(0, limit);
+    return rows.map(toTask).filter((t) => !t.criteria?.reply && !t.criteria?.chat && !t.criteria?.promise && t.sourceKind !== KEPT_KIND).slice(0, limit);
   }
 
   /** Where a task was captured, for "Go to Source". A checklist without one uses its first step's. */
@@ -1653,8 +1655,9 @@ export class Store {
       .all(autoSince) as TaskRow[];
     // Replies are noticed by subject and sender, not by showing screens to the model; a chat ask is
     // settled by your reply in that chat, never by some other screen that happens to share its words.
-    // Your own list (SCR-46) is ticked only by you.
-    return rows.map(toTask).filter((t) => !t.criteria?.reply && !t.criteria?.chat && t.sourceKind !== KEPT_KIND);
+    // Your own list (SCR-46) is ticked only by you. A promise of yours (SCR-98) is settled where you
+    // made it, by a later message of yours there, and only ever asked about.
+    return rows.map(toTask).filter((t) => !t.criteria?.reply && !t.criteria?.chat && !t.criteria?.promise && t.sourceKind !== KEPT_KIND);
   }
 
   /** Open tasks from emails that pointed somewhere: the pages their links lead to. */
@@ -1766,7 +1769,7 @@ export class Store {
   notAnActionSuggestion(id: number, now: Date = new Date()): boolean {
     const ask = this.takeSuggestion(id);
     if (!ask) return false;
-    this.addLesson('chats', 'not-an-action', dedupeKey(ask.title), `In ${ask.app}, "${ask.title}" was not something asked of me.`, now);
+    this.addLesson('chats', 'not-an-action', dedupeKey(ask.title), ask.promise ? `In ${ask.app}, "${ask.title}" was not a promise of mine.` : `In ${ask.app}, "${ask.title}" was not something asked of me.`, now);
     return true;
   }
 
@@ -1776,6 +1779,8 @@ export class Store {
     let gone = 0;
     for (const row of rows) {
       const ask = JSON.parse(row.ask) as PendingChatAsk;
+      // Your own promise (SCR-98) is not answered by your next message: it waits for you to accept it.
+      if (ask.promise) continue;
       if (ask.app === app && ask.chat === chat && ask.at <= upTo.toISOString()) {
         this.db.query('DELETE FROM suggestions WHERE id = ?').run(row.id);
         gone++;
@@ -1828,6 +1833,20 @@ export class Store {
     const more = criteria.chat.asks - 1;
     this.retitle(id, `${title} · +${more}`);
     this.addNote(id, 'judged', now.toISOString(), `Asked again in ${chat.app} — ${chat.chat}: “${title}”`);
+  }
+
+  /** Open (or snoozed) promises of yours (SCR-98), in one place or all. Merged tasks never count. */
+  openPromises(app?: string, chat?: string): Task[] {
+    const rows = this.db
+      .query(`${SELECT_TASK} WHERE t.is_group = 0 AND t.status IN ('open', 'snoozed') AND t.merged_into IS NULL AND t.criteria LIKE '%"promise"%' ORDER BY t.id`)
+      .all() as TaskRow[];
+    return rows.map(toTask).filter((t) => t.criteria?.promise && (app === undefined || t.criteria.promise.app === app) && (chat === undefined || t.criteria.promise.chat === chat));
+  }
+
+  /** Whether a chat has an ask of someone's still waiting there (to become a task, or as one). */
+  chatHasAsk(app: string, chat: string): boolean {
+    if (this.openChatTask(app, chat)) return true;
+    return this.db.query('SELECT 1 FROM chat_pending WHERE app = ? AND chat = ? LIMIT 1').get(app, chat) !== null;
   }
 
   /** Open tasks asked of you in a chat, with no suggestion waiting: a reply of yours may settle them. */
@@ -2079,7 +2098,10 @@ export class Store {
     if (!task) return false;
     const steps = [task, ...this.subtree(id).map((r) => this.getTask(r.id)!)].filter((t) => !t.isGroup);
     for (const step of steps) {
-      if (task.sourceKind === 'email') {
+      if (step.criteria?.promise) {
+        // A promise of yours (SCR-98): remembered by its wording, so the same line is not taken again.
+        this.addLesson('chats', 'not-an-action', dedupeKey(step.capturedTitle), `In ${step.criteria.promise.app}, "${step.capturedTitle}" was not a promise of mine.`, now);
+      } else if (task.sourceKind === 'email') {
         const origin = (this.db
           .query("SELECT detail FROM evidence WHERE task_id = ? AND kind = 'origin' ORDER BY id DESC LIMIT 1")
           .get(step.id) as { detail: string } | null)?.detail ?? '';

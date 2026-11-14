@@ -1,0 +1,42 @@
+{
+  "id": "whatsapp-promise-restated",
+  "about": "You promise Dana the slides, unprompted, then say it again later: one task, never ticked.",
+  "family": "messaging",
+  "start": "2026-11-11T09:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "WhatsApp",
+      "bundle": "net.whatsapp.WhatsApp",
+      "title": "Dana Levi",
+      "text": [
+        "⟦Chat message: Dana Levi (direct) — from Dana Levi — Today at 9:00⟧",
+        "Great meeting today",
+        "⟦Chat message: Dana Levi (direct) — from me — Today at 9:02⟧",
+        "Thanks! I'll send the slides tomorrow"
+      ]
+    },
+    {
+      "at": 40,
+      "app": "WhatsApp",
+      "bundle": "net.whatsapp.WhatsApp",
+      "title": "Dana Levi",
+      "text": [
+        "⟦Chat message: Dana Levi (direct) — from me — Today at 9:40⟧",
+        "Yes, I will send the slides first thing"
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [
+      {
+        "words": [
+          "said you'd",
+          "slides"
+        ],
+        "done": null
+      }
+    ],
+    "none": []
+  }
+}

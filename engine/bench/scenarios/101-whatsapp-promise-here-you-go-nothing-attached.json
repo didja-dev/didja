@@ -1,0 +1,42 @@
+{
+  "id": "whatsapp-promise-here-you-go-nothing-attached",
+  "about": "You promise Sam the October invoice, then write \"here you go\" with nothing attached: not done, never ticked.",
+  "family": "messaging",
+  "start": "2026-11-11T09:00",
+  "steps": [
+    {
+      "at": 0,
+      "app": "WhatsApp",
+      "bundle": "net.whatsapp.WhatsApp",
+      "title": "Sam Carter",
+      "text": [
+        "⟦Chat message: Sam Carter (direct) — from Sam Carter — Today at 9:00⟧",
+        "See you at the review",
+        "⟦Chat message: Sam Carter (direct) — from me — Today at 9:01⟧",
+        "I'll forward the October invoice after lunch"
+      ]
+    },
+    {
+      "at": 30,
+      "app": "WhatsApp",
+      "bundle": "net.whatsapp.WhatsApp",
+      "title": "Sam Carter",
+      "text": [
+        "⟦Chat message: Sam Carter (direct) — from me — Today at 9:31⟧",
+        "here you go"
+      ]
+    }
+  ],
+  "expect": {
+    "tasks": [
+      {
+        "words": [
+          "said you'd",
+          "invoice"
+        ],
+        "done": null
+      }
+    ],
+    "none": []
+  }
+}

@@ -24,6 +24,12 @@ export interface Criteria {
   /** For a task asked of you in a chat: where, by whom, when (ISO), and the message's key. */
   /** A chat ask; `asks` counts the asks in the same conversation that this one task stands for (SCR-45). */
   chat?: { app: string; chat: string; from: string; at: string; key: string; asks?: number };
+  /**
+   * A promise you made in your own message (SCR-98): where (the chat app and conversation, or the
+   * mailbox and the email's subject), when you said it (ISO), and the message's key. It is never
+   * ticked by itself: a later message of yours there only asks "looks done?".
+   */
+  promise?: { via: 'chat' | 'email'; app: string; chat: string; at: string; key: string };
   /** For an item brought in from a connected tool (Linear): which connection, its id, key and address. */
   external?: { connection: string; id: string; key: string; url: string | null };
 }

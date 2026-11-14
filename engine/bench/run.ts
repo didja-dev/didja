@@ -267,7 +267,7 @@ export function recognition(family: Family, results: ScenarioResult[]): { seen: 
 export const SCENARIOS = join(import.meta.dir, 'scenarios');
 
 export function loadScenarios(dir = SCENARIOS): Scenario[] {
-  return readdirSync(dir).filter((f) => f.endsWith('.json')).sort()
+  return readdirSync(dir).filter((f) => f.endsWith('.json')).sort((a, b) => parseInt(a, 10) - parseInt(b, 10) || a.localeCompare(b))
     .map((f) => JSON.parse(readFileSync(join(dir, f), 'utf8')) as Scenario);
 }
 
