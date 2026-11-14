@@ -30,6 +30,28 @@ Which windows are an AI tool, and how to read them, are profiles too (SCR-83): o
 
 Patterns are JavaScript regular expressions (multi-line, Unicode), with the same limits as above: at most 300 characters, no back-references or look-behind, no repeated group that repeats inside; `(?i)` at the start ignores case. A fixture (`profiles/fixtures/assistants/<name>.json`) is a window (`app`, `bundle`, `title`, optional `url`), its made-up `lines`, and `expect.assistant`, the profile id it must be recognised as, or `null` for a window that is no AI tool. An agent's fixture may add `expect.agent`: the commands it `ran`, the ones you `declined`, and its `todos` (`engine/test/agents.test.ts` checks them).
 
+## Meeting notes (`profiles/meetings/`)
+
+Meeting tools that show an "Action items" list as text (SCR-107): one file per tool in `profiles/meetings/`, read by the engine (`engine/src/meetings.ts`), with made-up notes in `profiles/fixtures/meetings/` (checked by `engine/test/meetings.test.ts`; every supported tool needs one). Didja never hears a meeting; it reads only the notes on screen.
+
+```json
+{
+  "$schema": "../schema/meeting.schema.json",
+  "id": "zoom",
+  "name": "Zoom",
+  "supported": true,
+  "about": "Zoom's AI Companion meeting summary…",
+  "match": { "bundleIds": ["us.zoom.xos"], "hosts": ["zoom.us"] },
+  "sections": ["Next steps", "Action items"]
+}
+```
+
+- `match`: the tool's app (`bundleIds`) or site (`hosts`, and their subdomains).
+- `sections`: the headings that start its list, as the tool shows them (any case). The list ends at the notes' next part (Summary, Notes, Decisions, Transcript…), a short line ending in a colon, or after 25 items.
+- `supported: false` lists a tool that cannot be read yet, with why in `about` (Teams' recap: Teams windows are read as chats).
+
+Who an item is for comes from its own words: "Mike: …", "Mike — …", "Mike to …" / "will …", "@Mike …", "… (Mike)", "… — Mike", "Owner: Mike", "Assigned to Mike", and "me". Yours (Your Names; a first name matches your full name, a different surname does not) become tasks; someone else's are left out; one that names no one goes to the Suggested tray (not under Strict). A fixture is a window (`app`, `bundle`, `title`, and `onSite: true` for a page on the tool's own site, so no real address is written in it), its made-up `lines`, and `expect.items`: each item's `title`, `owner` and whether its box is `checked`.
+
 ## Where steps are done (`profiles/done/`)
 
 Where common steps are done and what an item looks like there (SCR-86): one file per service in `profiles/done/`, read by the engine (`engine/src/done.ts`), with made-up pages in `profiles/fixtures/done/` (checked by `engine/test/done.test.ts`; every place needs one that finds a step done there, and near-misses that must not).
