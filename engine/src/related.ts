@@ -1,8 +1,9 @@
 /**
  * The same thing seen in two places: Sam writes in Teams that he will send a document to sign,
  * and the DocuSign email from him arrives. Two tasks, one thing to do. Didja suggests
- * merging them when they come from the same person and are about the same kind of action; you
- * merge them or say they are not the same. Merged, they finish together (store.setStatus).
+ * merging them when they come from the same person and name the same thing (an id, a file, an
+ * amount, a link: SCR-106) or are about the same kind of action; you merge them or say they are
+ * not the same. Never merged on its own. Merged, they finish together (store.setStatus).
  */
 import type { Store, Task } from './store.ts';
 
@@ -47,7 +48,60 @@ export function askerOf(store: Store, task: Task): { person: string | null; word
   return { person: null, words: task.title };
 }
 
+/**
+ * The concrete things a task's words name (SCR-106), normalised so the same one matches across
+ * apps: an id ("INV-2041", "#5531", "invoice 5531"), a file name ("budget-q4.pdf"), an amount
+ * ("$1,200", "1200 USD", "₪500"), a link's host and path. Product names are left out: without a
+ * model they cannot be told from any other capitalised word.
+ */
+export function objects(text: string): string[] {
+  const out = new Set<string>();
+  for (const m of text.matchAll(/https?:\/\/([^\s/?#"”']+)(\/[^\s?#"”']*)?/gi)) {
+    out.add(`link ${m[1]!.toLowerCase().replace(/^www\./, '')}${(m[2] ?? '').replace(/\/+$/, '').toLowerCase()}`);
+  }
+  const plain = text.replace(/https?:\/\/\S+/gi, ' ');
+  for (const m of plain.matchAll(/\b([\w-]+\.(?:pdf|docx?|xlsx?|pptx?|csv|zip|key|numbers|pages|png|jpe?g))\b/gi)) out.add(`file ${m[1]!.toLowerCase()}`);
+  for (const m of plain.matchAll(/\b([A-Z]{2,6})-?(\d{2,})\b/g)) out.add(`id ${m[1]}-${m[2]}`);
+  for (const m of plain.matchAll(/(?:#|\b(?:invoice|order|ticket|case|ref|po|quote|contract|הזמנה|חשבונית)\s*(?:no\.?|number|#)?\s*)(\d{3,})\b/giu)) out.add(`number ${m[1]}`);
+  const amount = (n: string) => `amount ${Number(n.replace(/,/g, ''))}`;
+  for (const m of plain.matchAll(/[$€£₪]\s?(\d[\d,]*(?:\.\d+)?)/g)) out.add(amount(m[1]!));
+  for (const m of plain.matchAll(/\b(\d[\d,]*(?:\.\d+)?)\s?(?:usd|eur|gbp|ils|nis|dollars|euros|₪|ש"ח|שקל)/giu)) out.add(amount(m[1]!));
+  return [...out];
+}
+
+/** How an object is said back: "INV-2041", "budget-q4.pdf", "1200", "example.com/invoices/5531". */
+const said = (o: string) => o.replace(/^(?:link|file|id|number|amount) /, '');
+
 const WINDOW_MS = 3 * 24 * 3600_000;
+/** The same object from the same person: within two days (SCR-106). */
+const OBJECT_WINDOW_MS = 48 * 3600_000;
+
+interface Known { task: Task; person: string | null; words: string }
+
+/**
+ * Why two tasks may be one thing, or null (SCR-106). Never across different people. The same
+ * concrete object (an id, a file, an amount, a link) within 48 hours; else the same kind of action
+ * within three days, unless each names objects and they differ. Only words the tasks already keep
+ * (titles, an email's subject) are read and said back.
+ */
+export function mergeReason(a: Known, b: Known): string | null {
+  if (!a.person || !b.person || !samePerson(a.person, b.person)) return null;
+  const apart = Math.abs(Date.parse(a.task.createdAt) - Date.parse(b.task.createdAt));
+  const ours = objects(a.words);
+  const theirs = objects(b.words);
+  const shared = ours.filter((o) => theirs.includes(o));
+  const who = plainName(a.person).split(' ').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  if (shared.length > 0 && apart <= OBJECT_WINDOW_MS) return `both from ${who}, both name ${shared.map(said).join(', ')}`;
+  if (ours.length > 0 && theirs.length > 0) return null; // each names a different thing
+  const kinds = actions(a.words).filter((x) => actions(b.words).includes(x));
+  if (kinds.length > 0 && apart <= WINDOW_MS) return `both from ${who}, both to ${kinds.join(' and ')}`;
+  return null;
+}
+
+/** The reason a waiting merge suggestion was made, for `why`. */
+export function suggestionReason(store: Store, a: Task, b: Task): string | null {
+  return mergeReason({ task: a, ...askerOf(store, a) }, { task: b, ...askerOf(store, b) });
+}
 
 /** Suggest merging related tasks from different places. Returns how many pairs were suggested. */
 export function suggestMerges(store: Store, now: Date): number {
@@ -62,10 +116,7 @@ export function suggestMerges(store: Store, now: Date): number {
       const a = known[i]!, b = known[j]!;
       if (a.task.sourceRef === b.task.sourceRef) continue; // two places, not two messages in one
       if (a.task.status === 'done' && b.task.status === 'done') continue;
-      if (Math.abs(Date.parse(a.task.createdAt) - Date.parse(b.task.createdAt)) > WINDOW_MS) continue;
-      if (!samePerson(a.person!, b.person!)) continue;
-      const shared = actions(a.words).filter((x) => actions(b.words).includes(x));
-      if (shared.length === 0) continue;
+      if (mergeReason(a, b) === null) continue;
       if (store.suggestMerge(a.task.id, b.task.id, now)) suggested++;
     }
   }

@@ -6,6 +6,13 @@ Each entry says what changed, and what was **not verified** where that applies: 
 
 ## 2026-11-14
 
+### The same ask seen in two apps, matched by what it names (SCR-106)
+- Merge suggestions now also pair a chat ask and an email (or connected item) from the same person that name the same concrete thing within 48 hours: an id (INV-2041, #5531, "invoice 5531"), a file name, an amount ($1,200 = 1200 USD), a link's host and path. The kind of action no longer has to match then.
+- Stricter where it could hide a task: when both tasks name objects and they differ (two invoices), the same kind of action no longer suggests them. Never across different people; never merged on its own.
+- `didja why` shows a waiting suggestion and its reason ("both from Sam Carter, both name INV-2041"), worked out from the titles and the email's subject, nothing stored.
+- Tests (`engine/test/related.test.ts`, 4 new): objects read the same in every app; same person and invoice in Teams and email suggested with the reason; same person with another invoice, other people with the same file, and the same invoice more than two days apart not suggested; the earlier action rule unchanged when only one names an object.
+- Not verified: on the live app; the app's question still reads "Same as “…” in <place>?" (unchanged).
+
 ### Your ✅ on a chat ask ticks it (SCR-105)
 - Your own ✅, ☑️ or ✔️ reaction on the exact message that asked you, in its own chat, ticks that chat task with no model, labelled "Ticked for you: you marked the ask ✅ in WhatsApp — Dana Levi". 👍 and other emoji keep today's rules (they ask, except 👍 to an ask that only wants an acknowledgement).
 - Not built, because capture does not see them yet: clearing a flag in Outlook, Gmail or Apple Mail, Outlook's Mark complete, and Slack's saved item Mark as completed (DECISIONS). Archiving an email still dismisses its task.

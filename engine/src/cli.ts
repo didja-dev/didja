@@ -24,6 +24,7 @@ import { startModelLane, wakeOnInput } from './lanes.ts';
 import { judgeServerFor } from './judgeserver.ts';
 import { ADAPTERS } from './adapters.ts';
 import { describeForget, forget } from './forget.ts';
+import { suggestionReason } from './related.ts';
 import type { ForgetResult } from './forget.ts';
 import { bringOf, forgetSecrets, KINDS, listConnections, openSession, saveConnections, signIn, updateConnection } from './connections.ts';
 import type { Bring, Connection } from './connections.ts';
@@ -639,6 +640,11 @@ async function main(argv: string[]): Promise<number> {
           return 1;
         }
         console.log(formatWhy(task, store.listEvidence(task.id), store.modelCriteria(task.id)));
+        // A waiting "same as…?" (SCR-106): the other task, and why they may be one.
+        for (const pair of store.mergeSuggestions().filter((p) => p.taskId === task.id || p.otherId === task.id)) {
+          const other = store.getTask(pair.taskId === task.id ? pair.otherId : pair.taskId);
+          if (other) console.log(`  Could be the same as “${other.title}” (#${other.id}) in ${other.sourceRef}: ${suggestionReason(store, task, other) ?? 'seen in two places'}. Merge or say not the same.`);
+        }
         return 0;
       }
       case 'place': {

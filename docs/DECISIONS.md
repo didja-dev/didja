@@ -4,6 +4,11 @@ Choices made while building ScrolledAway, with the reason, so they are not re-ar
 
 ## 2026-11-14
 
+- **Objects are read only from what a task already keeps** (SCR-106): its title and, for an email, the subject in its note. Not the kept lines around it: the reason is said back in `why`, and screen text never goes into what Didja says or stores beyond those.
+- **No product names** (SCR-106): without a model a product name cannot be told from any other capitalised word, and a loose match could hide a task behind another. Ids, file names, amounts and links only.
+- **Two tasks that each name a different object are never suggested, even for the same kind of action** (SCR-106): "Pay INV-2041" and "Pay INV-2042" from the same person are two things. When only one names an object, the earlier action rule still applies.
+- **The reason is worked out again for `why`, not stored** (SCR-106): a stored note would stay after "Not the same", and the two titles already hold everything it says.
+
 - **Only your check-mark reaction on the ask itself ticks** (SCR-105): ✅, ☑️ or ✔️ alone, from you, on the message the task came from, in that chat. 👍 still only asks (it often means "will do"). A reaction read from WhatsApp's chat list names the message but not the chat, so two chats with the same first line could be confused: it only asks.
 - **Flags, Outlook's Mark complete and Slack's saved items are not read yet** (SCR-105): capture does not see a flag's state or a saved item's completion in any mail or chat app today, and building that needs per-app outline work that cannot be checked here without the live apps. When capture writes such a signal for the exact email or message, the engine can tick on it the same way; until then those acts change nothing. Archiving keeps dismissing, not ticking.
 
