@@ -61,6 +61,7 @@ final class ConnectionsModel: ObservableObject {
         let pipe = Pipe()
         process.executableURL = EngineRunner.bundledEngine
         process.arguments = arguments
+        process.environment = EngineRunner.environment
         process.standardOutput = pipe
         process.standardError = pipe
         guard (try? process.run()) != nil else { return (false, "Didja's engine is missing from the app.") }

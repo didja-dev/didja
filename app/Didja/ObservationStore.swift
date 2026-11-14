@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 import SQLite3
 
@@ -65,10 +66,15 @@ final class ObservationStore {
     /// Opens (and if needed creates) `didja.db` in `directory` and brings
     /// its schema up to date. The engine does the same, so each step is applied
     /// under the write lock and only by whichever side gets there first.
-    init(directory: URL, migrations: [Migration]? = nil) throws {
+    /// Seals observation text on the way in and opens it on the way out (SCR-101); nil stores it as is.
+    private let key: SymmetricKey?
+
+    init(directory: URL, migrations: [Migration]? = nil, key: SymmetricKey? = nil) throws {
+        self.key = key
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let path = directory.appendingPathComponent("didja.db").path
         guard sqlite3_open(path, &db) == SQLITE_OK else { throw lastError("open") }
+        Self.tightenModes(directory)
         try exec("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 3000;")
 
         let steps = migrations ?? Self.bundledMigrations()
@@ -88,6 +94,20 @@ final class ObservationStore {
 
     deinit {
         sqlite3_close(db)
+    }
+
+    /// Only you can read Didja's folder (0700) and its database and logs (0600) (SCR-101).
+    static func tightenModes(_ directory: URL, fileManager: FileManager = .default) {
+        try? fileManager.setAttributes([.posixPermissions: 0o700], ofItemAtPath: directory.path)
+        for name in ["didja.db", "didja.db-wal", "didja.db-shm", "shell.log", "agent-hooks.jsonl", "mcp-log.jsonl"] {
+            let path = directory.appendingPathComponent(name).path
+            if fileManager.fileExists(atPath: path) { try? fileManager.setAttributes([.posixPermissions: 0o600], ofItemAtPath: path) }
+        }
+    }
+
+    /// A stored value's text: opened when sealed; "" when it cannot be (no key, or another key).
+    private func opened(_ value: String?) -> String? {
+        value.map { Sealed.open($0, key: key) ?? "" }
     }
 
     static func bundledMigrations() -> [Migration] {
@@ -111,7 +131,8 @@ final class ObservationStore {
         guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK else { throw lastError("prepare") }
         defer { sqlite3_finalize(statement) }
         let key = windowKey ?? Differ.windowKey(bundleID: bundleID, title: windowTitle, url: url)
-        let values: [String?] = [Self.timestamp.string(from: date), bundleID, app, windowTitle, url, source.rawValue, text, key]
+        let stored = self.key.flatMap { Sealed.seal(text, key: $0) } ?? text
+        let values: [String?] = [Self.timestamp.string(from: date), bundleID, app, windowTitle, url, source.rawValue, stored, key]
         for (index, value) in values.enumerated() {
             if let value {
                 sqlite3_bind_text(statement, Int32(index + 1), value, -1, transient)
@@ -131,7 +152,7 @@ final class ObservationStore {
         sqlite3_bind_text(statement, 1, bundleID, -1, transient)
         var texts: [String] = []
         while sqlite3_step(statement) == SQLITE_ROW {
-            if let text = sqlite3_column_text(statement, 0) { texts.append(String(cString: text)) }
+            if let text = opened(sqlite3_column_text(statement, 0).map { String(cString: $0) }), !text.isEmpty { texts.append(text) }
         }
         let lines = texts.reversed().flatMap { $0.split(separator: "\n").map(String.init) }
         return Array(lines.suffix(limit))
@@ -241,7 +262,7 @@ final class ObservationStore {
                 mergeWithTitle: text(18),
                 mergeWithSource: text(19),
                 alsoFrom: text(20).map { $0.split(separator: "\n").map(String.init) } ?? [],
-                asker: TaskItem.asker(chatFrom: text(21), origin: text(22)),
+                asker: TaskItem.asker(chatFrom: text(21), origin: opened(text(22))),
                 maybe: TaskItem.doubt(confidence: sqlite3_column_type(statement, 23) == SQLITE_NULL ? nil : sqlite3_column_double(statement, 23)).maybe,
                 checking: TaskItem.doubt(confidence: sqlite3_column_type(statement, 23) == SQLITE_NULL ? nil : sqlite3_column_double(statement, 23)).checking,
                 capturedWhy: text(24),

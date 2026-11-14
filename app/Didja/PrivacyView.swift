@@ -29,6 +29,25 @@ struct PrivacyFacts: Equatable {
     var agentHooks: [AgentHooks.Tool] = []
     /// The default list's entries still on your exclude list (SCR-94), as shown: "chase.com".
     var defaultExclusions: [String] = []
+    /// Encrypted on disk (SCR-101): the engine's live state, "on", "no-key" or "off", and how many values are still in the clear.
+    var encryption = Encryption(state: "on", clear: 0)
+
+    struct Encryption: Decodable, Equatable {
+        var state: String
+        var clear: Int
+
+        var words: String {
+            switch state {
+            case "on": return "On. Captured text, the lines kept around tasks and email notes are sealed with AES-256-GCM. The key is in your login Keychain (\"Didja database key\") and is never written anywhere else."
+            case "no-key": return "Sealed, but the key could not be read from your login Keychain, so Didja cannot read what it sealed. Nothing is deleted."
+            default: return "Off: \(clear) values are stored as plain text, because the key could not be read from your login Keychain. Restart Didja to try again."
+            }
+        }
+
+        static func decode(_ json: String?) -> Encryption {
+            json.flatMap { try? JSONDecoder().decode(Encryption.self, from: Data($0.utf8)) } ?? Encryption(state: "off", clear: 0)
+        }
+    }
 
     /// "WhatsApp, Teams (community, new) for chats; Gmail, Outlook for email".
     var profileSummary: String {
@@ -127,7 +146,8 @@ struct PrivacyContent: View {
                         .foregroundStyle(.secondary)
                         .textSelection(.enabled)
                         .fixedSize(horizontal: false, vertical: true)
-                    bullet("Captured text", "Only lines that are new since the window was last read, as plain text. Deleted after \(facts.retentionWords). Now: \(facts.observationCount) pieces of text.")
+                    bullet("Encrypted on disk", facts.encryption.words)
+                    bullet("Captured text", "Only lines that are new since the window was last read, as text, sealed as above. Deleted after \(facts.retentionWords). Now: \(facts.observationCount) pieces of text.")
                     bullet("Tasks", "Each task's wording, where it came from (the app and conversation, or the email's sender and subject), links from the email it came from, and short notes on why it was ticked. Kept after the captured text is gone, including done and dismissed tasks; there is no way to delete tasks yet. Now: \(facts.taskCount).")
                     bullet("How a task looked", "A few lines around each open task (at most seven, as text) from the window it was captured in, so you can see it as it was (V). Deleted when the task is done or dismissed, with Forget Captured Text Now, and when you exclude that window.")
                     bullet("Fingerprints", "So the model is not asked about the same email or screen twice, a one-way fingerprint of it is kept with the answer. The text itself is not, except a list waiting a few seconds to be judged.")

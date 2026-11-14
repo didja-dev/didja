@@ -12,12 +12,22 @@ final class EngineRunner {
         Bundle.main.bundleURL.appendingPathComponent("Contents/Helpers/didja")
     }
 
+    /// The engine's environment: the app's, plus the database key (SCR-101), so the engine can
+    /// read and seal screen text. In the environment of the processes the app starts only; never on disk.
+    static var environment: [String: String] {
+        var env = ProcessInfo.processInfo.environment
+        env["DIDJA_FROM_APP"] = "1"
+        if let key = DatabaseKey.base64 { env["DIDJA_DB_KEY"] = key }
+        return env
+    }
+
     func start() {
         let engine = Self.bundledEngine
         guard process == nil, FileManager.default.isExecutableFile(atPath: engine.path) else { return }
         let process = Process()
         process.executableURL = engine
         process.arguments = ["run"]
+        process.environment = Self.environment
         let input = Pipe()
         process.standardInput = input
         process.standardOutput = FileHandle.nullDevice
@@ -49,6 +59,7 @@ final class EngineRunner {
             let errors = Pipe()
             process.executableURL = bundledEngine
             process.arguments = arguments
+            process.environment = environment
             process.standardOutput = FileHandle.nullDevice
             process.standardError = errors
             guard (try? process.run()) != nil else {
@@ -75,6 +86,7 @@ final class EngineRunner {
         let pipe = Pipe()
         process.executableURL = bundledEngine
         process.arguments = arguments
+        process.environment = environment
         process.standardInput = pipe
         process.standardOutput = FileHandle.nullDevice
         process.standardError = FileHandle.nullDevice
@@ -91,6 +103,7 @@ final class EngineRunner {
         let pipe = Pipe()
         process.executableURL = bundledEngine
         process.arguments = arguments
+        process.environment = environment
         process.standardOutput = pipe
         process.standardError = FileHandle.nullDevice
         guard (try? process.run()) != nil else { return nil }

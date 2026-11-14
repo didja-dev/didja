@@ -227,7 +227,7 @@ final class CaptureCoordinator: ObservableObject {
             ExcludeList.addDefaultsOnce(to: supportDirectory.appendingPathComponent(ExcludeList.fileName))
             // No valid privacy policy, no capture.
             let policy = try PrivacyPolicy.load(userFile: supportDirectory.appendingPathComponent(ExcludeList.fileName))
-            let store = try ObservationStore(directory: supportDirectory)
+            let store = try ObservationStore(directory: supportDirectory, key: DatabaseKey.shared)
             queue.sync {
                 self.policy = policy
                 self.store = store

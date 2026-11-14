@@ -678,7 +678,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             dataFolder: folder.appendingPathComponent("didja.db").path, isPaused: capture.isPaused,
             connections: Self.connectedTools(), profiles: AppProfiles.builtIn.map(\.summary), ownClaude: OwnClaude.status(),
             localModel: LocalModel.status().model, shellHook: ShellHook.status(), agentHooks: AgentHooks.status(),
-            defaultExclusions: ExcludeList.defaultLabels(in: list))
+            defaultExclusions: ExcludeList.defaultLabels(in: list),
+            encryption: .decode(EngineRunner.output(["encryption", "--json"])))
     }
 
     /// The names of the connected task tools, from the engine.
