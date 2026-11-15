@@ -4,6 +4,13 @@ What was built, newest first. One entry per change that someone using the app or
 
 Each entry says what changed, and what was **not verified** where that applies: tested only, or not yet seen on the live app.
 
+## 2026-11-15
+
+### Undo and redo in the list
+- ⌘Z takes back your last change in the list and ⇧⌘Z makes it again, in the Quick View and the Full View; Undo and Redo also head the "…" menu, named after what they would do ("Undo Mark Done (2)"). Covered: marking done, reopening, dismissing, snoozing, Done All From Here, and ticking or reopening everything under a canvas heading.
+- The engine keeps each change's before and after state for the tasks it moved (status and times, no text) in `meta.undo_log`, the last 50 for a day. Undo writes the before state back, so a checklist ticked from its parent comes back with only the steps that were open; it also takes back the counts, lessons and trust that change wrote. A task changed since is left alone. Redo runs the change again through the usual rules. New commands: `didja undo`, `didja redo`, `didja undo --status`.
+- Tests: `engine/test/undo.test.ts` (9: undo and redo of a tick; a parent tick undone leaves an already-done step done; undoing a reopen restores the tick time; counts taken back and written again; undoing a reopen of a Didja tick restores it with no wrong-tick lesson; dismiss and snooze; a task changed since is left alone and a new change clears redo; nothing after a day; done-all) and `UndoHistoryTests` (3). **Not verified:** pressing ⌘Z in the running app; the canvas window has no ⌘Z of its own yet (its changes are undone from the Quick View or Full View).
+
 ## 2026-11-14
 
 ### Didja 0.13.0 (build 15)

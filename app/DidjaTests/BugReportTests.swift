@@ -68,7 +68,7 @@ final class BugReportTests: XCTestCase {
     }
 
     func testItIsInTheHelpMenu() {
-        let titles = MenuEntry.titles(AppDelegate().moreMenuEntries())
+        let titles = MenuEntry.titles(AppDelegate().moreMenuEntries(history: .empty))
         XCTAssertTrue(titles.contains("Help › Report a Bug…"))
         XCTAssertTrue(titles.contains("Help › Suggest a Feature…"))
     }

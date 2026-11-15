@@ -307,7 +307,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     /// What the "…" menu holds: what you reach for most at the top, the rest grouped, each with its key.
-    func moreMenuEntries() -> [MenuEntry] {
+    /// `history` is what Undo and Redo would do; tests pass their own, so they never ask the engine.
+    func moreMenuEntries(history: UndoHistory = UndoHistory.current()) -> [MenuEntry] {
         let close: (@escaping () -> Void) -> () -> Void = { [weak self] run in { self?.panel?.close(); run() } }
         let canvases = CanvasDirectory.shared.numbered
         var canvasItems: [MenuEntry] = [.action("New Canvas", key: "n") { [weak self] in self?.openCanvas(nil) }]
@@ -317,6 +318,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                                        key: String(index + 1)) { [weak self] in self?.openCanvas(canvas.id) })
         }
         var top: [MenuEntry] = [
+            .action(history.undoTitle, key: "z", enabled: history.undo != nil) { [weak self] in self?.undoChange() },
+            .action(history.redoTitle, key: "z", modifiers: [.command, .shift], enabled: history.redo != nil) { [weak self] in
+                self?.undoChange(redo: true)
+            },
+            .separator,
             .submenu("Canvases", canvasItems),
             .action("Fresh Start…", key: "\u{8}", modifiers: [.command, .shift], close { [weak self] in self?.confirmFreshStart() }),
         ]
@@ -389,11 +395,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             switch keyCode {
             case 45: openCanvas(nil); return true                                            // ⌘N
             case 43: panel?.close(); showTasksWindow(page: .general); return true              // ⌘,
+            case 6: undoChange(); return true                                                   // ⌘Z
             default: return false
             }
         }
         if held == [.command, .shift] {
             switch keyCode {
+            case 6: undoChange(redo: true); return true                                         // ⇧⌘Z
             case 51: panel?.close(); confirmFreshStart(); return true                          // ⌘⇧⌫
             case 15: panel?.close(); showDiagnostics(); return true                             // ⌘⇧R
             default: return false
@@ -753,6 +761,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if EngineRunner.run(["fresh-start"]) {
             FreshStart.didStart()
             capture.refreshSummary()
+        }
+    }
+
+    /// ⌘Z and ⇧⌘Z (SCR-122): take back your last change in the list, or make it again. The engine
+    /// puts the tasks back as they were; a beep says there was nothing to undo.
+    func undoChange(redo: Bool = false) {
+        Self.engineChanges.async { [capture] in
+            let changed = UndoHistory.didChange(EngineRunner.output([redo ? "redo" : "undo"]))
+            capture.refreshSummary()
+            if !changed { DispatchQueue.main.async { NSSound.beep() } }
         }
     }
 

@@ -2,6 +2,13 @@
 
 Choices made while building ScrolledAway, with the reason, so they are not re-argued or quietly undone. Newest first. Add one whenever a choice is made in conversation, in Linear, or in code review that the code alone would not explain.
 
+## 2026-11-15
+
+- **Undo restores the saved state; Redo replays the change.** Reopening a checklist by hand reopens every step, including ones you had finished before ticking the parent, so undo cannot be "do the opposite": it writes back each task's state from before the change. Redo, by contrast, runs the change again through the normal rules, so its counts and lessons are recorded as they would be the first time.
+- **Undo leaves a task alone when it changed since.** If Didja ticked it or you changed it another way after the change being undone, writing the old state back would throw that away; skipping it is the smaller mistake. Undo never creates a tick of its own: putting back a tick you had reopened restores the tick that was there, and the "wrong tick" it was counted as is taken back.
+- **Kept in `meta`, the last 50 changes for a day, with states and no text**: no schema step is needed, the history never holds screen text, and a day matches Undo Fresh Start. Renames, Not Yet, Not an Action and teaching are left out: they teach the model, and undoing a lesson needs its own design.
+- **⌘Z in the Quick View and the Full View, not in canvas windows**: a canvas edits text in place, where ⌘Z belongs to the text field. Its ticks are in the same history, so the Quick View undoes them.
+
 ## 2026-11-14
 
 - **A lead-in that starts with a time word is retitled, even when it names something** ("Before this works in prod"). As a heading, a lead-in that says when to do the steps leaves out what they are for, and the source heading above it names the conversation, not the goal. The rule only looks at the first word (Once, When, After, Before, Then, Each, Every, Until, Later, Meanwhile, From now on, Going forward), so a subject such as "Afterpay setup" is left alone. The cost is one model call per such list; the model's title can be renamed.

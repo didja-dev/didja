@@ -10,11 +10,11 @@ final class KeyboardTests: XCTestCase {
 
     func testTheMenuIsGroupedWithItsKeys() throws {
         CanvasDirectory.shared.set(canvases)
-        let entries = AppDelegate().moreMenuEntries()
+        let entries = AppDelegate().moreMenuEntries(history: .empty)
         let titles = MenuEntry.titles(entries)
         // (Undo Fresh Start shows only for a day after one, so it is left out here.)
-        XCTAssertEqual(entries.filter { if case .separator = $0.kind { false } else { $0.title != "Undo Fresh Start" } }.prefix(3).map(\.title),
-                       ["Canvases", "Fresh Start…", "Report a Problem with This Window…"], "what you reach for most, on top")
+        XCTAssertEqual(entries.filter { if case .separator = $0.kind { false } else { $0.title != "Undo Fresh Start" } }.prefix(5).map(\.title),
+                       ["Undo", "Redo", "Canvases", "Fresh Start…", "Report a Problem with This Window…"], "what you reach for most, on top")
         for group in ["View", "Tasks", "Privacy", "Help", "Settings…", "Quit Didja"] { XCTAssertTrue(titles.contains(group), group) }
         XCTAssertTrue(titles.contains("View › Focus › All Apps"))
         XCTAssertTrue(titles.contains("Privacy › Forget Captured Text Now…"))
