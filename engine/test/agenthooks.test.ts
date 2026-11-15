@@ -7,7 +7,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
-  agentHookInstalled, appendAgentEvent, HOOK_TOOLS, installAgentHook, parseHookEvent, readAgentEvents, removeAgentHook, TOOLS, withHooks, withoutHooks,
+  agentHookInstalled, appendAgentEvent, CLAUDE_CODE_MATCHER, HOOK_TOOLS, installAgentHook, parseHookEvent, readAgentEvents, refreshAgentHook, removeAgentHook, TOOLS, withHooks, withoutHooks,
 } from '../src/agenthooks.ts';
 import type { AgentEvent } from '../src/agenthooks.ts';
 import { formatWhy } from '../src/cli.ts';
@@ -63,7 +63,7 @@ for (const tool of HOOK_TOOLS) {
 
 test('the shape each tool reads: a Claude Code matcher group, a Cursor command with a version, a Windsurf command without output', () => {
   const claude = withHooks({}, 'claude-code', ENGINE) as { hooks: { PostToolUse: { matcher: string; hooks: { type: string; command: string }[] }[] } };
-  expect(claude.hooks.PostToolUse[0]!.matcher).toBe('Bash|TodoWrite');
+  expect(claude.hooks.PostToolUse[0]!.matcher).toBe('Bash|TodoWrite|TaskCreate|TaskUpdate|mcp__ccd_turn__update_plan');
   expect(claude.hooks.PostToolUse[0]!.hooks[0]).toEqual({ type: 'command', command: `"${ENGINE}" hook claude-code PostToolUse` });
   expect(withHooks({}, 'cursor', ENGINE)).toEqual({ hooks: { afterShellExecution: [{ command: `"${ENGINE}" hook cursor afterShellExecution` }] }, version: 1 });
   expect(withHooks({}, 'windsurf', ENGINE)).toEqual({ hooks: { post_run_command: [{ command: `"${ENGINE}" hook windsurf post_run_command`, show_output: false }] } });
@@ -103,6 +103,45 @@ test('only the tool, event, time, a command line and exit code, and plan titles 
   const windsurf = parseHookEvent('windsurf', 'post_run_command', { agent_action_name: 'post_run_command', tool_info: { command_line: 'git push origin main', cwd: '/x' }, trajectory_id: 't' }, NOW)!;
   expect(windsurf).toEqual({ ts: NOW.toISOString(), tool: 'windsurf', event: 'post_run_command', command: 'git push origin main' });
   for (const e of [claudeBash, todo, cursor, windsurf]) expect(JSON.stringify(e)).not.toContain('Sam');
+});
+
+test('newer Claude Code plans are heard too: TaskCreate, TaskUpdate and the desktop app\'s update_plan; titles only', () => {
+  const plan = (input: object) => parseHookEvent('claude-code', 'PostToolUse', input, NOW)?.plan;
+  expect(plan({ tool_name: 'TaskCreate', tool_input: { subject: 'Add the invoices table', description: SECRET, activeForm: SECRET } })).toEqual(['Add the invoices table']);
+  expect(plan({ tool_name: 'TaskUpdate', tool_input: { taskId: '3', subject: 'Write tests', status: 'in_progress' } })).toEqual(['Write tests']);
+  // A status change alone names no item: nothing kept.
+  expect(parseHookEvent('claude-code', 'PostToolUse', { tool_name: 'TaskUpdate', tool_input: { taskId: '3', status: 'completed' } }, NOW)).toBeNull();
+  // A sub-agent's call arrives the same way, with its own agent id; only the title is kept.
+  const sub = parseHookEvent('claude-code', 'PostToolUse', { agent_id: 'a1', agent_type: 'general-purpose', tool_name: 'TaskCreate', tool_input: { subject: 'Run the migration', description: SECRET } }, NOW)!;
+  expect(sub).toEqual({ ts: NOW.toISOString(), tool: 'claude-code', event: 'PostToolUse', plan: ['Run the migration'] });
+  expect(plan({ tool_name: 'mcp__ccd_turn__update_plan', tool_input: { items: [{ content: 'Add the invoices table', status: 'in_progress' }, { content: 'Write tests', status: 'pending' }], scope: 'first_task' } }))
+    .toEqual(['Add the invoices table', 'Write tests']);
+  expect(parseHookEvent('claude-code', 'PostToolUse', { tool_name: 'mcp__ccd_turn__update_plan', tool_input: { advance: true } }, NOW)).toBeNull();
+});
+
+test('a hook turned on by an older version is brought up to date once, keeping its engine and the rest of the file', () => {
+  const home = temp();
+  const path = join(home, TOOLS['claude-code'].file);
+  mkdirSync(join(path, '..'), { recursive: true });
+  const old = { theme: 'dark', hooks: { PostToolUse: [
+    { matcher: 'Edit', hooks: [{ type: 'command', command: 'prettier --write' }] },
+    { matcher: 'Bash|TodoWrite', hooks: [{ type: 'command', command: `"/Old Place/Didja.app/Contents/Helpers/didja" hook claude-code PostToolUse` }] },
+  ] } };
+  writeFileSync(path, JSON.stringify(old));
+  expect(refreshAgentHook('claude-code', home)).toBe(true);
+  const now = JSON.parse(readFileSync(path, 'utf8'));
+  expect(now.theme).toBe('dark');
+  expect(now.hooks.PostToolUse[0]).toEqual(old.hooks.PostToolUse[0]);
+  expect(now.hooks.PostToolUse[1]).toEqual({ matcher: CLAUDE_CODE_MATCHER, hooks: [{ type: 'command', command: `"/Old Place/Didja.app/Contents/Helpers/didja" hook claude-code PostToolUse` }] });
+  expect(JSON.parse(readFileSync(`${path}.didja-backup`, 'utf8'))).toEqual(old);
+  expect(refreshAgentHook('claude-code', home)).toBe(false); // already current
+  // No entry of ours: nothing is added.
+  const other = temp();
+  const otherPath = join(other, TOOLS['claude-code'].file);
+  mkdirSync(join(otherPath, '..'), { recursive: true });
+  writeFileSync(otherPath, '{"theme":"light"}');
+  expect(refreshAgentHook('claude-code', other)).toBe(false);
+  expect(readFileSync(otherPath, 'utf8')).toBe('{"theme":"light"}');
 });
 
 test('the events keep 24 hours', () => {

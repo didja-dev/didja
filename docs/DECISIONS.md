@@ -9,6 +9,10 @@ Choices made while building ScrolledAway, with the reason, so they are not re-ar
 - **Kept in `meta`, the last 50 changes for a day, with states and no text**: no schema step is needed, the history never holds screen text, and a day matches Undo Fresh Start. Renames, Not Yet, Not an Action and teaching are left out: they teach the model, and undoing a lesson needs its own design.
 - **⌘Z in the Quick View and the Full View, not in canvas windows**: a canvas edits text in place, where ⌘Z belongs to the text field. Its ticks are in the same history, so the Quick View undoes them.
 
+## 2026-11-15
+
+- **The Claude Code hook listens for every tool Claude Code keeps its plan with, not just TodoWrite** (TaskCreate, TaskUpdate, and the Code tab's update_plan), and keeps only their titles (`subject`, `content`). Newer versions and the Claude app's Code tab no longer use TodoWrite, so the hook heard their commands but none of their plan. A sub-agent's tool calls go through the same hooks, so nothing separate is needed for them. A hook that is on is rewritten at engine start when what it listens for has changed, keeping the engine path it already runs, so switching between a Debug and a release build does not rewrite the user's settings file each time.
+
 ## 2026-11-14
 
 - **A lead-in that starts with a time word is retitled, even when it names something** ("Before this works in prod"). As a heading, a lead-in that says when to do the steps leaves out what they are for, and the source heading above it names the conversation, not the goal. The rule only looks at the first word (Once, When, After, Before, Then, Each, Every, Until, Later, Meanwhile, From now on, Going forward), so a subject such as "Afterpay setup" is left alone. The cost is one model call per such list; the model's title can be renamed.

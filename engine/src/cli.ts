@@ -10,7 +10,7 @@ import { doneAt, missedReport, rewordPlacesOnce, wordForPlace } from './missed.t
 import { enabled, places, readLog, serve, tasksEnabled } from './mcp.ts';
 import { calendarSnoozePlan, parseEvents } from './calsnooze.ts';
 import { hookFiles, hookInstalled, installHook, readShellLog, removeHook } from './shellhook.ts';
-import { agentHookInstalled, appendAgentEvent, HOOK_TOOLS, installAgentHook, parseHookEvent, readAgentEvents, removeAgentHook, TOOLS } from './agenthooks.ts';
+import { agentHookInstalled, appendAgentEvent, HOOK_TOOLS, installAgentHook, parseHookEvent, readAgentEvents, refreshAgentHook, removeAgentHook, TOOLS } from './agenthooks.ts';
 import type { HookTool } from './agenthooks.ts';
 import { CAPTURE_LEVELS, DEFAULT_DB_PATH } from './store.ts';
 import { captureLine } from './capturewhy.ts';
@@ -713,6 +713,8 @@ async function main(argv: string[]): Promise<number> {
         const waker = new Waker();
         wakeOnInput(Bun.stdin.stream(), waker);
         const sync = { sync: () => syncConnections(store, mcpRemote(store)), syncDue: () => writebackWaiting(store) };
+        // A hook you turned on hears what this version listens for (a newer tool's plan).
+        for (const t of HOOK_TOOLS) if (store.getMeta(`agent_hook_${t}`) === 'on') refreshAgentHook(t);
         if (findJudge() === undefined) {
           // No model on this machine (run outside the app): one lane does it all, as before.
           console.log('Reading new observations at once when woken, else every 5s. Ctrl-C to stop.');

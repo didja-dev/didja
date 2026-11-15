@@ -227,7 +227,7 @@ enum AgentHooks {
         let engine = Bundle.main.bundleURL.appendingPathComponent("Contents/Helpers/didja").path
         let event: String
         switch t.tool {
-        case "claude-code": event = "a PostToolUse hook for Bash and TodoWrite"
+        case "claude-code": event = "a PostToolUse hook for Bash and its plan tools (TodoWrite, TaskCreate, TaskUpdate, the Code tab's update_plan)"
         case "cursor": event = "an afterShellExecution hook"
         default: event = "a post_run_command hook"
         }

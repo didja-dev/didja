@@ -6,6 +6,11 @@ Each entry says what changed, and what was **not verified** where that applies: 
 
 ## 2026-11-15
 
+### The Claude Code hook hears newer plans and sub-agents' plans
+- With the Claude Code hook on, Didja now also reads plan item titles from Claude Code's newer plan tools (TaskCreate, TaskUpdate) and from the Claude app's Code tab (its update_plan), not only TodoWrite. Before, on current versions, it heard the commands Claude ran but none of its plan, so a step that was Claude's own plan item stayed on your list. A sub-agent's calls reach the hook the same way, so its plan items and commands count too. Titles only: a task's description, active form and status are never kept. A hook turned on by an earlier version is brought up to date when the engine starts, keeping the engine it runs, with the file backed up first. Tests: `engine/test/agenthooks.test.ts`. **Not verified:** whether Claude Code runs the hook for a sub-agent's calls on this Mac, and the hook firing in the Code tab live.
+
+## 2026-11-14
+
 ### Undo and redo in the list
 - ⌘Z takes back your last change in the list and ⇧⌘Z makes it again, in the Quick View and the Full View; Undo and Redo also head the "…" menu, named after what they would do ("Undo Mark Done (2)"). Covered: marking done, reopening, dismissing, snoozing, Done All From Here, and ticking or reopening everything under a canvas heading.
 - The engine keeps each change's before and after state for the tasks it moved (status and times, no text) in `meta.undo_log`, the last 50 for a day. Undo writes the before state back, so a checklist ticked from its parent comes back with only the steps that were open; it also takes back the counts, lessons and trust that change wrote. A task changed since is left alone. Redo runs the change again through the usual rules. New commands: `didja undo`, `didja redo`, `didja undo --status`.

@@ -41,6 +41,13 @@ export const TOOLS: Record<HookTool, ToolSpec> = {
 
 const MARK = ' hook ';
 
+/**
+ * The Claude Code tools whose calls the hook hears: its shell, and every tool it keeps its plan
+ * with. Older versions keep it with TodoWrite, newer ones with TaskCreate and TaskUpdate, and the
+ * Claude desktop app's Code tab with its own update_plan. Sub-agents' calls are heard the same way.
+ */
+export const CLAUDE_CODE_MATCHER = 'Bash|TodoWrite|TaskCreate|TaskUpdate|mcp__ccd_turn__update_plan';
+
 /** The command a hook runs: the engine, quoted, then `hook <tool> <event>`. */
 export function hookCommand(engine: string, tool: HookTool, event: string): string {
   return `"${engine.replace(/"/g, '\\"')}"${MARK}${tool} ${event}`;
@@ -60,7 +67,7 @@ export function withHooks(file: Json, tool: HookTool, engine: string): Json {
     const command = hookCommand(engine, tool, event);
     const list = [...arr(hooks[event])];
     if (tool === 'claude-code') {
-      list.push({ matcher: 'Bash|TodoWrite', hooks: [{ type: 'command', command }] });
+      list.push({ matcher: CLAUDE_CODE_MATCHER, hooks: [{ type: 'command', command }] });
     } else if (tool === 'cursor') {
       list.push({ command });
     } else {
@@ -127,6 +134,40 @@ export function installAgentHook(tool: HookTool, engine: string, home: string = 
   return { file: path };
 }
 
+/** The engine our entry for this tool runs, from its command; null when there is none. */
+function ourEngine(file: Json, tool: HookTool): string | null {
+  for (const value of Object.values(obj(file.hooks))) {
+    for (const entry of arr(value)) {
+      const e = obj(entry);
+      for (const h of Array.isArray(e.hooks) ? e.hooks : [e]) {
+        const command = obj(h).command;
+        if (!ours(command, tool)) continue;
+        const m = /^"((?:[^"\\]|\\.)*)" hook /.exec(command as string);
+        if (m) return m[1]!.replace(/\\"/g, '"');
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Bring a hook that is on up to date with what this version listens for (a new plan tool), keeping
+ * the engine it runs. Writes only when something changed, backing the file up first. True if it did.
+ */
+export function refreshAgentHook(tool: HookTool, home: string = process.env.HOME ?? ''): boolean {
+  const path = join(home, TOOLS[tool].file);
+  if (!existsSync(path)) return false;
+  const file = readJson(path);
+  if (file === null) return false;
+  const engine = ourEngine(file, tool);
+  if (engine === null) return false;
+  const next = withHooks(file, tool, engine);
+  if (JSON.stringify(next) === JSON.stringify(file)) return false;
+  copyFileSync(path, `${path}.didja-backup`);
+  writeFileSync(path, `${JSON.stringify(next, null, 2)}\n`);
+  return true;
+}
+
 /** Turn it off: our entries out of the tool's file; everything else stays. */
 export function removeAgentHook(tool: HookTool, home: string = process.env.HOME ?? ''): void {
   const path = join(home, TOOLS[tool].file);
@@ -174,10 +215,8 @@ export function parseHookEvent(tool: HookTool, event: string, input: unknown, no
       const exit = num(response.exit_code) ?? num(response.exitCode);
       return command ? { ...base, command, ...(exit !== undefined ? { exit } : {}) } : null;
     }
-    if (name === 'TodoWrite') {
-      const plan = arr(toolInput.todos).map((t) => str(obj(t).content)).filter((t): t is string => !!t).slice(0, 50);
-      return plan.length > 0 ? { ...base, plan } : null;
-    }
+    const plan = planTitles(name, toolInput);
+    if (plan) return plan.length > 0 ? { ...base, plan } : null;
     return null;
   }
   if (tool === 'cursor') {
@@ -189,6 +228,18 @@ export function parseHookEvent(tool: HookTool, event: string, input: unknown, no
   const command = str(info.command_line) ?? str(p.command_line);
   const exit = num(info.exit_code) ?? num(p.exit_code);
   return command ? { ...base, command, ...(exit !== undefined ? { exit } : {}) } : null;
+}
+
+/**
+ * The plan item titles in one Claude Code plan call, or undefined when it is not one. Titles only:
+ * a task's description, its active form and statuses are never read.
+ */
+function planTitles(name: unknown, input: Json): string[] | undefined {
+  const titles = (items: unknown[], field: string) => items.map((t) => str(obj(t)[field])).filter((t): t is string => !!t).slice(0, 50);
+  if (name === 'TodoWrite') return titles(arr(input.todos), 'content');
+  if (name === 'TaskCreate' || name === 'TaskUpdate') return titles([input], 'subject');
+  if (name === 'mcp__ccd_turn__update_plan') return titles(arr(input.items), 'content');
+  return undefined;
 }
 
 const DAY_MS = 24 * 3600_000;
