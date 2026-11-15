@@ -123,6 +123,21 @@ export const OBSERVATION_TTL_MS = 24 * 60 * 60 * 1000;
 
 export type TaskStatus = 'open' | 'done' | 'dismissed' | 'snoozed';
 
+/** A task's state as undo keeps it (SCR-122): status, times and place labels, never screen text. */
+export interface TaskState {
+  status: TaskStatus;
+  doneAt: string | null;
+  until: string | null;
+  suggestion: string | null;
+  suggestedAt: string | null;
+  acceptedFrom: string | null;
+}
+
+export function sameTaskState(a: TaskState, b: TaskState): boolean {
+  return a.status === b.status && a.doneAt === b.doneAt && a.until === b.until && a.suggestion === b.suggestion
+    && a.suggestedAt === b.suggestedAt && a.acceptedFrom === b.acceptedFrom;
+}
+
 /** New text seen in one window, written by the capture layer. */
 export interface Observation {
   id: number;
@@ -1533,6 +1548,49 @@ export class Store {
         }
       }
       this.db.query("DELETE FROM meta WHERE key = 'fresh_start'").run();
+      return back;
+    })();
+  }
+
+  // --- Undo and redo of your own changes (SCR-122) ---------------------------------------------
+
+  /** Every task's state: its status and the times and place labels that go with it, never text. */
+  taskStates(): Map<number, TaskState> {
+    const rows = this.db
+      .query(`SELECT id, status, done_at AS doneAt, snoozed_until AS until, suggestion, suggested_at AS suggestedAt,
+                     accepted_from AS acceptedFrom FROM tasks`)
+      .all() as (TaskState & { id: number })[];
+    return new Map(rows.map(({ id, ...state }) => [id, state]));
+  }
+
+  /**
+   * Put tasks back in a state they were in, exactly, without the rules a change by you runs: it is
+   * the state before (or after) one of your changes, not a new decision. A task whose state is not
+   * `from` any more (it changed since) is left alone. Returns the ids put back.
+   */
+  restoreTaskStates(rows: { id: number; from: TaskState; to: TaskState }[], at: string): number[] {
+    return this.db.transaction(() => {
+      const now = this.taskStates();
+      const back: number[] = [];
+      const write = this.db.query(
+        'UPDATE tasks SET status = ?, done_at = ?, snoozed_until = ?, suggestion = ?, suggested_at = ?, accepted_from = ? WHERE id = ?',
+      );
+      for (const row of rows) {
+        const current = now.get(row.id);
+        if (!current || !sameTaskState(current, row.from)) continue;
+        const t = row.to;
+        write.run(t.status, t.doneAt, t.until, t.suggestion, t.suggestedAt, t.acceptedFrom, row.id);
+        back.push(row.id);
+      }
+      // What the change wrote down as it happened (counts, lessons, trust) goes with it.
+      for (const id of back) {
+        this.db.query('DELETE FROM outcomes WHERE task_id = ? AND ts = ?').run(id, at);
+        this.db.query("DELETE FROM evidence WHERE task_id = ? AND ts = ? AND kind IN ('rejected', 'confirmed')").run(id, at);
+      }
+      if (back.length) this.db.query('DELETE FROM trust_events WHERE ts = ?').run(at);
+      // A step left alone because it changed since: its parents follow what is under them.
+      const parents = new Set(back.map((id) => this.getTask(id)?.parentId).filter((p): p is number => p != null));
+      for (const parent of parents) this.syncParent(parent, at);
       return back;
     })();
   }

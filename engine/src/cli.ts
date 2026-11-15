@@ -22,7 +22,7 @@ import { REMINDER_SOURCES, remindersPlan, remindersSettings, remindersWritten, s
 import type { ReminderSource, RemindersWritten, SeenReminder } from './reminders.ts';
 import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { acceptSuggestion, addManualTask, confirmChecking, keepFromScreen, keepTask, lookAgainAt, myNames, namesOf, pollOnce, runLoop, Waker } from './engine.ts';
+import { acceptSuggestion, addManualTask, keepFromScreen, keepTask, lookAgainAt, myNames, namesOf, pollOnce, runLoop, Waker } from './engine.ts';
 import { startModelLane, wakeOnInput } from './lanes.ts';
 import { judgeServerFor } from './judgeserver.ts';
 import { ADAPTERS } from './adapters.ts';
@@ -43,6 +43,7 @@ import { formatQuality, qualityReport } from './quality.ts';
 import { exportJson, exportMarkdown, exportTasks } from './export.ts';
 import { buildWeek, setWeekNudge, weekDue, weekMarkdown, weekNudgeOn } from './week.ts';
 import { requiredMarkers } from './markers.ts';
+import { change as changeKept, redo as redoChange, undo as undoChange, undoState } from './undo.ts';
 import type { Evidence, Job, Observation, Task, TaskNode, TaskStatus } from './store.ts';
 
 const USAGE = `didja <command>
@@ -106,6 +107,9 @@ const USAGE = `didja <command>
   fresh-start [--undo | --status]
                       mark every open task done for a clean list (My List stays); --undo puts them back
   done <id>           mark a task done (a checklist's id ticks all its steps)
+  undo | redo | undo --status
+                      take back your last change in the list (done, reopen, dismiss, snooze, done-all,
+                      a canvas section), or make it again; --status says what each would do (JSON)
   done-all <id>       mark done everything still open from the same conversation as task <id>
   quality [--days N] [--json]
                       how Didja is doing: tasks made, ticked for you, asked, answered, cleared (counts only, last 7 days by default)
@@ -1133,7 +1137,7 @@ async function main(argv: string[]): Promise<number> {
           console.error('usage: didja snooze <id> [30m|2h|3d|tomorrow|at:<ISO time>]');
           return 1;
         }
-        if (!store.snooze(id, until)) {
+        if (!changeKept(store, { kind: 'snooze', id, until: until.toISOString() })) {
           console.error(`No task #${id}`);
           return 1;
         }
@@ -1171,7 +1175,13 @@ async function main(argv: string[]): Promise<number> {
             return json({ item: store.addCanvasNote(n, line.kind, line.text, new Date(), line.level), kind: line.kind });
           }
           // canvas tick <heading item> [--undo]: every task under a heading done, or open again (SCR-59).
-          case 'tick': if (Number.isInteger(n)) return json({ changed: store.tickCanvasSection(n, rest[0] === '--undo') }); break;
+          case 'tick': {
+            if (!Number.isInteger(n)) break;
+            const before = store.taskStates();
+            changeKept(store, { kind: 'canvas-tick', id: n, undo: rest[0] === '--undo' });
+            const after = store.taskStates();
+            return json({ changed: [...after].filter(([id, s]) => before.get(id)?.status !== s.status && !store.getTask(id)?.isGroup).map(([id]) => id) });
+          }
           case 'level': if (store.setCanvasLevel(n, Number(rest[0]))) return json({ ok: true }); break;
           case 'note': case 'heading': { const id = store.addCanvasNote(n, sub, text); if (id !== null) return json({ id }); break; }
           case 'edit': if (store.editCanvasItem(n, text)) return json({ ok: true }); break;
@@ -1272,15 +1282,25 @@ async function main(argv: string[]): Promise<number> {
         console.log(args.includes('--json') ? JSON.stringify(report) : formatQuality(report));
         return 0;
       }
+      case 'undo':
+      case 'redo': {
+        if (args.includes('--status')) {
+          console.log(JSON.stringify(undoState(store)));
+          return 0;
+        }
+        const result = command === 'undo' ? undoChange(store) : redoChange(store);
+        console.log(result ? `${command === 'undo' ? 'Undid' : 'Redid'} ${result.what}: ${result.ids.length} changed` : `Nothing to ${command}`);
+        return 0;
+      }
       case 'done-all': {
         const id = Number(args[0]);
         const task = Number.isInteger(id) ? store.getTask(id) : null;
-        const ticked = task && store.completeSource(id);
-        if (!task || !ticked) {
+        const open = task ? store.listTasks().filter((t) => t.sourceId === task.sourceId && t.parentId === null && t.status === 'open') : [];
+        if (!task || !changeKept(store, { kind: 'done-all', id })) {
           console.error(Number.isInteger(id) ? `No task #${id}` : 'usage: didja done-all <id>');
           return 1;
         }
-        console.log(`${ticked.length} open ${ticked.length === 1 ? 'task' : 'tasks'} from ${task.sourceRef} → done`);
+        console.log(`${open.length} open ${open.length === 1 ? 'task' : 'tasks'} from ${task.sourceRef} → done`);
         return 0;
       }
       case 'done':
@@ -1292,10 +1312,8 @@ async function main(argv: string[]): Promise<number> {
           return 1;
         }
         const status = command === 'done' ? 'done' : command === 'dismiss' ? 'dismissed' : 'open';
-        // Ticking a step of a list still being checked says it is yours (SCR-78).
-        if (status === 'done') confirmChecking(store, id);
-        // Counted in "How Didja is doing" (SCR-73).
-        if (!store.changeByYou(id, status)) {
+        // Kept so it can be undone (SCR-122); counted in "How Didja is doing" (SCR-73).
+        if (!changeKept(store, { kind: command, id })) {
           console.error(`No task #${id}`);
           return 1;
         }
