@@ -2,6 +2,10 @@
 
 Choices made while building ScrolledAway, with the reason, so they are not re-argued or quietly undone. Newest first. Add one whenever a choice is made in conversation, in Linear, or in code review that the code alone would not explain.
 
+## 2026-11-16
+
+- **Capture paces itself by how long its last read took, not by a fixed interval.** A fixed slower poll would make every window feel late; the cost is only in large windows, so the rest is twice the read's own time (capture reads at most a third of the time), capped at 15 seconds so a slow window is still read. Switching apps skips the rest, since the new app has not been read yet. No time limit is put on a single read, because the newest lines of a chat are usually at the end and a cut-off walk would miss them.
+
 ## 2026-11-15
 
 - **Undo restores the saved state; Redo replays the change.** Reopening a checklist by hand reopens every step, including ones you had finished before ticking the parent, so undo cannot be "do the opposite": it writes back each task's state from before the change. Redo, by contrast, runs the change again through the normal rules, so its counts and lessons are recorded as they would be the first time.

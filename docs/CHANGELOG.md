@@ -4,6 +4,11 @@ What was built, newest first. One entry per change that someone using the app or
 
 Each entry says what changed, and what was **not verified** where that applies: tested only, or not yet seen on the live app.
 
+## 2026-11-16
+
+### Capture rests between reads of a slow window
+- One read of the window in front runs at a time. Changes that arrive while it runs become one more read, and after each read capture rests twice as long as the read took (at most 15 seconds). Switching apps is still read at once. Before, every change in a large window (a long conversation, a busy web page) asked for another read, the reads queued up behind each other, and capture ran without a break, using a full core and slowing both Didja and the app being read. A quick read barely waits, so ordinary windows are read as before. Tests: `CapturePacerTests` (6). **Not verified** live: the test build had no Accessibility permission, so the lower CPU use has not been measured on a real window.
+
 ## 2026-11-15
 
 ### The Claude Code hook hears newer plans and sub-agents' plans

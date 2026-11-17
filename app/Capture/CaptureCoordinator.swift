@@ -266,6 +266,9 @@ final class CaptureCoordinator: ObservableObject {
     private var pollTimer: Timer?
     private var summaryTimer: Timer?
     private var capturePending = false
+    private var pacer = CapturePacer()
+    /// The app the last read was of, to tell a switch of app from a change inside it.
+    private var lastTargetPID: pid_t = 0
     private var observer: AXObserver?
     private var observedPID: pid_t = 0
     private var failure: String?
@@ -539,9 +542,39 @@ final class CaptureCoordinator: ObservableObject {
             }
             if app.processIdentifier != ProcessInfo.processInfo.processIdentifier { self.lastApp = app }
             self.observe(app)
-            let target = Target(pid: app.processIdentifier, bundleID: app.bundleIdentifier,
-                                name: app.localizedName ?? "")
-            self.queue.async { self.capture(target) }
+            switch self.pacer.request(at: Date(), appChanged: app.processIdentifier != self.lastTargetPID) {
+            case .now: self.read(app)
+            case .later(let delay): self.readLater(after: delay)
+            case .folded: break
+            }
+        }
+    }
+
+    /// A read the pacer held back is due: read whatever app is in front then.
+    private func readLater(after delay: TimeInterval) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+            guard let self else { return }
+            guard self.status == .capturing, let app = NSWorkspace.shared.frontmostApplication else {
+                self.pacer.drop() // nothing to read now (paused, or no app): the next request starts afresh
+                return
+            }
+            guard self.pacer.fire() else { return }
+            self.observe(app)
+            self.read(app)
+        }
+    }
+
+    /// Read the app's window on the capture queue, then tell the pacer how long it took.
+    private func read(_ app: NSRunningApplication) {
+        lastTargetPID = app.processIdentifier
+        let target = Target(pid: app.processIdentifier, bundleID: app.bundleIdentifier, name: app.localizedName ?? "")
+        queue.async {
+            let started = Date()
+            self.capture(target)
+            let took = Date().timeIntervalSince(started)
+            DispatchQueue.main.async {
+                if let rest = self.pacer.finished(at: Date(), took: took) { self.readLater(after: rest) }
+            }
         }
     }
 
