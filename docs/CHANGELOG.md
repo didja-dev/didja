@@ -9,6 +9,9 @@ Each entry says what changed, and what was **not verified** where that applies: 
 ### Didja 0.14.0 (build 16)
 - Released from GitHub on a version tag: capture rests between reads of a slow window, so a long conversation or busy page no longer keeps a CPU core busy; the Claude Code hook hears newer plan tools, the Code tab's plan and sub-agents' calls; and ⌘Z / ⇧⌘Z undo and redo your changes in the list.
 
+### The pre-push check looks at a new tag's new commits only
+- Pushing a new tag or branch checks the commits that main on GitHub does not have yet, not the whole history again. An old commit that was checked when it was pushed no longer blocks a release tag when one of its words starts matching a contact. Two samples and a test that used names now matching contacts use made-up ones from the roster, and a common Hebrew word ("home") is on the allow list.
+
 ### Capture rests between reads of a slow window
 - One read of the window in front runs at a time. Changes that arrive while it runs become one more read, and after each read capture rests twice as long as the read took (at most 15 seconds). Switching apps is still read at once. Before, every change in a large window (a long conversation, a busy web page) asked for another read, the reads queued up behind each other, and capture ran without a break, using a full core and slowing both Didja and the app being read. A quick read barely waits, so ordinary windows are read as before. Tests: `CapturePacerTests` (6). **Not verified** live: the test build had no Accessibility permission, so the lower CPU use has not been measured on a real window.
 
