@@ -208,7 +208,7 @@ test('Gmail on screen never ticks ordinary tasks', () => {
 
 test('the presence Outlook reads out after a name is not part of the name', () => {
   const of = (from: string) => parseEmails(mail('S', from, 'x'))[0]!.fromName;
-  expect(of('Shweta Jain Available, shweta@acme.com')).toBe('Shweta Jain');
+  expect(of('Lena Hale Available, lena@acme.com')).toBe('Lena Hale');
   expect(of('Ron Avital Do not disturb, ron@acme.com')).toBe('Ron Avital');
   expect(of('Dana Away, dana@acme.com')).toBe('Dana');
   expect(of('Away Team, crew@acme.com')).toBe('Away Team');

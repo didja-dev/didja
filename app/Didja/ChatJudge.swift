@@ -65,7 +65,7 @@ extension Judge {
     /// not leak into English tasks).
     static let hebrewChatInstructions = """
         This message is written in Hebrew. Write the task in Hebrew, naming the person in Hebrew as they wrote it. \
-        Hebrew examples: שלח למיכל את החשבונית של מרץ. אשר את התקציב של מאיה. \
+        Hebrew examples: שלח למיכל את החשבונית של מרץ. אשר את התקציב של תמר. \
         For a question: ענה לרון: האם יום שלישי מתאים. ענה לנועה: האם 20 אפשרויות מספיקות. \
         The names in the examples are made up and must never be copied.
         """
