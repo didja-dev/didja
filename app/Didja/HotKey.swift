@@ -336,6 +336,13 @@ final class MenuBarPanel: NSObject, NSPopoverDelegate, NSWindowDelegate {
         }
     }
 
+    /// Where the icon is on screen (nil while it has no window), for the switch hung under it.
+    var iconFrame: NSRect? { statusItem.button?.window?.frame }
+    /// Whether the menu bar is drawn dark (a dark wallpaper or Dark mode).
+    var menuBarIsDark: Bool {
+        statusItem.button?.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+    }
+
     /// The Prompt done mark as a template image, so macOS tints it for light and dark menu bars (SCR-34).
     static func menuBarImage() -> NSImage? {
         guard let image = NSImage(named: "MenuBarIcon")?.copy() as? NSImage else {

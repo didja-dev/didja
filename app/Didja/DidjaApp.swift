@@ -189,6 +189,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         nudger.start { [weak self] in self?.panel?.show() }
         RemindersSyncer.shared.start() // does nothing until Apple Reminders is turned on (SCR-121)
+        // The two-sided switch under the icon; does nothing until it is turned on in Settings.
+        SideSwitchController.shared.icon = { [weak panel] in (panel?.iconFrame, panel?.menuBarIsDark ?? false) }
+        SideSwitchController.shared.start()
         _ = Updates.shared // starts the daily update check (Release builds only, SCR-33)
         let registered = PanelHotKey.shared.start { [weak self] in self?.togglePopover() }
         // Pause and resume from anywhere, without opening the panel.
@@ -218,7 +221,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let panel = MenuBarPanel(content: content, pinnedContent: pinnedContent)
         // A search lasts as long as the panel is open: it always opens on the whole list.
         panel.onClose = { [weak self] in self?.popoverNavigator.endSearch() }
-        panel.onShow = { [weak self] in self?.capture.checkReview() }
+        panel.onShow = { [weak self] in
+            self?.capture.checkReview()
+            SideSwitchController.shared.didOpenDidja() // a switch hidden with ⌥-click comes back
+        }
         return panel
     }
 

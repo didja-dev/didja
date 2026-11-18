@@ -4,6 +4,9 @@ Choices made while building ScrolledAway, with the reason, so they are not re-ar
 
 ## 2026-11-18
 
+- **The switch is a reminder, not a control.** It changes nothing on the Mac and is not a task; Didja only keeps its two labels, color and side in the app's preferences (not the database: no rule about tasks reads it). It floats in its own borderless window at the menu bar's level rather than as menu bar text, because the maintainer asked for it under the icon, where it reads like a dishwasher's Clean / Dirty magnet. Labels are capped at 12 characters so it stays small over the app below.
+
+
 - **The list is read again when the engine writes, not every second.** SQLite's `data_version` changes only when another connection commits, which is exactly when the engine has changed tasks; a forced read every 30 seconds covers anything else. The clock-based parts (a just-finished item lingering) are still worked out every second from what was read. Timestamps are parsed by hand because the engine writes one fixed format and a formatter parse costs far more than the read itself; any other shape still goes to the formatter.
 
 ## 2026-11-16

@@ -106,6 +106,7 @@ struct GeneralSettingsView: View {
     @State private var waitingQuiet = WaitingQuiet.Status(chatHours: 24, emailDays: 2)
     @State private var reviewTimes = DayReviewEngine.Times()
     @ObservedObject private var updates = Updates.shared
+    @ObservedObject private var sideSwitch = SideSwitchController.shared
     @StateObject private var hotKey = HotKeyRecording()
     @State private var ocrOn = OCRCapture.isEnabled
     @State private var ownClaude = OwnClaude.Status(on: false, calls: 0, last: nil)
@@ -256,6 +257,14 @@ struct GeneralSettingsView: View {
                             DispatchQueue.main.async { weekNudge = on }
                         }
                     }
+                }
+                row("Show a switch under the icon", "Two sides you name (Sandbox / Prod, Clean / Dirty), always on show under the Didja icon; the filled side is the one you are on. Click it to flip it, right-click it to rename, ⌥-click to hide it until you next open Didja, or press ⌃⌥S anywhere. Only a reminder: it changes nothing on your Mac.") {
+                    Toggle("", isOn: Binding(get: { sideSwitch.settings.on }, set: { on in sideSwitch.update { $0.on = on } }))
+                        .toggleStyle(.switch).labelsHidden()
+                }
+                if sideSwitch.settings.on {
+                    SideSwitchEditor(controller: sideSwitch, showsHide: false)
+                        .padding(.vertical, 9)
                 }
                 row("Export all tasks", "Every task to a file you keep, in Markdown or JSON: its title, status, where it came from, dates and why. Tick the box to add the few lines kept with open tasks (screen text). Nothing is sent.") {
                     Toggle("With kept lines", isOn: $exportWithContext).toggleStyle(.checkbox)
