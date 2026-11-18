@@ -4,6 +4,11 @@ What was built, newest first. One entry per change that someone using the app or
 
 Each entry says what changed, and what was **not verified** where that applies: tested only, or not yet seen on the live app.
 
+## 2026-11-18
+
+### Clicks no longer wait behind the list's refresh
+- Every second the app read the whole task list again (a thousand tasks with done and dismissed ones) and parsed each task's dates with a date formatter, which took most of a second each time. It ran on the capture queue, so capture and every update after a click waited behind it: about a second per click. Timestamps are now read by hand in the engine's fixed format (the formatter is kept for anything else), the list is read again only when the engine has written since (SQLite's `data_version`) or after 30 seconds, and a new index (`schema/035_merged_index.sql`) stops the list's query scanning every task for each task's merged copies (65 ms to 4 ms on a copy of a real database). Measured on the Debug build: the refresh went from 82% of the capture queue's time to under 1%. Tests: `TimestampParseTests` (4). **Not verified:** clicks feeling instant on the release build.
+
 ## 2026-11-16
 
 ### Didja 0.14.0 (build 16)

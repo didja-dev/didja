@@ -51,6 +51,47 @@ final class ObservationStore {
 
     private var db: OpaquePointer?
     private let transient = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+    /// A timestamp as the engine writes it ("2026-11-18T13:19:07.123Z"), read without a date
+    /// formatter: the list is read every time the engine changes something, and a formatter parse of
+    /// each of a thousand tasks' dates took most of a second. Anything in another shape goes to the formatter.
+    static func parseTimestamp(_ text: String) -> Date? {
+        let u = Array(text.utf8)
+        func num(_ from: Int, _ count: Int) -> Int? {
+            guard from + count <= u.count else { return nil }
+            var n = 0
+            for b in u[from..<(from + count)] {
+                guard b >= 48, b <= 57 else { return nil }
+                n = n * 10 + Int(b - 48)
+            }
+            return n
+        }
+        guard u.count >= 20, u[4] == 45, u[7] == 45, u[10] == 84, u[13] == 58, u[16] == 58, u.last == 90,
+              let year = num(0, 4), let month = num(5, 2), let day = num(8, 2),
+              let hour = num(11, 2), let minute = num(14, 2), let second = num(17, 2),
+              (1...12).contains(month), (1...31).contains(day), hour < 24, minute < 60, second < 61
+        else { return timestamp.date(from: text) }
+        var fraction = 0.0
+        if u.count > 20 {
+            // ".123Z": a dot, digits, then Z.
+            guard u[19] == 46, u.count > 21 else { return timestamp.date(from: text) }
+            var scale = 0.1
+            for b in u[20..<(u.count - 1)] {
+                guard b >= 48, b <= 57 else { return timestamp.date(from: text) }
+                fraction += Double(b - 48) * scale
+                scale /= 10
+            }
+        }
+        // Days since 1970-01-01 in the proleptic Gregorian calendar (Howard Hinnant's days_from_civil).
+        let y = month <= 2 ? year - 1 : year
+        let era = (y >= 0 ? y : y - 399) / 400
+        let yoe = y - era * 400
+        let doy = (153 * (month + (month > 2 ? -3 : 9)) + 2) / 5 + day - 1
+        let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy
+        let days = era * 146_097 + doe - 719_468
+        let seconds = Double(days * 86_400 + hour * 3600 + minute * 60 + second) + fraction
+        return Date(timeIntervalSince1970: seconds)
+    }
+
     private static let timestamp: ISO8601DateFormatter = {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
@@ -247,14 +288,14 @@ final class ObservationStore {
                 source: text(3) ?? "",
                 parentID: sqlite3_column_type(statement, 4) == SQLITE_NULL ? nil : Int(sqlite3_column_int64(statement, 4)),
                 isGroup: sqlite3_column_int(statement, 5) == 1,
-                doneAt: text(6).flatMap(Self.timestamp.date(from:)),
-                snoozedUntil: text(7).flatMap(Self.timestamp.date(from:)),
-                capturedAt: text(8).flatMap(Self.timestamp.date(from:)),
+                doneAt: text(6).flatMap(Self.parseTimestamp),
+                snoozedUntil: text(7).flatMap(Self.parseTimestamp),
+                capturedAt: text(8).flatMap(Self.parseTimestamp),
                 collapsed: sqlite3_column_int(statement, 9) == 1,
                 auto: sqlite3_column_int(statement, 10) == 1,
                 suggestion: text(11),
                 note: text(14),
-                activeAt: text(12).flatMap(Self.timestamp.date(from:)),
+                activeAt: text(12).flatMap(Self.parseTimestamp),
                 acceptedFrom: text(13),
                 externalKey: text(15),
                 externalURL: text(16),
@@ -373,6 +414,12 @@ final class ObservationStore {
             })
         }
         return rows
+    }
+
+    /// Changes whenever another connection (the engine) commits to the database; the same number
+    /// while nothing else has written. Lets the list be read again only when it may have changed.
+    func dataVersion() throws -> Int {
+        try scalar("PRAGMA data_version")
     }
 
     func observationCount() throws -> Int {

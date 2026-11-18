@@ -36,6 +36,7 @@ import schema31 from '../../schema/031_due.sql' with { type: 'text' };
 import schema32 from '../../schema/032_waiting.sql' with { type: 'text' };
 import schema33 from '../../schema/033_waiting_hint.sql' with { type: 'text' };
 import schema34 from '../../schema/034_reminders.sql' with { type: 'text' };
+import schema35 from '../../schema/035_merged_index.sql' with { type: 'text' };
 import { dayOf } from './due.ts';
 import { isSealed, keyFromEnv, seal, tightenModes, unseal } from './sealed.ts';
 import { defaultWhy, WHY } from './capturewhy.ts';
@@ -607,7 +608,7 @@ export class Store {
     // The app migrates the same file. Take the write lock first so only one side runs each step.
     this.db.transaction(() => {
       const { user_version } = this.db.query('PRAGMA user_version').get() as { user_version: number };
-      [schema1, schema2, schema3, schema4, schema5, schema6, schema7, schema8, schema9, schema10, schema11, schema12, schema13, schema14, schema15, schema16, schema17, schema18, schema19, schema20, schema21, schema22, schema23, schema24, schema25, schema26, schema27, schema28, schema29, schema30, schema31, schema32, schema33, schema34].forEach((sql, i) => {
+      [schema1, schema2, schema3, schema4, schema5, schema6, schema7, schema8, schema9, schema10, schema11, schema12, schema13, schema14, schema15, schema16, schema17, schema18, schema19, schema20, schema21, schema22, schema23, schema24, schema25, schema26, schema27, schema28, schema29, schema30, schema31, schema32, schema33, schema34, schema35].forEach((sql, i) => {
         if (user_version < i + 1) this.db.exec(sql);
       });
     }).immediate();

@@ -288,6 +288,11 @@ final class CaptureCoordinator: ObservableObject {
     /// The last app other than Didja that was in front: what Report a Problem describes.
     private(set) var lastApp: NSRunningApplication?
     private var lastPrune = Date.distantPast
+    /// The list as last read, and when: the database's version then (`dataVersion`).
+    private var readTasks: [TaskItem] = []
+    private var readVersion = -2
+    private var readAt = Date.distantPast
+    private static let rereadEvery: TimeInterval = 30
     private var ttl = Retention.saved().seconds
 
     init(supportDirectory: URL = ObservationStore.defaultDirectory) {
@@ -330,7 +335,7 @@ final class CaptureCoordinator: ObservableObject {
         }
         // Every second, so a finished item leaves its place on time.
         summaryTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
-            self?.refreshSummary()
+            self?.refreshSummary(force: false)
         }
         applyRetention()
         applyLooksDoneMode()
@@ -487,12 +492,31 @@ final class CaptureCoordinator: ObservableObject {
     }
 
     /// Re-read the counts and task list shown in the menu. Runs even while paused.
-    func refreshSummary() {
+    /// Read the list again. Every second (`force: false`) the tasks are read only when the engine has
+    /// written since the last read (or half a minute has passed); otherwise only the clock-based
+    /// parts are worked out again from what was read. Reading a long list every second kept the capture
+    /// queue busy and made every click wait behind it.
+    func refreshSummary(force: Bool = true) {
         queue.async {
-            guard let store = self.store,
-                  let count = try? store.observationCount(),
-                  let tasks = try? store.tasks()
-            else { return }
+            guard let store = self.store, let count = try? store.observationCount() else { return }
+            let version = (try? store.dataVersion()) ?? -1
+            let now = Date()
+            if !force, version == self.readVersion, version != -1, now.timeIntervalSince(self.readAt) < Self.rereadEvery {
+                let tasks = self.readTasks
+                DispatchQueue.main.async {
+                    if self.observationCount != count { self.observationCount = count }
+                    let lingering = TaskBoard.lingering(in: tasks, now: Date())
+                    if self.tasks.lingering != lingering {
+                        self.tasks = TaskBoard(tasks: tasks, lingering: lingering, showsRecentlyDone: self.showsRecentlyDone,
+                                               sort: self.sort, focus: self.focus)
+                    }
+                }
+                return
+            }
+            guard let tasks = try? store.tasks() else { return }
+            self.readVersion = version
+            self.readAt = now
+            self.readTasks = tasks
             let firstRun = FirstRunStatus.decode((try? store.meta(FirstRunStatus.key)) ?? nil)
             let suggestions = (try? store.suggestions()) ?? []
             let waiting = (try? store.waiting()) ?? []
