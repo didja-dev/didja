@@ -6,6 +6,10 @@ Each entry says what changed, and what was **not verified** where that applies: 
 
 ## 2026-11-18
 
+### A row no longer works out the whole list when it is drawn; Settings opens without waiting on the engine
+- Each task row built its right-click menu by working out every row on show, whenever it was drawn, so drawing a list cost rows × rows. It now looks at the other rows only when several are chosen and it is one of them (`TaskNavigator.chosenTogether(with:board:)`). Drawing 300 rows in a test went from 688 ms to about 400 ms. Settings › General read four statuses from the engine on the main thread as it opened (about 50 ms each); they are read in the background now and fill in when they arrive. Tests: `ListSpeedTests` (3). **Not verified:** the remaining delay after a click in the app; a recording of the running app while clicking has not been taken yet.
+
+
 ### Didja 0.16.0 (build 18)
 - Released from GitHub on a version tag: a two-sided switch under the menu bar icon (Settings › General, off by default) that you name, flip with a click, rename with a right-click, and flip from anywhere with ⌃⌥S.
 

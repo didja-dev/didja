@@ -474,6 +474,14 @@ final class TaskNavigator: ObservableObject {
         }
     }
 
+    /// The rows chosen together with `item`, or none: works out the rows on show only when
+    /// several are chosen and `item` is one of them. Each row asks this whenever it is drawn (for its
+    /// right-click menu), so the usual answer must not cost a pass over the whole list.
+    func chosenTogether(with item: TaskItem, board: TaskBoard) -> [TaskItem] {
+        guard marked.count > 1, marked.contains(item.id) else { return [] }
+        return chosenTogether(rows(board))
+    }
+
     func chosenTogether(_ rows: [TaskItem]) -> [TaskItem] {
         let chosen = rows.filter { marked.contains($0.id) }
         return chosen.count > 1 ? chosen : []

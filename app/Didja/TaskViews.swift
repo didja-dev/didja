@@ -430,11 +430,11 @@ struct TaskRow: View {
         .id(item.id)
         // Drag onto a canvas (SCR-50): the row, or all the rows chosen with it.
         .onDrag {
-            let together = navigator.chosenTogether(navigator.rows(board))
+            let together = navigator.chosenTogether(with: item, board: board)
             return TaskDrag.provider(together.contains(where: { $0.id == item.id }) ? together : [item])
         }
         .contextMenu {
-            let together = navigator.chosenTogether(navigator.rows(board))
+            let together = navigator.chosenTogether(with: item, board: board)
             if together.contains(where: { $0.id == item.id }) {
                 // Several rows chosen: the same as Space, D and S on all of them.
                 if together.contains(where: { $0.status == .open }) {

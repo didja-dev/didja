@@ -286,7 +286,7 @@ struct GeneralSettingsView: View {
                     .toggleStyle(.switch).labelsHidden()
                 }
             }
-            .onAppear { shellHook = ShellHook.status() }
+            .onAppear { offMain(ShellHook.status) { shellHook = $0 } }
 
             section("Assistants") {
                 ForEach(agentHooks) { tool in
@@ -299,7 +299,7 @@ struct GeneralSettingsView: View {
                     }
                 }
             }
-            .onAppear { agentHooks = AgentHooks.status() }
+            .onAppear { offMain(AgentHooks.status) { agentHooks = $0 } }
 
             section("Your Own Claude") {
                 row("Let my own Claude read Didja", "For fixing how Didja reads an app: Claude Code or Claude Desktop, set up with `\(OwnClaude.command)`, can read the reports you give it, the text Didja kept (masked), and draft an app profile with you. What it reads goes to your AI provider. \(OwnClaude.words(ownClaude))") {
@@ -317,7 +317,7 @@ struct GeneralSettingsView: View {
                     .toggleStyle(.switch).labelsHidden()
                 }
             }
-            .onAppear { ownClaude = OwnClaude.status() }
+            .onAppear { offMain(OwnClaude.status) { ownClaude = $0 } }
 
             section("Local Model") {
                 row("Use a model in Ollama", localWords) {
@@ -340,7 +340,7 @@ struct GeneralSettingsView: View {
                 }
             }
             .task {
-                local = LocalModel.status()
+                offMain(LocalModel.status) { local = $0 }
                 ollamaModels = await LocalModel.installed()
             }
 
@@ -417,6 +417,15 @@ struct GeneralSettingsView: View {
             ForEach(Array(Set(choices + (current.map { [$0] } ?? []))).sorted(), id: \.self) { Text("\(label): \($0)").tag($0) }
         }
         .labelsHidden().fixedSize()
+    }
+
+    /// Read a status from the engine off the main thread (each is a run of the engine, ~50 ms),
+    /// so opening Settings does not wait for them; the row shows it when it arrives.
+    private func offMain<T>(_ read: @escaping () -> T, then show: @escaping (T) -> Void) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            let value = read()
+            DispatchQueue.main.async { show(value) }
+        }
     }
 
     private func row<Control: View>(_ title: String, _ about: String, @ViewBuilder control: () -> Control) -> some View {
