@@ -7,6 +7,15 @@
     <description>Didja releases</description>
     <language>en</language>
     <item>
+      <title>Version 0.16.0</title>
+      <pubDate>Wed, 18 Nov 2026 13:41:56 GMT</pubDate>
+      <sparkle:version>18</sparkle:version>
+      <sparkle:shortVersionString>0.16.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <description><![CDATA[Didja v0.16.0]]></description>
+      <enclosure url="https://github.com/didja-dev/releases/releases/download/v0.16.0/Didja.dmg" type="application/octet-stream" sparkle:edSignature="KTaCQLx4trI7UXUWfjNNLAblbyy9BUyrwqWEmAvaoAAaWJx7fz1hQ6LPNLAjH+6R+Na5Q4OEeMLF0ioRawyeCg==" length="51141243"/>
+    </item>
+    <item>
       <title>Version 0.15.0</title>
       <pubDate>Wed, 18 Nov 2026 13:30:09 GMT</pubDate>
       <sparkle:version>17</sparkle:version>
