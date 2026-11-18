@@ -6,6 +6,9 @@ Each entry says what changed, and what was **not verified** where that applies: 
 
 ## 2026-11-18
 
+### Didja 0.16.0 (build 18)
+- Released from GitHub on a version tag: a two-sided switch under the menu bar icon (Settings › General, off by default) that you name, flip with a click, rename with a right-click, and flip from anywhere with ⌃⌥S.
+
 ### A two-sided switch under the menu bar icon
 - Settings › General › **Show a switch under the icon** (off by default): a small pill with two sides you name (Sandbox / Prod, Clean / Dirty) hangs under the Didja icon; the filled side is the one you are on. A click flips it, a right-click opens a popover to rename the sides and pick the right side's color, ⌥-click hides it until you next open Didja, and ⌃⌥S flips it from anywhere. It follows the icon, turns light on a dark menu bar, never takes focus, and is only a reminder: it changes nothing on the Mac and nothing about tasks. The labels, color and side are kept in the app's preferences. Designed on a Claude Design canvas first. Tests: `SideSwitchTests` (5, with a render to `$TMPDIR/didja-ui/switch.png`). Seen live on the Debug build under a dark menu bar. **Not verified:** the rename popover, ⌥-click and ⌃⌥S by hand.
 
