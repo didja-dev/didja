@@ -4,6 +4,12 @@ What was built, newest first. One entry per change that someone using the app or
 
 Each entry says what changed, and what was **not verified** where that applies: tested only, or not yet seen on the live app.
 
+## 2026-11-19
+
+### The list redraws only when something you can see changed; the switch has a menu item
+- A recording of the app while clicking showed the main thread busy 41% of the time: each row's right-click menu working out the whole list (fixed in the entry below), and every row redrawn whenever the list changed. The engine moves a task's "last seen" time every few seconds while it is on screen, and each move changed the list. The app now keeps that time to the minute (it only sorts by latest activity), so it redraws the list at most once a minute for that reason. Tests: `TimestampParseTests` (5). **Not verified:** a second recording after the change.
+- **Show the Switch Under the Icon** in the icon's right-click menu and the View menu turns the switch on and off, with a tick when it is on.
+
 ## 2026-11-18
 
 ### A row no longer works out the whole list when it is drawn; Settings opens without waiting on the engine

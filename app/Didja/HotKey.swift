@@ -420,6 +420,11 @@ final class MenuBarPanel: NSObject, NSPopoverDelegate, NSWindowDelegate {
         stays.target = self
         stays.state = PanelStaysOpen.isOn ? .on : .off
         menu.addItem(stays)
+        menu.addItem(.separator())
+        let side = NSMenuItem(title: SideSwitchController.menuTitle, action: #selector(toggleSideSwitch), keyEquivalent: "")
+        side.target = self
+        side.state = SideSwitchController.shared.settings.on ? .on : .off
+        menu.addItem(side)
         statusItem.menu = menu
         statusItem.button?.performClick(nil)
         statusItem.menu = nil
@@ -428,6 +433,7 @@ final class MenuBarPanel: NSObject, NSPopoverDelegate, NSWindowDelegate {
     @objc private func pinFromMenu() { pin() }
     @objc private func unpinFromMenu() { unpin() }
     @objc private func toggleStaysOpen() { PanelStaysOpen.isOn.toggle() }
+    @objc private func toggleSideSwitch() { SideSwitchController.shared.update { $0.on.toggle() } }
 
     /// Opens the panel and gives it the keyboard: where you pinned it, under the icon, or, while
     /// the icon cannot be seen (the menu bar hidden), as a floating window at the top of the screen.

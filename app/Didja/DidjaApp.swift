@@ -347,6 +347,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 if pinned { panel.unpin() } else { panel.pin() }
             },
             .action(PanelStaysOpen.menuTitle, checked: PanelStaysOpen.isOn) { PanelStaysOpen.isOn.toggle() },
+            .action(SideSwitchController.menuTitle, checked: SideSwitchController.shared.settings.on) {
+                SideSwitchController.shared.update { $0.on.toggle() }
+            },
         ]
         let tasks: [MenuEntry] = [
             .choice("Looks Done", LooksDoneMode.allCases.map { ($0.label, $0) }, current: capture.looksDoneMode) { [weak self] in

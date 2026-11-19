@@ -44,4 +44,13 @@ final class TimestampParseTests: XCTestCase {
         for t in texts { _ = ObservationStore.parseTimestamp(t) }
         XCTAssertLessThan(Date().timeIntervalSince(start), 0.1)
     }
+
+    func testLastSeenIsKeptToTheMinuteSoSmallMovesDoNotRedrawTheList() {
+        let a = ObservationStore.parseTimestamp("2026-11-19T13:31:19.025Z")!
+        let b = ObservationStore.parseTimestamp("2026-11-19T13:31:39.486Z")!
+        let c = ObservationStore.parseTimestamp("2026-11-19T13:32:00.000Z")!
+        XCTAssertEqual(ObservationStore.toMinute(a), ObservationStore.toMinute(b))
+        XCTAssertNotEqual(ObservationStore.toMinute(b), ObservationStore.toMinute(c))
+        XCTAssertEqual(ObservationStore.toMinute(c), c)
+    }
 }

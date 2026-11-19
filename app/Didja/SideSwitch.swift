@@ -213,6 +213,8 @@ struct SideSwitchEditor: View {
 /// Shows the switch under the icon, flips it, and keeps it where the icon is.
 final class SideSwitchController: ObservableObject {
     static let shared = SideSwitchController()
+    /// In the icon's right-click menu and the View menu: shows or hides the switch.
+    static let menuTitle = "Show the Switch Under the Icon"
 
     @Published private(set) var settings = SideSwitchSettings.load()
     /// ⌥-click hides it until you next open Didja.

@@ -92,6 +92,13 @@ final class ObservationStore {
         return Date(timeIntervalSince1970: seconds)
     }
 
+    /// When a task was last seen, to the minute. The engine moves it every few seconds while a task
+    /// is on screen; at full precision each move changed the list and redrew every row. It is only
+    /// used to sort by latest activity, where a minute is close enough.
+    static func toMinute(_ date: Date) -> Date {
+        Date(timeIntervalSince1970: (date.timeIntervalSince1970 / 60).rounded(.down) * 60)
+    }
+
     private static let timestamp: ISO8601DateFormatter = {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
@@ -295,7 +302,7 @@ final class ObservationStore {
                 auto: sqlite3_column_int(statement, 10) == 1,
                 suggestion: text(11),
                 note: text(14),
-                activeAt: text(12).flatMap(Self.parseTimestamp),
+                activeAt: text(12).flatMap(Self.parseTimestamp).map(Self.toMinute),
                 acceptedFrom: text(13),
                 externalKey: text(15),
                 externalURL: text(16),
