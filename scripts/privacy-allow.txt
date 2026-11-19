@@ -63,3 +63,4 @@ workflow
 maybe
 בית
 save
+global
