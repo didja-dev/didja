@@ -68,7 +68,7 @@ Nothing leaves the machine.
 
 | Path | What |
 | --- | --- |
-| `app/` | Xcode project: macOS 14+ menu bar app (Swift + SwiftUI, in a status item and popover the app owns), bundle ID `dev.didja.app`, not sandboxed |
+| `app/` | Xcode project: macOS 14+ menu bar app for Apple silicon (arm64 only, like the bundled engine) (Swift + SwiftUI, in a status item and popover the app owns), bundle ID `dev.didja.app`, not sandboxed |
 | `app/Capture/` | Our own capture layer: Accessibility first, Vision OCR fallback, per-window diff, privacy rules |
 | `engine/` | TypeScript on Bun: reads observations from SQLite, writes tasks; compiles to a single binary bundled in the app |
 | `schema/` | The shared SQLite schema |

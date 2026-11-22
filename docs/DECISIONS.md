@@ -2,6 +2,10 @@
 
 Choices made while building ScrolledAway, with the reason, so they are not re-argued or quietly undone. Newest first. Add one whenever a choice is made in conversation, in Linear, or in code review that the code alone would not explain.
 
+## 2026-11-22
+
+- **Didja is Apple silicon only.** The engine is a Bun-compiled binary for one architecture, the on-device model Didja uses needs Apple silicon, and a universal app around an arm64-only engine half-worked on Intel. The size is mostly the Bun runtime in the engine (about 85 MB of 98 MB); running the engine in macOS's own JavaScriptCore instead would shrink the download to about 10 MB but means replacing its database layer and Bun and Node calls, so it is left as a project of its own.
+
 ## 2026-11-18
 
 - **The switch is a reminder, not a control.** It changes nothing on the Mac and is not a task; Didja only keeps its two labels, color and side in the app's preferences (not the database: no rule about tasks reads it). It floats in its own borderless window at the menu bar's level rather than as menu bar text, because the maintainer asked for it under the icon, where it reads like a dishwasher's Clean / Dirty magnet. Labels are capped at 12 characters so it stays small over the app below.

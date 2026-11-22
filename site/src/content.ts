@@ -18,7 +18,7 @@ export const hero = {
   bold: "Didja ticks off the steps you didn't finish when it sees you do them. It reads text, on your Mac, and stores no screenshots.",
   download: 'Download for Mac',
   star: 'Star on GitHub',
-  meta: 'Free · open source · text only, no screenshots · runs 100% on your Mac · macOS 14+ · Windows later',
+  meta: 'Free · open source · text only, no screenshots · runs 100% on your Mac · macOS 14+ on Apple silicon · Windows later',
   mockTitle: 'Didja',
   mockLeft: 'open',
   mockSearch: 'Search',
