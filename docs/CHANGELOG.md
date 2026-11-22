@@ -6,6 +6,9 @@ Each entry says what changed, and what was **not verified** where that applies: 
 
 ## 2026-11-22
 
+### Didja 0.21.0 (build 23)
+- Released from GitHub on a version tag: Apple silicon only, like the engine it bundles; a smaller app.
+
 ### Apple silicon only
 - The app is built for arm64 only (`ARCHS = arm64`), like the engine it bundles, which Bun compiles for the Mac it is built on. Before, the app was universal while the engine was arm64 only, so on an Intel Mac the app would open but the engine that owns every rule about tasks could not run. The app's own binary goes from 19 MB to 9.3 MB (the app from 108 MB to 98 MB). The website and the guide say Apple silicon. Checked with an unsigned Release build (`lipo`: arm64); **not verified** on an Intel Mac.
 
