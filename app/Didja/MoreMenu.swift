@@ -95,7 +95,6 @@ enum MoreMenu {
     /// Open the menu: under the mouse when a click opened it, else at the window's top right.
     static func pop(_ entries: [MenuEntry], in window: NSWindow?) {
         guard let view = window?.contentView else { return }
-        let menu = build(entries)
         let event = NSApplication.shared.currentEvent
         let point: NSPoint
         if let event, event.window === window, event.type == .leftMouseDown || event.type == .leftMouseUp {
@@ -103,13 +102,45 @@ enum MoreMenu {
         } else {
             point = NSPoint(x: view.bounds.maxX - 40, y: view.isFlipped ? 40 : view.bounds.maxY - 40)
         }
-        menu.popUp(positioning: nil, at: point, in: view)
-        // Give the keyboard back to the window the menu came from, unless what was chosen closed it:
-        // a native menu leaves no window key, and the Quick View's keys would stop (seen live).
-        if let window, window.isVisible {
-            Front.activate()
-            window.makeKey()
+        whenFront {
+            guard view.window != nil else { return }
+            build(entries).popUp(positioning: nil, at: point, in: view)
+            // Give the keyboard back to the window the menu came from, unless what was chosen closed it:
+            // a native menu leaves no window key, and the Quick View's keys would stop (seen live).
+            if let window, window.isVisible {
+                Front.activate()
+                window.makeKey()
+            }
         }
+    }
+
+    /// Run `open` once Didja is the front app. A click on the panel while another app is in front
+    /// brings Didja forward as it is handled, and macOS closes a menu that is open when the front
+    /// app changes: the ⋯ menu opened and shut at once, and took a second click. So when Didja is
+    /// not in front yet, ask for it and open the menu once it is, or after a moment if macOS says no.
+    static func whenFront(isActive: Bool = NSApplication.shared.isActive,
+                          activate: () -> Void = { Front.activate() },
+                          becameActive: (@escaping () -> Void) -> Any? = { run in
+                              NotificationCenter.default.addObserver(forName: NSApplication.didBecomeActiveNotification,
+                                                                     object: nil, queue: .main) { _ in run() }
+                          },
+                          stopWatching: @escaping (Any) -> Void = { NotificationCenter.default.removeObserver($0) },
+                          after: (TimeInterval, @escaping () -> Void) -> Void = { delay, run in
+                              DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: run)
+                          },
+                          open: @escaping () -> Void) {
+        guard !isActive else { return open() }
+        var opened = false
+        var token: Any?
+        let once = {
+            guard !opened else { return }
+            opened = true
+            if let token { stopWatching(token) }
+            open()
+        }
+        token = becameActive { DispatchQueue.main.async(execute: once) }
+        activate()
+        after(0.3, once)
     }
 }
 

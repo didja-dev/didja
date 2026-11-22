@@ -6,6 +6,12 @@ Each entry says what changed, and what was **not verified** where that applies: 
 
 ## 2026-11-22
 
+### Didja 0.19.0 (build 21)
+- Released from GitHub on a version tag: the ⋯ menu opens on the first click.
+
+### The ⋯ menu opens on the first click
+- With another app in front, the click on ⋯ reached the button but also brought Didja forward, and macOS closes a menu that is open when the front app changes, so the menu shut at once and took a second click. It now waits until Didja is in front (or 0.3 seconds, if macOS says no) and then opens (`MoreMenu.whenFront`). Tests: `MoreMenuOpeningTests` (2). Checked by the maintainer on the Debug build.
+
 ### Didja 0.18.0 (build 20)
 - Released from GitHub on a version tag: the panel acts on the first click, so + adds a task at once after the shortcut.
 
