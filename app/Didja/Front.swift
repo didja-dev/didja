@@ -52,6 +52,13 @@ final class FirstClickHostingView<Content: View>: NSHostingView<Content> {
         super.invalidateIntrinsicContentSize()
         sizeChanged?()
     }
+
+    // After every layout too: the list can grow (rows read in, a fold opened) without the size
+    // being reported as changed, and the panel stayed at its first, smaller size.
+    override func layout() {
+        super.layout()
+        sizeChanged?()
+    }
 }
 
 /// A view controller showing SwiftUI in a `FirstClickHostingView`. (`NSHostingController` makes its
@@ -71,7 +78,10 @@ final class FirstClickHostingController<Content: View>: NSViewController {
 
     /// The panel takes the content's size, as `NSHostingController`'s `.preferredContentSize` did.
     private func followContent() {
-        let size = host.fittingSize
+        // The content's ideal size (what `NSHostingController` uses), not `fittingSize`: that is the
+        // smallest size, and a list in a scroll view can shrink to nothing, which cut off the
+        // panel's header and footer.
+        let size = host.intrinsicContentSize
         if size.width > 0, size.height > 0, preferredContentSize != size { preferredContentSize = size }
     }
 

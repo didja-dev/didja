@@ -19,6 +19,34 @@ final class FirstClickTests: XCTestCase {
 }
 
 /// The ⋯ menu opens on the first click: it waits until Didja is in front, once.
+/// The drop-down panel's size matches what `NSHostingController` gives the same content, including
+/// a list in a scroll view (its smallest size is far less than its ideal one).
+final class FirstClickSizingTests: XCTestCase {
+    struct Panel: View {
+        var body: some View {
+            VStack(spacing: 0) {
+                Text("Header").frame(height: 60)
+                ScrollView { VStack { ForEach(0..<30) { Text("Row \($0)").frame(height: 20) } } }
+                    .frame(maxHeight: 400)
+                Text("Footer").frame(height: 40)
+            }
+            .frame(width: 420)
+        }
+    }
+
+    @MainActor
+    func testTheSameSizeAsAHostingController() {
+        let reference = NSHostingController(rootView: Panel())
+        reference.sizingOptions = [.preferredContentSize]
+        reference.view.layoutSubtreeIfNeeded()
+        let mine = FirstClickHostingController(rootView: Panel(), followsContent: true)
+        mine.view.layoutSubtreeIfNeeded()
+        XCTAssertGreaterThan(reference.preferredContentSize.height, 400)
+        XCTAssertEqual(mine.preferredContentSize.width, reference.preferredContentSize.width, accuracy: 1)
+        XCTAssertEqual(mine.preferredContentSize.height, reference.preferredContentSize.height, accuracy: 1)
+    }
+}
+
 final class MoreMenuOpeningTests: XCTestCase {
     func testInFrontAlreadyItOpensAtOnce() {
         var opened = 0

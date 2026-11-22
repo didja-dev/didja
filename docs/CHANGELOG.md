@@ -6,6 +6,12 @@ Each entry says what changed, and what was **not verified** where that applies: 
 
 ## 2026-11-22
 
+### Didja 0.20.0 (build 22)
+- Released from GitHub on a version tag: the panel shows its header and footer again.
+
+### The panel fits the list again
+- Since 0.18.0 (the panel taking the first click), the drop-down panel could stay shorter than the list, so its header (+, Full View) and the buttons at the bottom were cut off. Its height now comes from the list's ideal size, as `NSHostingController` gave it, and is checked again after every layout, so it follows the list as it grows. Tests: `FirstClickSizingTests` (the same size as a hosting controller gives; it passes outside a window either way, so it does not reproduce the bug). Checked by the maintainer on the Debug build.
+
 ### Didja 0.19.0 (build 21)
 - Released from GitHub on a version tag: the ⋯ menu opens on the first click.
 
