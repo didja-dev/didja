@@ -4,6 +4,14 @@ What was built, newest first. One entry per change that someone using the app or
 
 Each entry says what changed, and what was **not verified** where that applies: tested only, or not yet seen on the live app.
 
+## 2026-11-22
+
+### Didja 0.18.0 (build 20)
+- Released from GitHub on a version tag: the panel acts on the first click, so + adds a task at once after the shortcut.
+
+### The panel acts on the first click
+- After opening the panel with the shortcut (or from the icon) while another app is in front, the first click on + (or a tick, or any button) only brought Didja forward, so adding a task took two clicks. The panel's content now takes the first click (`FirstClickHostingView`, in a controller that sizes the panel to the list as before). Tests: `FirstClickTests`. Checked by the maintainer on the Debug build: + opens the add field on the first click.
+
 ## 2026-11-19
 
 ### Didja 0.17.0 (build 19)

@@ -1,4 +1,5 @@
 import AppKit
+import SwiftUI
 
 /// Bringing Didja's own windows to the front. Didja is a menu bar app, so it is never the front
 /// app when you choose something from its menu. Since macOS 14 a request to come to the front is
@@ -35,4 +36,47 @@ extension NSWindow {
             self.makeKey()
         }
     }
+}
+
+/// A hosting view that acts on the first click even while Didja is not the active app. The panel
+/// opens from the menu bar icon or the shortcut while you are in another app, and macOS may not let
+/// Didja come to the front; without this, the first click (on +, a tick, a row) only brought Didja
+/// forward and did nothing else, so you had to click twice.
+final class FirstClickHostingView<Content: View>: NSHostingView<Content> {
+    /// Called when the content's size may have changed (the list grew or shrank).
+    var sizeChanged: (() -> Void)?
+
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
+    override func invalidateIntrinsicContentSize() {
+        super.invalidateIntrinsicContentSize()
+        sizeChanged?()
+    }
+}
+
+/// A view controller showing SwiftUI in a `FirstClickHostingView`. (`NSHostingController` makes its
+/// own view, so a subclass cannot swap in one that takes the first click.) With `followsContent` its
+/// preferred size follows the SwiftUI content, as the drop-down panel needs to fit the list.
+final class FirstClickHostingController<Content: View>: NSViewController {
+    let host: FirstClickHostingView<Content>
+
+    init(rootView: Content, followsContent: Bool = false) {
+        host = FirstClickHostingView(rootView: rootView)
+        host.sizingOptions = followsContent ? [.intrinsicContentSize] : []
+        super.init(nibName: nil, bundle: nil)
+        guard followsContent else { return }
+        host.sizeChanged = { [weak self] in self?.followContent() }
+        followContent()
+    }
+
+    /// The panel takes the content's size, as `NSHostingController`'s `.preferredContentSize` did.
+    private func followContent() {
+        let size = host.fittingSize
+        if size.width > 0, size.height > 0, preferredContentSize != size { preferredContentSize = size }
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("not used") }
+
+    override func loadView() { view = host }
 }

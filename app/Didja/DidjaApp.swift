@@ -213,11 +213,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func makePanel() -> MenuBarPanel {
-        let content = NSHostingController(rootView: panelView(pinned: false))
-        content.sizingOptions = [.preferredContentSize] // the panel follows the list's height
+        // Takes the first click while Didja is not the active app, and follows the list's height.
+        let content = FirstClickHostingController(rootView: panelView(pinned: false), followsContent: true)
         // The same panel in its own window while pinned: the window's size is yours, not the list's.
-        let pinnedContent = NSHostingController(rootView: panelView(pinned: true))
-        pinnedContent.sizingOptions = []
+        let pinnedContent = FirstClickHostingController(rootView: panelView(pinned: true))
         let panel = MenuBarPanel(content: content, pinnedContent: pinnedContent)
         // A search lasts as long as the panel is open: it always opens on the whole list.
         panel.onClose = { [weak self] in self?.popoverNavigator.endSearch() }
