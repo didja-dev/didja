@@ -11,14 +11,26 @@ enum OwnClaude {
         var last: String?
         /// Your open tasks for your own Claude (SCR-120), a switch of its own (`meta.mcp_tasks`).
         var tasks: Bool? = nil
+        /// Changing your tasks from your own Claude, a third switch (`meta.mcp_tasks_write`); on only with `tasks`.
+        var write: Bool? = nil
 
         var tasksOn: Bool { tasks ?? false }
+        var writeOn: Bool { write ?? false }
         /// Your own Claude can read something of Didja's: the masked diagnostics, your tasks, or both.
-        var anyOn: Bool { on || tasksOn }
+        var anyOn: Bool { on || tasksOn || writeOn }
     }
 
     /// What turning on "Let Claude read my open tasks" means, said where the switch is.
-    static let tasksExplanation = "Claude Code or Claude Desktop, set up with `didja mcp`, can list your open tasks and read one with why Didja made it: titles as they are, not masked, where each came from and when it is due. Never the text kept with a task or anything else from your screen, and it cannot change a task. What it reads, task titles included, goes to your AI provider under your account. Every call is logged."
+    static let tasksExplanation = "Claude Code or Claude Desktop, set up with `didja mcp`, can list your open tasks and read one with why Didja made it: titles as they are, not masked, where each came from and when it is due. Never the text kept with a task or anything else from your screen. This switch changes nothing; changing tasks is a switch of its own. What it reads, task titles included, goes to your AI provider under your account. Every call is logged."
+
+    /// What turning on "Let Claude change my tasks" means, said where the switch is.
+    static let writeExplanation = "When you ask it, your own Claude can add tasks, tick, reopen, dismiss, snooze and rename them, make canvases and add to them. Each change goes through Didja's own rules, can be undone (Undo, or ask Claude to undo it), and is noted on the task as made by your Claude. It never ticks a task unless you ask. Needs \"Let Claude read my open tasks\" on. Every call is logged, without the words."
+
+    /// The engine command for the change switch.
+    static func writeArguments(_ on: Bool) -> [String] { ["mcp", "write", on ? "on" : "off"] }
+
+    @discardableResult
+    static func setWrite(_ on: Bool, run: ([String]) -> Bool = { EngineRunner.run($0) }) -> Bool { run(writeArguments(on)) }
 
     static var sharedFolder: URL { ObservationStore.defaultDirectory.appendingPathComponent("Shared with Claude") }
 

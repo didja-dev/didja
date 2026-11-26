@@ -316,6 +316,14 @@ struct GeneralSettingsView: View {
                     }))
                     .toggleStyle(.switch).labelsHidden()
                 }
+                row("Let Claude change my tasks", OwnClaude.writeExplanation) {
+                    Toggle("", isOn: Binding(get: { ownClaude.writeOn }, set: { on in
+                        OwnClaude.setWrite(on)
+                        ownClaude = OwnClaude.status()
+                    }))
+                    .toggleStyle(.switch).labelsHidden()
+                    .disabled(!ownClaude.tasksOn && !ownClaude.writeOn)
+                }
             }
             .onAppear { offMain(OwnClaude.status) { ownClaude = $0 } }
 

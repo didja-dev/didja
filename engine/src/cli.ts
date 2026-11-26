@@ -7,7 +7,7 @@ import { assistants, assistantsDir } from './assistants.ts';
 import { profiles, profilesDir } from './profiles.ts';
 import { canvasMarkdown, canvasText, parseCanvasLine } from './canvas.ts';
 import { doneAt, missedReport, rewordPlacesOnce, wordForPlace } from './missed.ts';
-import { enabled, places, readLog, serve, tasksEnabled } from './mcp.ts';
+import { enabled, places, readLog, serve, tasksEnabled, writeEnabled } from './mcp.ts';
 import { calendarSnoozePlan, parseEvents } from './calsnooze.ts';
 import { hookFiles, hookInstalled, installHook, readShellLog, removeHook } from './shellhook.ts';
 import { agentHookInstalled, appendAgentEvent, HOOK_TOOLS, installAgentHook, parseHookEvent, readAgentEvents, refreshAgentHook, removeAgentHook, TOOLS } from './agenthooks.ts';
@@ -587,9 +587,22 @@ async function main(argv: string[]): Promise<number> {
           console.log(to === 'on' ? 'Your Claude can read your open tasks over MCP (titles as they are).' : 'Your Claude cannot read your tasks.');
           return 0;
         }
+        if (sub === 'write') {
+          // Changing your tasks from your own Claude: a third switch, off by default; needs `tasks` on.
+          const to = args[1];
+          if (to !== 'on' && to !== 'off') {
+            console.log(writeEnabled(store) ? 'on' : 'off');
+            return to === undefined ? 0 : 1;
+          }
+          store.setMeta('mcp_tasks_write', to);
+          console.log(to === 'on'
+            ? tasksEnabled(store) ? 'Your Claude can add, tick and change your tasks and canvases over MCP when you ask it.' : 'On, but it works only with `didja mcp tasks on` too.'
+            : 'Your Claude cannot change your tasks.');
+          return 0;
+        }
         if (sub === 'status') {
           const log = readLog(p, 1000);
-          const status = { on: enabled(store), tasks: tasksEnabled(store), calls: log.length, last: log.at(-1)?.ts ?? null, shared: p.shared, drafts: p.drafts };
+          const status = { on: enabled(store), tasks: tasksEnabled(store), write: writeEnabled(store), calls: log.length, last: log.at(-1)?.ts ?? null, shared: p.shared, drafts: p.drafts };
           console.log(args.includes('--json') ? JSON.stringify(status) : `${status.on ? 'On' : 'Off'}; ${status.calls} calls${status.last ? `, last ${status.last}` : ''}`);
           return 0;
         }
@@ -599,7 +612,7 @@ async function main(argv: string[]): Promise<number> {
           return 0;
         }
         if (sub !== undefined) {
-          console.error('usage: didja mcp [on|off|tasks [on|off]|status|log]');
+          console.error('usage: didja mcp [on|off|tasks [on|off]|write [on|off]|status|log]');
           return 1;
         }
         await serve(store, p);

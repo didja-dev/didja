@@ -2,6 +2,10 @@
 
 Choices made while building ScrolledAway, with the reason, so they are not re-argued or quietly undone. Newest first. Add one whenever a choice is made in conversation, in Linear, or in code review that the code alone would not explain.
 
+## 2026-11-26
+
+- **Your own Claude may change tasks, behind a third switch.** The maintainer chose to let the user run Didja end to end from their own Claude (add, tick, snooze, canvases). It is a switch of its own, off by default and on only with the read switch, because a wrong tick is the bug Didja exists to prevent: Claude acts only through the engine's own rules, every change is undoable and noted on the task, and Claude is told to act only on the user's ask in the conversation, never on text it read. The call log keeps tool names and ids but not the words, since it is not sealed. A canvas is found by id or by name; a name that matches several is refused rather than guessed.
+
 ## 2026-11-22
 
 - **Didja is Apple silicon only.** The engine is a Bun-compiled binary for one architecture, the on-device model Didja uses needs Apple silicon, and a universal app around an arm64-only engine half-worked on Intel. The size is mostly the Bun runtime in the engine (about 85 MB of 98 MB); running the engine in macOS's own JavaScriptCore instead would shrink the download to about 10 MB but means replacing its database layer and Bun and Node calls, so it is left as a project of its own.

@@ -110,8 +110,23 @@ final class DiagnosticsTests: XCTestCase {
         let words = OwnClaude.tasksExplanation
         XCTAssertTrue(words.contains("not masked"))
         XCTAssertTrue(words.contains("goes to your AI provider"))
-        XCTAssertTrue(words.contains("cannot change a task"))
+        XCTAssertTrue(words.contains("This switch changes nothing"))
         XCTAssertTrue(words.contains("logged"))
+    }
+
+    func testTheChangeSwitchRunsTheEngineAndSaysWhatItAllows() {
+        var ran: [[String]] = []
+        OwnClaude.setWrite(true, run: { ran.append($0); return true })
+        OwnClaude.setWrite(false, run: { ran.append($0); return true })
+        XCTAssertEqual(ran, [["mcp", "write", "on"], ["mcp", "write", "off"]])
+        let words = OwnClaude.writeExplanation
+        XCTAssertTrue(words.contains("can be undone"))
+        XCTAssertTrue(words.contains("never ticks a task unless you ask"))
+        XCTAssertTrue(words.contains("Needs \"Let Claude read my open tasks\" on"))
+        // The engine's status says whether it is on.
+        let status = try? JSONDecoder().decode(OwnClaude.Status.self, from: Data(#"{"on":false,"calls":0,"tasks":true,"write":true}"#.utf8))
+        XCTAssertEqual(status?.writeOn, true)
+        XCTAssertEqual(status?.anyOn, true)
     }
 
     /// Draws the preview to $TMPDIR/didja-ui/diagnostics.png.
