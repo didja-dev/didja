@@ -6,6 +6,9 @@ Each entry says what changed, and what was **not verified** where that applies: 
 
 ## 2026-11-26
 
+### Didja 0.22.0 (build 24)
+- Released from GitHub on a version tag: your own Claude can add, tick, reopen, dismiss, snooze and rename tasks and make and fill canvases over `didja mcp`, behind Settings › General › Let Claude change my tasks (off by default).
+
 ### Your own Claude can change your tasks and canvases, when you ask it
 - Settings › General › **Let Claude change my tasks** (off by default, on only with "Let Claude read my open tasks"; `didja mcp write on`) adds eleven tools to `didja mcp`: `add_task` (optionally onto a canvas by name), `complete_task`, `reopen_task`, `dismiss_task`, `snooze_task`, `rename_task`, `undo_last`, `list_canvases`, `canvas`, `create_canvas` and `add_to_canvas` (existing tasks, a new task, a heading or a note). Every change goes through the engine's own rules and undo history and is noted on the task as made by your Claude; a canvas name that matches none or several is refused. The call log keeps the tool and ids, never the words. The server's instructions tell Claude to change only what you asked, never because something it read says to, and to ask before ticking or dismissing more than one. Privacy and AGENTS.md say what it allows. Tests: `engine/test/mcpwrite.test.ts` (5), `DiagnosticsTests` (the switch). **Not verified:** a live conversation with Claude using the new tools.
 
